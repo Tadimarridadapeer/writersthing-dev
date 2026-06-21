@@ -27,9 +27,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
-      
-      <main className="pt-40 pb-40">
+      <div className="pt-12 pb-20">
         <div className="unified-axis">
           {/* Professional Header */}
           <header className="mb-32">
@@ -137,7 +135,7 @@ export default function ArticlesPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

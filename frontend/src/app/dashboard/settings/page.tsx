@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardSidebar from "@/components/DashboardSidebar";
-import { User, Mail, Globe, Lock, Bell, Shield, Camera, CreditCard } from "lucide-react";
+import { User, Mail, Globe, Lock, Bell, Shield, Camera, CreditCard, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { uploadAvatar } from "@/lib/avatar";
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Profile");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -15,6 +19,48 @@ export default function SettingsPage() {
       setUser(JSON.parse(storedUser));
     }
   }, []);
+
+  // Auto-hide toast after 4 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const handleAvatarClick = () => {
+    if (!uploading) fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setToast(null);
+
+    try {
+      console.log("Settings Upload - Selected file:", file.name, file.size);
+      const publicUrl = await uploadAvatar(file, user.id);
+      
+      if (publicUrl) {
+        // Sync local page state
+        const updatedUser = { ...user, avatar_url: publicUrl };
+        setUser(updatedUser);
+        
+        // Sync localStorage fallback
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        
+        setToast({ message: "Profile picture updated successfully!", type: "success" });
+      }
+    } catch (err: any) {
+      console.error("Settings Upload - Error:", err);
+      setToast({ message: err.message || "Failed to upload image.", type: "error" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-[#FDFDFD]">
@@ -48,17 +94,35 @@ export default function SettingsPage() {
                     <h2 className="text-sm font-black uppercase tracking-widest mb-8 pb-4 border-b border-zinc-100">Public Profile</h2>
                     
                     <div className="flex items-center gap-8 mb-10">
-                      <div className="relative group cursor-pointer">
-                        <div className="w-24 h-24 bg-zinc-100 rounded-full flex items-center justify-center text-3xl font-black border border-zinc-200 overflow-hidden">
-                          {user?.name?.charAt(0) || "D"}
+                      <div className="relative group cursor-pointer" onClick={handleAvatarClick} title="Click to upload profile photo">
+                        <div className="w-24 h-24 bg-zinc-100 rounded-full flex items-center justify-center text-3xl font-black border border-zinc-200 overflow-hidden relative">
+                          {user?.avatar_url ? (
+                            <img src={user.avatar_url} className="w-full h-full object-cover" />
+                          ) : (
+                            user?.name?.charAt(0) || "D"
+                          )}
+                          {uploading && (
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+                              <Loader2 className="animate-spin text-white mb-1" size={16} />
+                              <span className="text-[6px] font-black uppercase tracking-widest text-zinc-300">Uploading...</span>
+                            </div>
+                          )}
                         </div>
                         <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <Camera size={20} className="text-white" />
                         </div>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/png, image/jpeg, image/jpg, image/webp" 
+                          onChange={handleFileChange} 
+                          disabled={uploading}
+                        />
                       </div>
                       <div>
                         <h3 className="font-bold text-lg leading-none mb-2">Profile Picture</h3>
-                        <p className="text-xs text-zinc-400 font-medium italic">PNG or JPG, max 5MB. Recommended 400x400.</p>
+                        <p className="text-xs text-zinc-400 font-medium italic">PNG or JPG, max 2MB. Overwrites existing photo.</p>
                       </div>
                     </div>
 
@@ -121,6 +185,25 @@ export default function SettingsPage() {
           </div>
         </div>
       </main>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            className={`fixed bottom-10 right-10 z-[200] px-8 py-5 shadow-2xl border flex items-center gap-4 ${
+              toast.type === "success" 
+                ? "bg-black border-zinc-800 text-white" 
+                : "bg-red-50 border-red-100 text-red-600"
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

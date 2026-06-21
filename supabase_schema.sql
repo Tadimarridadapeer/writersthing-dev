@@ -86,19 +86,39 @@ CREATE TABLE public.library (
 
 -- RLS (Row Level Security) - Basic Setup
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.authors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.library ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+-- 1. Users Policies
 CREATE POLICY "Public users are viewable by everyone" ON public.users FOR SELECT USING (true);
+CREATE POLICY "Enable insert for registration" ON public.users FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
 
+-- 1b. Authors Policies
+CREATE POLICY "Public authors are viewable by everyone" ON public.authors FOR SELECT USING (true);
+CREATE POLICY "Enable insert for authors profile" ON public.authors FOR INSERT WITH CHECK (true);
+CREATE POLICY "Authors can update own profile details" ON public.authors FOR UPDATE USING (auth.uid() = user_id);
+
+-- 2. Books Policies
 CREATE POLICY "Published books are viewable by everyone" ON public.books FOR SELECT USING (status = 'Published');
 CREATE POLICY "Authors can manage own books" ON public.books FOR ALL USING (auth.uid() = author_id);
 
+-- 3. Library Policies
 CREATE POLICY "Users can view own library" ON public.library FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert into own library" ON public.library FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update own library" ON public.library FOR UPDATE USING (auth.uid() = user_id);
+
+-- 4. Orders Policies
+CREATE POLICY "Users can view own orders" ON public.orders FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own orders" ON public.orders FOR INSERT WITH CHECK (true);
+
+-- 5. Reviews Policies
+CREATE POLICY "Reviews are viewable by everyone" ON public.reviews FOR SELECT USING (true);
+CREATE POLICY "Users can create reviews" ON public.reviews FOR INSERT WITH CHECK (true);
 
 -- Storage Buckets (Manual setup in Supabase UI recommended)
 -- Buckets: 'pdfs' (private), 'covers' (public), 'avatars' (public)

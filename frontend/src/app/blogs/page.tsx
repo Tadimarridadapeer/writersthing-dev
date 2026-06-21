@@ -27,9 +27,7 @@ export default function BlogsPage() {
 
   return (
     <div className="bg-[#fcfcfc] min-h-screen">
-      <Navbar />
-      
-      <main className="pt-40 pb-40">
+      <div className="pt-12 pb-20">
         <div className="unified-axis">
           {/* Magazine Header */}
           <header className="mb-32 flex flex-col md:flex-row justify-between items-end gap-12">
@@ -140,7 +138,7 @@ export default function BlogsPage() {
             </Link>
           </motion.div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

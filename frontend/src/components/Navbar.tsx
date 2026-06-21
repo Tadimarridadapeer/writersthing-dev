@@ -25,16 +25,24 @@ export default function Navbar() {
   const shouldHide = pathname?.startsWith("/dashboard") || 
                      pathname?.startsWith("/read") || 
                      pathname?.startsWith("/home") || 
-                     pathname === "/write";
+                     pathname === "/write" ||
+                     pathname === "/login" ||
+                     pathname === "/signup";
 
-  const navLinks = [
-    { name: "Explore", href: "/marketplace" },
-    { name: "Books", href: "/marketplace?type=Book" },
-    { name: "Articles", href: "/articles" },
-    { name: "Blogs", href: "/blogs" },
-    { name: "About", href: "/about" },
-    { name: "Categories", href: "/#categories" },
-  ];
+  const navLinks = user
+    ? [
+        { name: "Books", href: "/marketplace" },
+        { name: "Articles", href: "/articles" },
+        { name: "Blogs", href: "/blogs" },
+      ]
+    : [
+        { name: "Explore", href: "/marketplace" },
+        { name: "Books", href: "/marketplace?type=Book" },
+        { name: "Articles", href: "/articles" },
+        { name: "Blogs", href: "/blogs" },
+        { name: "About", href: "/about" },
+        { name: "Categories", href: "/#categories" },
+      ];
 
   return (
     <AnimatePresence>
@@ -90,11 +98,27 @@ export default function Navbar() {
                 </>
               ) : (
                 <div className="flex items-center gap-6">
+                  {/* Unique Branded Dashboard Button */}
+                  <Link
+                    href="/dashboard"
+                    className="px-5 py-2.5 bg-zinc-950 hover:bg-black text-white text-[10px] font-black uppercase tracking-[0.25em] transition-all rounded-sm shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 border border-black"
+                  >
+                    Dashboard
+                  </Link>
+
                   <Link
                     href="/profile"
-                    className="p-2 border border-zinc-100 rounded-full hover:bg-zinc-50 transition-all flex items-center gap-3 pr-5"
+                    className="p-2 border border-zinc-150 rounded-full hover:bg-zinc-50 transition-all flex items-center gap-3 pr-5"
                   >
-                    <User size={18} />
+                    {user.user_metadata?.avatar_url || user.avatar_url ? (
+                      <img 
+                        src={user.user_metadata.avatar_url || user.avatar_url} 
+                        className="w-[18px] h-[18px] rounded-full object-cover border border-zinc-100" 
+                        alt="Avatar"
+                      />
+                    ) : (
+                      <User size={18} />
+                    )}
                     <span className="text-[10px] font-black uppercase tracking-widest">
                       {(user.user_metadata?.name || user.email)?.split('@')[0].split(' ')[0]}
                     </span>
@@ -132,18 +156,29 @@ export default function Navbar() {
                   </Link>
                 ))}
                 <div className="pt-8 border-t border-zinc-50 flex flex-col gap-4">
+                  {user && (
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-full py-4 text-center bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm"
+                    >
+                      Dashboard
+                    </Link>
+                  )}
                   <Link
                     href="/write"
                     className="w-full py-4 text-center border border-black text-[10px] font-black uppercase tracking-widest"
                   >
                     Write
                   </Link>
-                  <Link
-                    href="/signup"
-                    className="w-full py-4 text-center bg-black text-white text-[10px] font-black uppercase tracking-widest"
-                  >
-                    Get Started
-                  </Link>
+                  {!user && (
+                    <Link
+                      href="/signup"
+                      className="w-full py-4 text-center bg-black text-white text-[10px] font-black uppercase tracking-widest"
+                    >
+                      Get Started
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             )}

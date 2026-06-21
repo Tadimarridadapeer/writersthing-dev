@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { ensureAuthorProfile } from "@/lib/author";
 
 function getSupabase() {
   return createServerClient(
@@ -8,8 +9,9 @@ function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value;
+        async get(name: string) {
+          const cookieStore = await cookies();
+          return cookieStore.get(name)?.value;
         },
       },
     }
@@ -81,6 +83,9 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 });
     }
+
+    // Ensure author profile exists
+    await ensureAuthorProfile(supabase, user.id);
 
     const { title, description, category, type, coverUrl, tags } = await req.json();
 

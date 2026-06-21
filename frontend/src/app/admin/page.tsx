@@ -16,8 +16,10 @@ import {
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { supabase } from "@/lib/supabase";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -27,6 +29,11 @@ export default function AdminDashboard() {
   });
   const [reviewBooks, setReviewBooks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const recentReports = [
+    { id: "1", title: "The Dark Net", reason: "Inappropriate Content", status: "Pending", reportedBy: "User A" },
+    { id: "2", title: "Quantum Dreams", reason: "Copyright Infringement", status: "Resolved", reportedBy: "User B" },
+  ];
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");

@@ -40,9 +40,7 @@ export default function AuthorsPage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
-      
-      <main className="pt-40 pb-40">
+      <div className="pt-12 pb-20">
         <div className="unified-axis">
           {/* Authors Header */}
           <header className="mb-32 flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
@@ -164,7 +162,7 @@ export default function AuthorsPage() {
             </Link>
           </section>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

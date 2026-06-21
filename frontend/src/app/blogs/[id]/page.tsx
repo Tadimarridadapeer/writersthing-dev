@@ -32,8 +32,7 @@ export default function BlogPost() {
 
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
-      <main className="pt-32 pb-40">
+      <div className="pt-6 pb-24">
         <article className="unified-axis max-w-3xl">
           <Link href="/blogs" className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-16">
             <ArrowLeft size={14} />
@@ -64,14 +63,14 @@ export default function BlogPost() {
           </header>
 
           <div className="prose prose-zinc max-w-none">
-            {blog.content.split('\n').map((para, i) => (
+            {blog.content.split('\n').map((para: string, i: number) => (
               <p key={i} className="text-xl font-medium leading-relaxed text-zinc-600 italic mb-8">
                 {para.trim()}
               </p>
             ))}
           </div>
         </article>
-      </main>
+      </div>
     </div>
   );
 }
