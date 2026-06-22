@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# nextjs
+.next/
+
+# env files
+.env
+.env.local
+
+# build
+dist/
+build/
+
+# python
+venv/
+__pycache__/
+
+# logs
+npm-debug.log*
