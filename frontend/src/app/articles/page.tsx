@@ -27,9 +27,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
-      
-      <main className="pt-40 pb-40">
+      <div className="pt-12 pb-20">
         <div className="unified-axis">
           {/* Professional Header */}
           <header className="mb-32">
@@ -86,7 +84,7 @@ export default function ArticlesPage() {
 
                     <div className="lg:col-span-7">
                       <div className="flex items-center gap-6 mb-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{article.category.split(" - ").pop()}</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{(article.category || "Article").split(" - ").pop()}</span>
                         <div className="w-1.5 h-1.5 bg-zinc-200 rounded-full" />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                           {new Date(article.created_at).toLocaleDateString()}
@@ -137,7 +135,7 @@ export default function ArticlesPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

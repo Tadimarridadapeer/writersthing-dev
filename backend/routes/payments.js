@@ -3,6 +3,8 @@ const router = express.Router();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const supabase = require('../lib/supabase');
+const { validatePaymentOrder, validatePaymentVerify } = require('../lib/validation');
+const { UnauthorizedError } = require('../lib/errors');
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -10,9 +12,20 @@ const razorpay = new Razorpay({
 });
 
 // Create Order
-router.post('/order', async (req, res) => {
+router.post('/order', validatePaymentOrder, async (req, res, next) => {
   try {
-    const { bookId, amount, userId } = req.body;
+    const { bookId, amount } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      throw new UnauthorizedError('Authentication required');
+    }
+
+    // Verify token with Supabase Auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      throw new UnauthorizedError('Invalid or expired session');
+    }
 
     const options = {
       amount: (amount || 99) * 100,
@@ -25,7 +38,7 @@ router.post('/order', async (req, res) => {
     await supabase
       .from('orders')
       .insert([{
-        user_id: userId,
+        user_id: user.id,
         book_id: bookId,
         amount: amount || 99,
         razorpay_order_id: order.id,
@@ -34,16 +47,16 @@ router.post('/order', async (req, res) => {
 
     res.json(order);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Verify Payment
-router.post('/verify', async (req, res) => {
+router.post('/verify', validatePaymentVerify, async (req, res, next) => {
   try {
     const { orderId, paymentId, signature } = req.body;
 
-    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
+    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "placeholder_secret");
     hmac.update(orderId + "|" + paymentId);
     const generatedSignature = hmac.digest("hex");
 
@@ -68,7 +81,7 @@ router.post('/verify', async (req, res) => {
 
     res.json({ message: "Payment verified" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

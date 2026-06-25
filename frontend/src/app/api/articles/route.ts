@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { ensureAuthorProfile } from "@/lib/author";
+import ServerCache from "@/lib/cache";
+
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 
 function getSupabase() {
   return createServerClient(
@@ -8,8 +12,9 @@ function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value;
+        async get(name: string) {
+          const cookieStore = await cookies();
+          return cookieStore.get(name)?.value;
         },
       },
     }
@@ -21,8 +26,16 @@ export async function GET(req: Request) {
     const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "Article";
+    const now = Date.now();
 
     if (type === "Article") {
+      const cached = ServerCache.getArticles();
+      if (cached) {
+        console.log("[SERVERLESS ARTICLES CACHE] HIT");
+        return NextResponse.json(cached);
+      }
+
+      console.log("[SERVERLESS ARTICLES CACHE] MISS (Fetching from DB)");
       const { data, error } = await supabase
         .from("articles")
         .select("*, authors:author_id(user_id, users:user_id(name))")
@@ -30,8 +43,13 @@ export async function GET(req: Request) {
 
       if (error) throw error;
 
+      // Filter out drafts
+      const publishedArticles = data ? data.filter((item: any) => 
+        item.content && !item.content.startsWith("[DRAFT]")
+      ) : [];
+
       // Map to frontend-friendly schema (flattening author name and using cover_url)
-      const mappedData = data ? data.map((item: any) => ({
+      const mappedData = publishedArticles.map((item: any) => ({
         id: item.id,
         title: item.title,
         description: item.content ? item.content.substring(0, 160) + "..." : "No synopsis available.",
@@ -41,11 +59,20 @@ export async function GET(req: Request) {
         authors: {
           name: item.authors?.users?.name || "Unknown Author"
         }
-      })) : [];
+      }));
+
+      ServerCache.setArticles(mappedData, CACHE_DURATION);
 
       return NextResponse.json(mappedData);
     } else {
       // Blog
+      const cached = ServerCache.getBlogs();
+      if (cached) {
+        console.log("[SERVERLESS BLOGS CACHE] HIT");
+        return NextResponse.json(cached);
+      }
+
+      console.log("[SERVERLESS BLOGS CACHE] MISS (Fetching from DB)");
       const { data, error } = await supabase
         .from("blogs")
         .select("*, authors:author_id(user_id, users:user_id(name))")
@@ -53,7 +80,12 @@ export async function GET(req: Request) {
 
       if (error) throw error;
 
-      const mappedData = data ? data.map((item: any) => ({
+      // Filter out drafts
+      const publishedBlogs = data ? data.filter((item: any) => 
+        item.content && !item.content.startsWith("[DRAFT]")
+      ) : [];
+
+      const mappedData = publishedBlogs.map((item: any) => ({
         id: item.id,
         title: item.title,
         description: item.content ? item.content.substring(0, 160) + "..." : "No synopsis available.",
@@ -63,7 +95,9 @@ export async function GET(req: Request) {
         authors: {
           name: item.authors?.users?.name || "Unknown Author"
         }
-      })) : [];
+      }));
+
+      ServerCache.setBlogs(mappedData, CACHE_DURATION);
 
       return NextResponse.json(mappedData);
     }
@@ -82,6 +116,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 });
     }
 
+    // Ensure author profile exists
+    const authorProfile = await ensureAuthorProfile(supabase, user.id);
+
     const { title, description, category, type, coverUrl, tags } = await req.json();
 
     if (type === "Article") {
@@ -94,13 +131,16 @@ export async function POST(req: Request) {
             category: category || "General",
             thumbnail_url: coverUrl || "",
             tags: tags || [],
-            author_id: user.id
+            author_id: authorProfile.id
           }
         ])
         .select()
         .single();
 
       if (error) throw error;
+
+      // Invalidate articles cache
+      ServerCache.clearArticles();
 
       return NextResponse.json({ 
         message: `${type} published successfully!`, 
@@ -115,13 +155,16 @@ export async function POST(req: Request) {
             title,
             content: description || "", // Initially use description as content or keep empty
             banner_url: coverUrl || "",
-            author_id: user.id
+            author_id: authorProfile.id
           }
         ])
         .select()
         .single();
 
       if (error) throw error;
+
+      // Invalidate blogs cache
+      ServerCache.clearBlogs();
 
       return NextResponse.json({ 
         message: `${type} published successfully!`, 

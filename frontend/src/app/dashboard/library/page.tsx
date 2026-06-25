@@ -6,14 +6,31 @@ import Link from "next/link";
 import { BookOpen, Download, Star, Search, Clock, ChevronRight } from "lucide-react";
 
 export default function LibraryPage() {
-  const books = [
+  const [books, setBooks] = useState([
     { id: 1, title: "The Art of Minimalism", author: "Sarah Jenkins", cover: "bg-zinc-900", progress: 85, category: "Design" },
     { id: 2, title: "Quantum Ethics", author: "Dr. Aris Thorne", cover: "bg-black", progress: 30, category: "Science" },
     { id: 3, title: "Modern Scribes", author: "Aarav Sharma", cover: "bg-zinc-800", progress: 100, category: "Culture" },
     { id: 4, title: "Beyond the Horizon", author: "Elena Rossi", cover: "bg-zinc-700", progress: 0, category: "Fiction" },
     { id: 5, title: "Digital Stoicism", author: "Marcus Digital", cover: "bg-zinc-950", progress: 12, category: "Philosophy" },
     { id: 6, title: "The Silent Echo", author: "Julian Vane", cover: "bg-zinc-900", progress: 45, category: "Mystery" },
-  ];
+  ]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All Titles");
+
+  const filteredBooks = books.filter((book) => {
+    const matchesSearch = 
+      book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchQuery.toLowerCase());
+      
+    if (!matchesSearch) return false;
+
+    if (activeCategory === "All Titles") return true;
+    if (activeCategory === "In Progress") return book.progress > 0 && book.progress < 100;
+    if (activeCategory === "Finished") return book.progress === 100;
+    if (activeCategory === "Wishlist") return book.progress === 0;
+    return true;
+  });
 
   return (
     <div className="flex min-h-screen bg-[#FDFDFD]">
@@ -29,6 +46,8 @@ export default function LibraryPage() {
             <input 
               type="text" 
               placeholder="Search your library..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white border border-zinc-100 rounded-sm py-3 pl-12 pr-4 text-xs font-medium outline-none focus:border-black transition-all shadow-sm"
             />
           </div>
@@ -36,10 +55,11 @@ export default function LibraryPage() {
 
         {/* Categories Bar */}
         <div className="flex gap-8 mb-12 pb-4 border-b border-zinc-100">
-          {["All Titles", "In Progress", "Finished", "Wishlist"].map((cat, i) => (
+          {["All Titles", "In Progress", "Finished", "Wishlist"].map((cat) => (
             <button 
               key={cat} 
-              className={`text-[10px] font-black uppercase tracking-widest transition-all ${i === 0 ? "text-black border-b-2 border-black pb-4 -mb-4.5" : "text-zinc-300 hover:text-black"}`}
+              onClick={() => setActiveCategory(cat)}
+              className={`text-[10px] font-black uppercase tracking-widest transition-all ${activeCategory === cat ? "text-black border-b-2 border-black pb-4 -mb-4.5" : "text-zinc-300 hover:text-black"}`}
             >
               {cat}
             </button>
@@ -48,7 +68,7 @@ export default function LibraryPage() {
 
         {/* Books Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
-          {books.map((book) => (
+          {filteredBooks.map((book) => (
             <div key={book.id} className="group cursor-pointer">
               <div className="flex gap-6 p-6 bg-white border border-zinc-100 rounded-sm shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-500">
                 {/* Book Cover Mockup */}

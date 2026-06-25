@@ -1,70 +1,124 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../lib/supabase');
+const { validateBook } = require('../lib/validation');
+const { UnauthorizedError, ForbiddenError, NotFoundError } = require('../lib/errors');
+
+// In-memory cache for published books
+let booksCache = null;
+let cacheResetTime = 0;
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
+function clearBooksCache() {
+  console.log("Express Books Cache Invalidated!");
+  booksCache = null;
+  cacheResetTime = 0;
+}
 
 // Get all published books
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
+    const now = Date.now();
+    if (booksCache && now < cacheResetTime) {
+      console.log("Express GET /api/books - Cache HIT");
+      return res.json(booksCache);
+    }
+
+    console.log("Express GET /api/books - Cache MISS (Fetching from DB)");
     const { data, error } = await supabase
       .from('books')
-      .select('*, authors:author_id(name)')
+      .select('*, authors:author_id(*, users:user_id(name))')
       .eq('status', 'Published')
       .order('created_at', { ascending: false });
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) return next(error);
+
+    // Set cache values
+    booksCache = data;
+    cacheResetTime = now + CACHE_DURATION;
+
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Publish a new book
-router.post('/', async (req, res) => {
+router.post('/', validateBook, async (req, res, next) => {
   try {
-    const { title, content, description, price, coverImage, language, genre, pdfUrl, authorId } = req.body;
+    const { title, content, description, price, coverImage, language, genre, pdfUrl } = req.body;
     const token = req.headers.authorization?.split(' ')[1];
 
-    let userSupabase = supabase;
-    if (token) {
-      const { createClient } = require('@supabase/supabase-js');
-      userSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      });
+    console.log("Express POST /api/books - Received request body:", req.body);
+
+    if (!token) {
+      throw new UnauthorizedError('Authentication required');
     }
 
-    const { data, error } = await userSupabase
+    // Verify token with Supabase Auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      throw new UnauthorizedError('Invalid or expired session');
+    }
+
+    console.log("Express POST /api/books - Authenticated User ID:", user.id);
+ 
+    // Retrieve the author profile corresponding to the authenticated user ID
+    const { data: authorRecord, error: authorError } = await supabase
+      .from('authors')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+ 
+    if (authorError || !authorRecord) {
+      console.error("Express POST /api/books - Author lookup failed:", authorError?.message);
+      throw new ForbiddenError('Author profile record missing. Please create an author profile.');
+    }
+ 
+    const insertPayload = {
+      title,
+      description: description || (content ? content.substring(0, 160) : ''),
+      category: genre || 'Fiction',
+      cover_url: coverImage,
+      pdf_path: pdfUrl,
+      price: price || 99,
+      author_id: authorRecord.id, // Securely bind to verified author profile ID
+      status: 'Published'
+    };
+ 
+    console.log("Express POST /api/books - Executing Supabase insert:", insertPayload);
+ 
+    // Perform insert using service-role client to bypass RLS constraint safely (security is handled by server-side lookup)
+    const { data, error } = await supabase
       .from('books')
-      .insert([
-        {
-          title,
-          description: description || (content ? content.substring(0, 160) : ''),
-          category: genre || 'Fiction',
-          cover_url: coverImage,
-          pdf_path: pdfUrl,
-          price: price || 99,
-          author_id: authorId,
-          status: 'Published'
-        }
-      ])
+      .insert([insertPayload])
       .select();
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      console.error("Express POST /api/books - Supabase Insert Error:", error.message, error.details);
+      return next(error);
+    }
+
+    // Invalidate cache since a new book is published
+    clearBooksCache();
+
+    console.log("Express POST /api/books - Supabase Insert Success:", data[0]);
     res.status(201).json({ message: 'Book published', book: data[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get signed URL for reading (Secure)
-router.get('/read/:id', async (req, res) => {
+router.get('/read/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const token = req.headers.authorization?.split(' ')[1];
 
-    if (!token) return res.status(401).json({ message: 'Auth required' });
+    if (!token) throw new UnauthorizedError('Auth required');
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) return res.status(401).json({ message: 'Invalid session' });
+    if (authError || !user) throw new UnauthorizedError('Invalid session');
 
     // Verify ownership
     const { data: access } = await supabase
@@ -80,19 +134,19 @@ router.get('/read/:id', async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (!book) return res.status(404).json({ message: 'Book not found' });
+    if (!book) throw new NotFoundError('Book not found');
     if (!access && book.author_id !== user.id) {
-      return res.status(403).json({ message: 'Access denied' });
+      throw new ForbiddenError('Access denied');
     }
 
     const { data: signedData, error: signError } = await supabase.storage
       .from('pdfs')
       .createSignedUrl(book.pdf_path, 3600);
 
-    if (signError) return res.status(500).json({ error: signError.message });
+    if (signError) return next(signError);
     res.json({ url: signedData.signedUrl });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

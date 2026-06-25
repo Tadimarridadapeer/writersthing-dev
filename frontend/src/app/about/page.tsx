@@ -8,9 +8,7 @@ import Link from "next/link";
 export default function AboutPage() {
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
-      
-      <main className="pt-32 pb-40">
+      <div className="pt-10 pb-20">
         {/* Hero Section */}
         <section className="unified-axis mb-32">
           <div className="max-w-4xl">
@@ -145,7 +143,7 @@ export default function AboutPage() {
             </Link>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

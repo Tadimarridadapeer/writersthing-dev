@@ -38,12 +38,13 @@ export default function DashboardSidebar() {
   const authorMenu = [
     { name: "Dashboard", icon: <LayoutDashboard size={20} />, href: "/dashboard" },
     { name: "Analytics", icon: <BarChart3 size={20} />, href: "/dashboard/analytics" },
-    { name: "My Content", icon: <BookCopy size={20} />, href: "/dashboard/content" },
+    { name: "My Publications", icon: <BookCopy size={20} />, href: "/dashboard/content" },
     { name: "Settings", icon: <Settings size={20} />, href: "/dashboard/settings" },
   ];
 
   const readerMenu = [
     { name: "Dashboard", icon: <LayoutDashboard size={20} />, href: "/dashboard" },
+    { name: "My Publications", icon: <BookCopy size={20} />, href: "/dashboard/content" },
     { name: "My Library", icon: <Library size={20} />, href: "/dashboard/library" },
     { name: "Marketplace", icon: <Library size={20} />, href: "/marketplace" },
     { name: "Settings", icon: <Settings size={20} />, href: "/dashboard/settings" },
@@ -103,8 +104,16 @@ export default function DashboardSidebar() {
         
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-black text-white flex items-center justify-center rounded-full text-xs font-black">
-              {userInitial}
+            <div className="w-8 h-8 bg-black text-white flex items-center justify-center rounded-full text-xs font-black overflow-hidden border border-zinc-100">
+              {user?.avatar_url || user?.user_metadata?.avatar_url ? (
+                <img 
+                  src={user.avatar_url || user?.user_metadata?.avatar_url} 
+                  className="w-full h-full object-cover" 
+                  alt="Avatar"
+                />
+              ) : (
+                userInitial
+              )}
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">

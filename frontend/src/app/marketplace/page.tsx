@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/config";
 
 function MarketplaceContent() {
   const searchParams = useSearchParams();
@@ -27,14 +28,15 @@ function MarketplaceContent() {
 
   const fetchBooks = async () => {
     try {
-      const { data, error } = await supabase
-        .from("books")
-        .select("*")
-        .eq("status", "Published")
-        .order("created_at", { ascending: false });
+      const res = await fetch(getApiUrl("/api/books"));
+      if (!res.ok) throw new Error("Failed to fetch books from backend");
+      const data = await res.json();
 
-      if (error) throw error;
-      setBooks(data || []);
+      const mapped = (data || []).map((b: any) => ({
+        ...b,
+        author: b.authors || b.author
+      }));
+      setBooks(mapped);
     } catch (err: any) {
       console.error("Fetch error:", err);
       setBooks([]);
@@ -55,14 +57,19 @@ function MarketplaceContent() {
     setPurchasing(book.id);
 
     try {
-      // 1. Create Order in Backend
-      const res = await fetch("/api/pay/order", {
+      // 1. Create Order in Backend Express
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch(getApiUrl("/api/pay/order"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`
+        },
         body: JSON.stringify({
           bookId: book.id,
-          amount: book.price || 99,
-          userId: user.id
+          amount: book.price || 99
         }),
       });
 
@@ -70,15 +77,15 @@ function MarketplaceContent() {
 
       // 2. Initialize Razorpay (Mocking the window.Razorpay part for now)
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder",
         amount: order.amount,
         currency: order.currency,
         name: "Writersthing",
         description: `Purchase: ${book.title}`,
         order_id: order.id,
         handler: async function (response: any) {
-          // 3. Verify Payment
-          const verifyRes = await fetch("/api/pay/verify", {
+          // 3. Verify Payment on Backend Express
+          const verifyRes = await fetch(getApiUrl("/api/pay/verify"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -118,8 +125,9 @@ function MarketplaceContent() {
 
   const filteredBooks = books.filter(book => {
     const bookGenre = (book.genre || book.category || "").toLowerCase();
-    const categoryMatch = activeCategory === "All Genres" || bookGenre === activeCategory.toLowerCase();
-    const languageMatch = (book.language || "").toLowerCase() === activeLanguage.toLowerCase();
+    const cleanGenre = bookGenre.replace(/^book\s*-\s*/i, "").trim();
+    const categoryMatch = activeCategory === "All Genres" || cleanGenre === activeCategory.toLowerCase();
+    const languageMatch = (book.language || "English").toLowerCase() === activeLanguage.toLowerCase();
     return categoryMatch && languageMatch;
   });
 

@@ -15,17 +15,188 @@ import {
   Share2,
   Highlighter,
   MessageSquare,
-  Download
+  Download,
+  Heart,
+  X,
+  Star
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function ReaderPage() {
   const [progress, setProgress] = useState(45);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const params = useParams();
+  const router = useRouter();
   const id = params?.id;
   const isArtOfPrompt = id === "the-art-of-prompt";
+
+  // Engagement states
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentRating, setCommentRating] = useState<number>(0);
+  const [showCommentsSidebar, setShowCommentsSidebar] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    const userObj = stored ? JSON.parse(stored) : null;
+    if (userObj) setCurrentUser(userObj);
+    
+    if (id) {
+      fetchEngagementData(id as string, userObj);
+    }
+  }, [id]);
+
+  const fetchEngagementData = async (bookId: string, userObj: any) => {
+    try {
+      // 1. Log view/impression
+      await supabase.from("impressions").insert({
+        content_type: "book",
+        content_id: bookId,
+        viewer_id: userObj?.id || null
+      });
+
+      // 2. Fetch likes count
+      const { count: likes } = await supabase
+        .from("likes")
+        .select("*", { count: "exact", head: true })
+        .eq("content_id", bookId);
+      setLikesCount(likes || 0);
+
+      if (userObj) {
+        // 3. Check if current user liked it
+        const { data: like } = await supabase
+          .from("likes")
+          .select("*")
+          .eq("content_id", bookId)
+          .eq("user_id", userObj.id)
+          .maybeSingle();
+        setIsLiked(!!like);
+
+        // 4. Check if current user saved it
+        const { data: save } = await supabase
+          .from("saves")
+          .select("*")
+          .eq("content_id", bookId)
+          .eq("user_id", userObj.id)
+          .maybeSingle();
+        setIsSaved(!!save);
+      }
+
+      // 5. Fetch comments
+      const { data: comms } = await supabase
+        .from("comments")
+        .select("*, users:user_id(name, avatar_url)")
+        .eq("content_id", bookId)
+        .order("created_at", { ascending: true });
+      if (comms) setComments(comms);
+
+    } catch (err) {
+      console.warn("Engagement tables not established yet. Run schema editor migration.", err);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!currentUser) {
+      router.push("/login?redirect=" + window.location.pathname);
+      return;
+    }
+    const bookId = id as string;
+    try {
+      if (isLiked) {
+        await supabase
+          .from("likes")
+          .delete()
+          .eq("content_id", bookId)
+          .eq("user_id", currentUser.id);
+        setIsLiked(false);
+        setLikesCount(prev => Math.max(0, prev - 1));
+      } else {
+        await supabase
+          .from("likes")
+          .insert({
+            content_type: "book",
+            content_id: bookId,
+            user_id: currentUser.id
+          });
+        setIsLiked(true);
+        setLikesCount(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error("Like error:", err);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!currentUser) {
+      router.push("/login?redirect=" + window.location.pathname);
+      return;
+    }
+    const bookId = id as string;
+    try {
+      if (isSaved) {
+        await supabase
+          .from("saves")
+          .delete()
+          .eq("content_id", bookId)
+          .eq("user_id", currentUser.id);
+        setIsSaved(false);
+      } else {
+        await supabase
+          .from("saves")
+          .insert({
+            content_type: "book",
+            content_id: bookId,
+            user_id: currentUser.id
+          });
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) {
+      router.push("/login?redirect=" + window.location.pathname);
+      return;
+    }
+    if (!newComment.trim() && commentRating === 0) return;
+    setSubmittingComment(true);
+    const bookId = id as string;
+    try {
+      const { data, error } = await supabase
+        .from("comments")
+        .insert({
+          content_type: "book",
+          content_id: bookId,
+          user_id: currentUser.id,
+          comment_text: newComment.trim() || null,
+          rating: commentRating > 0 ? commentRating : null
+        })
+        .select("*, users:user_id(name, avatar_url)")
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setComments(prev => [...prev, data]);
+        setNewComment("");
+        setCommentRating(0);
+      }
+    } catch (err) {
+      console.error("Comment submit error:", err);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   const bookData = isArtOfPrompt ? {
     title: "THE ART OF PROMPT",
@@ -93,11 +264,41 @@ This book is not just about using AI. It is about learning a skill that will sta
           </div>
 
           <div>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-8">Reading Tools</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-8 font-heading">Reading Tools</h3>
             <div className="space-y-4">
-              <ToolLink icon={<Bookmark size={16} />} label="Add Bookmark" hasArrow />
-              <ToolLink icon={<Highlighter size={16} />} label="Highlights (12)" hasArrow />
-              <ToolLink icon={<MessageSquare size={16} />} label="Reader Comments" count={42} />
+              <button 
+                onClick={handleLike} 
+                className="w-full flex items-center justify-between p-3 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 transition-all cursor-pointer group rounded-sm bg-white dark:bg-zinc-900 shadow-sm text-left"
+              >
+                <div className="flex items-center gap-4 text-zinc-400 group-hover:text-black dark:group-hover:text-white">
+                  <Heart size={16} className={isLiked ? "fill-rose-500 text-rose-500 border-none" : ""} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{isLiked ? "Liked Book" : "Like Book"}</span>
+                </div>
+                <span className="text-[10px] font-black bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{likesCount}</span>
+              </button>
+
+              <button 
+                onClick={handleSave} 
+                className="w-full flex items-center justify-between p-3 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 transition-all cursor-pointer group rounded-sm bg-white dark:bg-zinc-900 shadow-sm text-left"
+              >
+                <div className="flex items-center gap-4 text-zinc-400 group-hover:text-black dark:group-hover:text-white">
+                  <Bookmark size={16} className={isSaved ? "fill-amber-500 text-amber-500 border-none" : ""} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{isSaved ? "Saved Book" : "Add Bookmark"}</span>
+                </div>
+                <ChevronRight size={14} className="text-zinc-200 group-hover:translate-x-1 transition-all" />
+              </button>
+
+              <button 
+                onClick={() => setShowCommentsSidebar(true)} 
+                className="w-full flex items-center justify-between p-3 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 transition-all cursor-pointer group rounded-sm bg-white dark:bg-zinc-900 shadow-sm text-left"
+              >
+                <div className="flex items-center gap-4 text-zinc-400 group-hover:text-black dark:group-hover:text-white">
+                  <MessageSquare size={16} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Reader Comments</span>
+                </div>
+                <span className="text-[10px] font-black bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{comments.length}</span>
+              </button>
+
               {isArtOfPrompt && <ToolLink icon={<Download size={16} />} label="Download E-Book" hasArrow />}
             </div>
           </div>
@@ -154,9 +355,278 @@ This book is not just about using AI. It is about learning a skill that will sta
                 </div>
               </div>
             </div>
+
+            {/* Calculate Average Rating */}
+            {(() => {
+              const ratedComments = comments.filter(c => c.rating);
+              const avgRating = ratedComments.length > 0
+                ? (ratedComments.reduce((sum, c) => sum + c.rating, 0) / ratedComments.length).toFixed(1)
+                : null;
+
+              return (
+                <div className="mt-24 border-t border-zinc-150 dark:border-zinc-800 pt-16">
+                  {/* Social Stats Summary (Interactive) */}
+                  <div className="flex items-center gap-6 py-6 border-y border-zinc-150 dark:border-zinc-850 text-sm text-zinc-550 dark:text-zinc-400 mb-16 select-none">
+                    <button 
+                      onClick={handleLike} 
+                      className={`flex items-center gap-1.5 transition-all ${isLiked ? "text-rose-600 font-bold" : "hover:text-black dark:hover:text-white"}`}
+                    >
+                      <Heart size={16} className={`text-rose-500 ${isLiked ? "fill-rose-500" : ""}`} /> 
+                      {likesCount} {likesCount === 1 ? "like" : "likes"}
+                    </button>
+                    <button 
+                      onClick={handleSave} 
+                      className={`flex items-center gap-1.5 transition-all ${isSaved ? "text-amber-600 font-bold" : "hover:text-black dark:hover:text-white"}`}
+                    >
+                      <Bookmark size={16} className={`text-amber-500 ${isSaved ? "fill-amber-500" : ""}`} /> 
+                      {isSaved ? "Saved" : "Save book"}
+                    </button>
+                    <span className="flex items-center gap-1.5">
+                      <MessageSquare size={16} className="text-blue-500" /> 
+                      {comments.length} comments
+                    </span>
+                    {avgRating && (
+                      <span className="flex items-center gap-1 text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/60 px-2.5 py-0.5 rounded font-black">
+                        ★ {avgRating} Avg Rating
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Comments Section */}
+                  <section className="space-y-8">
+                    <h3 className="text-2xl font-serif tracking-tight font-bold">Comments ({comments.length})</h3>
+
+                    <form onSubmit={handleCommentSubmit} className="space-y-4">
+                      {/* Star Rating Input */}
+                      <div className="flex items-center gap-3 py-1 select-none">
+                        <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Give a Rating:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setCommentRating(star)}
+                              className="focus:outline-none hover:scale-110 transition-transform"
+                            >
+                              <Star
+                                size={16}
+                                fill={star <= commentRating ? "#eab308" : "none"}
+                                className={star <= commentRating ? "text-yellow-500" : "text-zinc-300 dark:text-zinc-700 hover:text-yellow-400"}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        {commentRating > 0 && (
+                          <span className="text-[10px] font-black bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-450 border border-amber-150 dark:border-amber-900 px-2 py-0.5 rounded uppercase tracking-widest">
+                            {commentRating} Stars
+                          </span>
+                        )}
+                      </div>
+
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Share your thoughts on this book..."
+                        className={`w-full px-5 py-4 rounded-2xl text-sm focus:outline-none min-h-[100px] resize-none transition-colors border ${
+                          isDarkMode 
+                            ? "bg-zinc-900 border-zinc-800 focus:border-zinc-750 text-white focus:ring-1 focus:ring-zinc-700" 
+                            : "bg-zinc-50 border-zinc-200 focus:border-black text-zinc-900 focus:ring-1 focus:ring-black"
+                        }`}
+                        required={commentRating === 0}
+                      />
+                      
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={submittingComment}
+                          className="px-6 py-2.5 bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-black uppercase tracking-widest rounded-full transition-all disabled:opacity-50"
+                        >
+                          {submittingComment ? "Posting..." : "Post Comment"}
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="space-y-6 pt-6">
+                      {comments.length > 0 ? (
+                        comments.map((comm) => {
+                          const name = comm.users?.name || "Reader";
+                          const avatar = comm.users?.avatar_url;
+                          return (
+                            <div key={comm.id} className={`flex gap-4 items-start p-5 rounded-2xl border ${
+                              isDarkMode ? "bg-zinc-900/30 border-zinc-900" : "bg-zinc-50/50 border-zinc-100"
+                            }`}>
+                              {avatar ? (
+                                <img src={avatar} alt={name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center font-bold text-zinc-500 border border-zinc-205 dark:border-zinc-800 shrink-0 uppercase">
+                                  {name.charAt(0)}
+                                </div>
+                              )}
+                              <div className="flex-grow">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold">{name}</span>
+                                  <span className="text-xs text-zinc-400">• {new Date(comm.created_at).toLocaleDateString()}</span>
+                                  {comm.rating && (
+                                    <span className="flex items-center gap-0.5 text-[10px] font-black bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-450 border border-amber-150 dark:border-amber-900 px-1.5 py-0.5 rounded">
+                                      ★ {comm.rating}
+                                    </span>
+                                  )}
+                                </div>
+                                {comm.comment_text && (
+                                  <p className={`text-sm mt-2 leading-relaxed font-medium ${isDarkMode ? "text-zinc-300" : "text-zinc-650"}`}>{comm.comment_text}</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-zinc-400 italic">No comments yet. Be the first to share your thoughts!</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              );
+            })()}
           </article>
         </main>
       </div>
+
+      {/* Sliding Comments Sidebar */}
+      <AnimatePresence>
+        {showCommentsSidebar && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-xs">
+            {/* Click outside to close */}
+            <div className="absolute inset-0" onClick={() => setShowCommentsSidebar(false)} />
+            
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className={`w-96 h-full shadow-2xl flex flex-col relative z-10 ${
+                isDarkMode ? "bg-zinc-950 border-l border-zinc-900 text-white" : "bg-white border-l border-zinc-100 text-zinc-900"
+              }`}
+            >
+              {/* Header */}
+              <div className={`p-6 border-b flex items-center justify-between ${
+                isDarkMode ? "border-zinc-900" : "border-zinc-100"
+              }`}>
+                <div>
+                  <h3 className="text-lg font-bold uppercase tracking-wider font-heading">Comments ({comments.length})</h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">{bookData.title}</p>
+                </div>
+                <button
+                  onClick={() => setShowCommentsSidebar(false)}
+                  className={`p-2 rounded-full transition-colors ${
+                    isDarkMode ? "hover:bg-zinc-900 text-zinc-400 hover:text-white" : "hover:bg-zinc-50 text-zinc-500 hover:text-black"
+                  }`}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* List */}
+              <div className="flex-grow overflow-y-auto p-6 space-y-6">
+                {comments.length > 0 ? (
+                  comments.map((comm) => {
+                    const name = comm.users?.name || "Reader";
+                    const avatar = comm.users?.avatar_url;
+                    return (
+                      <div key={comm.id} className={`p-4 rounded-lg border ${
+                        isDarkMode ? "bg-zinc-900/40 border-zinc-900" : "bg-zinc-50 border-zinc-100"
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          {avatar ? (
+                            <img src={avatar} alt={name} className="w-8 h-8 rounded-full object-cover border border-zinc-200" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-zinc-200 text-zinc-600 flex items-center justify-center font-bold text-xs border border-zinc-300 uppercase">
+                              {name.charAt(0)}
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="text-xs font-semibold">{name}</h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[9px] text-zinc-400 font-medium">
+                                {new Date(comm.created_at).toLocaleDateString()}
+                              </span>
+                              {comm.rating && (
+                                <span className="flex items-center gap-0.5 text-[8px] font-black bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-450 border border-amber-100 dark:border-amber-900/60 px-1 py-0.2 rounded">
+                                  ★ {comm.rating}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {comm.comment_text && (
+                          <p className={`text-xs mt-3 leading-relaxed ${isDarkMode ? "text-zinc-300" : "text-zinc-600"}`}>
+                            {comm.comment_text}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="h-full flex items-center justify-center text-center py-20">
+                    <p className="text-xs text-zinc-400 italic font-medium">No comments yet. Write the first comment!</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Input Footer */}
+              <div className={`p-6 border-t ${
+                isDarkMode ? "border-zinc-900 bg-zinc-950" : "border-zinc-100 bg-white"
+              }`}>
+                <form onSubmit={handleCommentSubmit} className="space-y-4">
+                  {/* Star Rating Input */}
+                  <div className="flex items-center gap-2 select-none">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-450">Give Rating:</span>
+                    <div className="flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setCommentRating(star)}
+                          className="focus:outline-none hover:scale-110 transition-transform"
+                        >
+                          <Star
+                            size={12}
+                            fill={star <= commentRating ? "#eab308" : "none"}
+                            className={star <= commentRating ? "text-yellow-500" : "text-zinc-300 dark:text-zinc-650 hover:text-yellow-400"}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {commentRating > 0 && (
+                      <span className="text-[8px] font-black bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-450 border border-amber-100 dark:border-amber-900/60 px-1.5 py-0.2 rounded uppercase tracking-widest">
+                        {commentRating} Stars
+                      </span>
+                    )}
+                  </div>
+
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Share your thoughts about this book..."
+                    className={`w-full p-4 rounded-xl text-xs resize-none min-h-[80px] focus:outline-none border ${
+                      isDarkMode 
+                        ? "bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700" 
+                        : "bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-zinc-300"
+                    }`}
+                    required={commentRating === 0}
+                  />
+                  <button
+                    type="submit"
+                    disabled={submittingComment}
+                    className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-black text-[9px] uppercase tracking-widest transition-all rounded-full hover:scale-[1.02] disabled:opacity-50"
+                  >
+                    {submittingComment ? "Posting..." : "Post Comment"}
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

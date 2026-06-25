@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { motion } from "framer-motion";
 import { ShieldCheck, Zap, ArrowRight, Loader2, CreditCard } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { getApiUrl } from "@/lib/config";
+import { supabase } from "@/lib/supabase";
 
-export default function PaymentPage() {
+function PaymentPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -22,9 +24,15 @@ export default function PaymentPage() {
   const initializePayment = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/pay/order", {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch(getApiUrl("/api/pay/order"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`
+        },
         body: JSON.stringify({ bookId, amount: manuscript.price }),
       });
 
@@ -37,14 +45,14 @@ export default function PaymentPage() {
         currency: data.currency,
         name: "Writersthing",
         description: manuscript.title,
-        order_id: data.orderId,
+        order_id: data.id || data.orderId, // Handle both standard Express backend and next route response formats
         handler: async function (response: any) {
           // Verify payment on backend
-          const verifyRes = await fetch("/api/pay/verify", {
+          const verifyRes = await fetch(getApiUrl("/api/pay/verify"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              orderId: data.orderId,
+              orderId: data.id || data.orderId,
               paymentId: response.razorpay_payment_id,
               signature: response.razorpay_signature,
             }),
@@ -78,9 +86,7 @@ export default function PaymentPage() {
   return (
     <div className="bg-white min-h-screen">
       <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-      <Navbar />
-
-      <main className="pt-40 pb-20">
+      <div className="pt-12 pb-20">
         <div className="unified-axis max-w-2xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -136,7 +142,15 @@ export default function PaymentPage() {
             </div>
           </motion.div>
         </div>
-      </main>
+      </div>
     </div>
+  );
+}
+
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-zinc-200" size={48} /></div>}>
+      <PaymentPageContent />
+    </Suspense>
   );
 }

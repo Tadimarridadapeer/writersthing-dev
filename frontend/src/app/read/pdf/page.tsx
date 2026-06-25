@@ -5,6 +5,8 @@ import { Suspense, useState, useEffect } from "react";
 import { ArrowLeft, Maximize2, Minimize2, ChevronLeft, ChevronRight, Loader2, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/config";
 
 function PDFReaderContent() {
   const searchParams = useSearchParams();
@@ -32,7 +34,20 @@ function PDFReaderContent() {
       }
 
       try {
-        const res = await fetch(`/api/books/read/${bookId}`);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (!token) {
+          setError("Authentication required");
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(getApiUrl(`/api/books/read/${bookId}`), {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
         const data = await res.json();
 
         if (res.ok) {
@@ -76,7 +91,7 @@ function PDFReaderContent() {
             {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
           </button>
           <a 
-            href={pdfUrl} 
+            href={pdfUrl || undefined} 
             download
             className="flex items-center gap-3 px-8 py-3 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all rounded-sm"
           >
