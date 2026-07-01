@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ShieldCheck, Zap, ArrowRight, Loader2, CreditCard } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { getApiUrl } from "@/lib/config";
+import { supabase } from "@/lib/supabase";
 
 function PaymentPageContent() {
   const searchParams = useSearchParams();
@@ -23,9 +24,15 @@ function PaymentPageContent() {
   const initializePayment = async () => {
     setLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch(getApiUrl("/api/pay/order"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`
+        },
         body: JSON.stringify({ bookId, amount: manuscript.price }),
       });
 

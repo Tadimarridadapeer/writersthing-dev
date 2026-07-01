@@ -1,35 +1,36 @@
 @import "tailwindcss";
-
+ 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   
-  --color-primary: #000000;
-  --color-secondary: #ffffff;
+  --color-primary: #6366f1; /* Indigo-500 */
+  --color-secondary: #8b5cf6; /* Violet-500 */
+  --color-accent: #10b981; /* Emerald-500 */
   
-  /* Strictly Grayscale Palette */
-  --color-zinc-50: #fcfcfc;
-  --color-zinc-100: #f7f7f7;
-  --color-zinc-200: #e5e5e5;
-  --color-zinc-300: #d4d4d4;
-  --color-zinc-400: #a3a3a3;
-  --color-zinc-500: #737373;
-  --color-zinc-600: #525252;
-  --color-zinc-700: #404040;
-  --color-zinc-800: #262626;
-  --color-zinc-900: #171717;
-  --color-zinc-950: #0a0a0a;
-
+  /* Upgraded Slate Palette - replaces dry grays with cool rich slates */
+  --color-zinc-50: #f8fafc;
+  --color-zinc-100: #f1f5f9;
+  --color-zinc-200: #e2e8f0;
+  --color-zinc-300: #cbd5e1;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #64748b;
+  --color-zinc-600: #475569;
+  --color-zinc-700: #334155;
+  --color-zinc-800: #1e293b;
+  --color-zinc-900: #0f172a;
+  --color-zinc-950: #020617;
+ 
   --font-heading: var(--font-outfit);
   --font-body: var(--font-inter);
-
+ 
   --section-gap: 8rem;
 }
-
-/* Typography System */
+ 
+/* Typography & Modern Styling System */
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
+  --background: #f8fafc;
+  --foreground: #0f172a;
   --font-inter: "Inter", sans-serif;
   --font-outfit: "Outfit", sans-serif;
   --font-playfair: "Playfair Display", serif;
@@ -40,11 +41,11 @@
   --font-size-h2: clamp(1.2rem, 3vw, 1.7rem);
   --font-size-h3: clamp(1rem, 2vw, 1.3rem);
 }
-
+ 
 .serif {
   font-family: var(--font-playfair);
 }
-
+ 
 body {
   background: var(--background);
   color: var(--foreground);
@@ -52,43 +53,42 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  cursor: crosshair;
 }
-
+ 
 input, textarea, select {
   color: inherit;
 }
-
+ 
 .dark input, .dark textarea, .dark select {
   color: white;
 }
-
+ 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   letter-spacing: -0.02em;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.25;
 }
-
+ 
 .text-hero { font-size: var(--font-size-hero); }
 .text-h1 { font-size: var(--font-size-h1); }
 .text-h2 { font-size: var(--font-size-h2); }
 .text-h3 { font-size: var(--font-size-h3); }
-
+ 
 /* Elite Spacing */
 .section-padding {
   padding-top: clamp(4rem, 12vw, 10rem);
   padding-bottom: clamp(4rem, 12vw, 10rem);
 }
-
-/* Glassmorphism */
+ 
+/* Glassmorphism & Micro-animations */
 .glass-overlay {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
-
+ 
 .unified-axis {
   width: 100%;
   max-width: 1300px;
@@ -97,25 +97,75 @@ h1, h2, h3, h4, h5, h6 {
   padding-left: 1.5rem;
   padding-right: 1.5rem;
 }
-
+ 
 @media (min-width: 768px) {
   .unified-axis {
     padding-left: 4rem;
     padding-right: 4rem;
   }
 }
-
+ 
 @media (min-width: 1400px) {
   .unified-axis {
     padding-left: 0;
     padding-right: 0;
   }
 }
-
+ 
 .text-balance {
   text-wrap: balance;
 }
-
+ 
 .tracking-ultra-tight {
   letter-spacing: -0.05em;
+}
+ 
+/* Custom Premium Colors & Glow Utilities */
+.premium-gradient {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+}
+ 
+.premium-gradient-text {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+ 
+.neon-glow {
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+}
+ 
+.neon-glow-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+ 
+.neon-glow-hover:hover {
+  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.3);
+  transform: translateY(-2px);
+}
+ 
+.button-premium {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+ 
+.button-premium:hover {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  box-shadow: 0 8px 24px rgba(124, 58, 235, 0.35);
+  transform: scale(1.02);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e2e8f0;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #cbd5e1;
 }

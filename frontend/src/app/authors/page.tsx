@@ -46,7 +46,7 @@ export default function AuthorsPage() {
           <header className="mb-32 flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
             <div className="max-w-2xl">
               <p className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400 mb-8">The Community</p>
-              <h1 className="text-7xl lg:text-9xl font-heading font-black tracking-ultra-tight uppercase leading-[0.85] mb-12">
+              <h1 className="text-5xl lg:text-7xl font-heading font-black tracking-ultra-tight uppercase leading-[0.85] mb-12">
                 Top <br /> Authors
               </h1>
               <p className="text-xl font-medium leading-relaxed italic text-zinc-500">

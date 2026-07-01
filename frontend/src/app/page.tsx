@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { getApiUrl } from "@/lib/config";
 import { motion } from "framer-motion";
 import { 
@@ -20,141 +21,35 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
+  
+  // Landing page exclusively
   const [books, setBooks] = useState<any[]>([]);
-  const [articles, setArticles] = useState<any[]>([]);
-  const [blogs, setBlogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [feedType, setFeedType] = useState<"all" | "books" | "articles" | "blogs">("all");
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchFeed = async () => {
+    if (!authLoading && user) {
+      router.push("/marketplace");
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    const fetchTrending = async () => {
       setLoading(true);
       try {
-        // Fetch Books
         const booksRes = await fetch(getApiUrl("/api/books"));
         const booksData = await booksRes.json();
-        setBooks(booksData || []);
-
-        // Fetch Articles
-        const articlesRes = await fetch("/api/articles?type=Article");
-        const articlesData = await articlesRes.json();
-        setArticles(articlesData || []);
-
-        // Fetch Blogs
-        const blogsRes = await fetch("/api/articles?type=Blog");
-        const blogsData = await blogsRes.json();
-        setBlogs(blogsData || []);
+        // Just take top 4 for the landing page
+        setBooks((booksData || []).slice(0, 4));
       } catch (err) {
-        console.error("Home feed fetch error:", err);
+        console.error("Landing feed fetch error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchFeed();
+    fetchTrending();
   }, []);
-
-  if (!authLoading && user) {
-    const mergedFeed = [
-      ...books.map(b => ({ id: b.id, title: b.title, type: "Book", category: b.category || "Novel", cover: b.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800", author: b.authors?.name || b.author?.name || "Unknown", url: `/book/${b.id}`, date: b.created_at })),
-      ...articles.map(a => ({ id: a.id, title: a.title, type: "Article", category: a.category || "Insight", cover: a.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800", author: a.authors?.name || "Unknown", url: `/articles/${a.id}`, date: a.created_at })),
-      ...blogs.map(bl => ({ id: bl.id, title: bl.title, type: "Blog", category: "Personal", cover: bl.cover_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800", author: bl.authors?.name || "Unknown", url: `/blogs/${bl.id}`, date: bl.created_at }))
-    ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-    const filteredFeed = mergedFeed.filter(item => {
-      if (feedType === "all") return true;
-      if (feedType === "books") return item.type === "Book";
-      if (feedType === "articles") return item.type === "Article";
-      if (feedType === "blogs") return item.type === "Blog";
-      return true;
-    });
-
-    return (
-      <div className="flex min-h-screen bg-white pt-10 pb-40 select-none">
-        <div className="unified-axis max-w-6xl">
-          <header className="mb-16 flex flex-col md:flex-row justify-between items-start md:items-end gap-8 pb-8 border-b border-zinc-150">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Authenticated Feed</span>
-                <div className="h-px w-8 bg-zinc-200" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-800 bg-zinc-50 border border-zinc-100 rounded-full px-3 py-1 flex items-center gap-1.5">
-                  <Sparkles size={11} className="text-zinc-800 animate-pulse" /> Unified Reading Hub
-                </span>
-              </div>
-              <h1 className="text-5xl font-heading font-black tracking-ultra-tight uppercase leading-none text-zinc-950">Zero Friction Reading</h1>
-            </div>
-
-            <div className="flex bg-zinc-100 p-1 rounded-sm shadow-sm select-none">
-              {(["all", "books", "articles", "blogs"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFeedType(t)}
-                  className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                    feedType === t ? "bg-white text-black shadow-sm" : "text-zinc-400 hover:text-black"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </header>
-
-          {loading ? (
-            <div className="py-32 flex flex-col items-center justify-center gap-4">
-              <Loader2 className="animate-spin text-zinc-300" size={40} />
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Pouring manuscripts...</p>
-            </div>
-          ) : filteredFeed.length === 0 ? (
-            <div className="py-24 text-center border border-zinc-200 bg-zinc-50/30 rounded-sm">
-              <BookOpen className="text-zinc-300 mx-auto mb-6" size={48} />
-              <h3 className="font-heading font-black text-xl uppercase mb-2">No items found</h3>
-              <p className="text-zinc-400 font-medium max-w-xs mx-auto italic text-sm">
-                Check back soon! Authors are currently typing new masterpieces.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12 md:gap-16">
-              {filteredFeed.map((item) => (
-                <Link key={`${item.type}-${item.id}`} href={item.url} className="group flex flex-col">
-                  <div className="aspect-[3/4.2] bg-zinc-50 overflow-hidden relative mb-6 shadow-xl border border-zinc-150 group-hover:translate-y-[-8px] transition-all duration-500">
-                    <img 
-                      src={item.cover} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105" 
-                    />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-5 py-2.5 rounded-sm">
-                        Read Now
-                      </span>
-                    </div>
-                    {item.type === "Book" && (
-                      <span className="absolute top-4 right-4 bg-black text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm shadow-md">
-                        ₹99
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mb-2.5">
-                    <span className="text-[9px] font-black uppercase tracking-widest bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-sm">
-                      {item.type}
-                    </span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                      {item.category}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-heading font-black tracking-tight uppercase mb-2 leading-snug text-zinc-950 group-hover:text-black transition-colors">
-                    {item.title}
-                  </h3>
-                  <p className="text-xs font-semibold text-zinc-400 italic mt-auto">
-                    by {item.author}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col bg-white">
@@ -220,9 +115,9 @@ export default function Home() {
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="text-[10vw] sm:text-[8vw] md:text-[6.5vw] lg:text-[5.5vw] xl:text-[5.2vw] font-heading font-black tracking-ultra-tight uppercase leading-[0.88] text-center select-none text-zinc-950"
             >
-              Where <span className="serif italic font-normal text-zinc-300 normal-case pr-2">unknown</span> <br />
+              Where <span className="serif italic font-normal text-primary/70 normal-case pr-2 grayscale hover:grayscale-0 transition-all duration-300 cursor-default">unknown</span> <br />
               writers become <br />
-              <span className="bg-black text-white px-6 md:px-10 py-1 md:py-3 inline-block rotate-[-1.5deg] transform shadow-2xl mt-4 md:mt-2 font-black select-none leading-none">KNOWN.</span>
+              <span className="bg-gradient-to-r from-primary to-secondary text-white px-6 md:px-10 py-1.5 md:py-3 inline-block rotate-[-1.5deg] transform shadow-xl shadow-indigo-500/20 mt-4 md:mt-2 font-black select-none leading-none rounded-2xl grayscale hover:grayscale-0 hover:rotate-0 transition-all duration-500 cursor-default">KNOWN.</span>
             </motion.h1>
 
             {/* Descriptive Subtext */}
@@ -230,9 +125,9 @@ export default function Home() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.6 }}
-              className="text-sm md:text-base lg:text-lg text-zinc-400 font-medium leading-relaxed max-w-2xl mx-auto text-balance"
+              className="text-sm md:text-base lg:text-lg text-zinc-500 font-medium leading-relaxed max-w-2xl mx-auto text-balance"
             >
-              Pour your thoughts into a distraction-free manuscript editor, publish with a single click, and unlock books globally for a flat, honest rate of <strong className="text-black font-extrabold">₹99</strong>. No subscriptions, just pure storytelling.
+              Pour your thoughts into a distraction-free manuscript editor, publish with a single click, and unlock books globally for a flat, honest rate of <strong className="text-primary font-extrabold">₹99</strong>. No subscriptions, just pure storytelling.
             </motion.p>
 
             {/* Core Interactive Action Buttons */}
@@ -244,15 +139,15 @@ export default function Home() {
             >
               <Link 
                 href="/signup?role=Author" 
-                className="w-full sm:w-auto px-10 md:px-14 py-4 md:py-5 bg-black hover:bg-zinc-900 text-white rounded-sm font-bold text-[10px] md:text-[11px] uppercase tracking-[0.3em] hover:scale-[1.03] active:scale-[0.97] transition-all shadow-[0_20px_45px_rgba(0,0,0,0.15)] flex items-center justify-center gap-4 group"
+                className="w-full sm:w-auto px-10 md:px-14 py-4 md:py-5 button-premium text-white rounded-full font-bold text-[10px] md:text-[11px] uppercase tracking-[0.3em] shadow-[0_8px_24px_rgba(99,102,241,0.25)] flex items-center justify-center gap-4 group grayscale hover:grayscale-0 transition-all duration-500"
               >
                 Start Writing <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
               </Link>
               <Link 
-                href="/marketplace" 
-                className="w-full sm:w-auto px-10 md:px-14 py-4 md:py-5 bg-zinc-50 text-black border border-zinc-150 hover:border-black rounded-sm font-bold text-[10px] md:text-[11px] uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all flex items-center justify-center hover:scale-[1.03] active:scale-[0.97]"
+                href="/signup?redirect=/explore" 
+                className="w-full sm:w-auto px-10 md:px-14 py-4 md:py-5 bg-white text-zinc-700 border border-zinc-200 hover:border-primary/50 rounded-full font-bold text-[10px] md:text-[11px] uppercase tracking-[0.3em] hover:scale-[1.03] active:scale-[0.97] transition-all shadow-sm flex items-center justify-center"
               >
-                Start Reading
+                Next
               </Link>
             </motion.div>
 
@@ -320,32 +215,32 @@ export default function Home() {
         <div className="unified-axis">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
             {loading ? (
-              <div className="col-span-full text-center py-12 text-xs font-black uppercase tracking-widest text-zinc-300">
+              <div className="col-span-full text-center py-12 text-xs font-black uppercase tracking-widest text-zinc-350">
                 Synchronizing Archive...
               </div>
             ) : books.length > 0 ? (
               books.map((book) => (
                 <Link key={book.id} href={`/book/${book.id}`} className="group">
-                  <div className="aspect-[3/4.5] bg-zinc-100 overflow-hidden relative mb-8 shadow-2xl group-hover:translate-y-[-10px] transition-all duration-500">
+                  <div className="aspect-[2/3] bg-white rounded-3xl overflow-hidden relative mb-6 shadow-md border border-zinc-150/80 group-hover:translate-y-[-8px] group-hover:shadow-2xl group-hover:border-primary/20 transition-all duration-500">
                     <img src={book.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=800"} alt={book.title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-4 py-2">View Details</span>
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-5 py-2.5 rounded-full">View Details</span>
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-2">{book.category || book.genre || "Fiction"}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">{book.category || book.genre || "Fiction"}</p>
                   <h3 className="text-xl font-heading font-black tracking-tight uppercase mb-1">{book.title}</h3>
                   <p className="text-sm font-medium text-zinc-400 italic">by {book.authors?.name || book.author?.name || "Unknown"}</p>
                 </Link>
               ))
             ) : (
               <Link href="/marketplace" className="group">
-                <div className="aspect-[3/4.5] bg-zinc-100 overflow-hidden relative mb-8 shadow-2xl group-hover:translate-y-[-10px] transition-all duration-500">
+                <div className="aspect-[2/3] bg-white rounded-3xl overflow-hidden relative mb-6 shadow-md border border-zinc-150/80 group-hover:translate-y-[-8px] group-hover:shadow-2xl group-hover:border-primary/20 transition-all duration-500">
                   <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=800" alt="The Art of Prompt" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-4 py-2">View Details</span>
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-5 py-2.5 rounded-full">View Details</span>
                   </div>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-2">Education Sector</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Education Sector</p>
                 <h3 className="text-xl font-heading font-black tracking-tight uppercase mb-1">The Art of Prompt</h3>
                 <p className="text-sm font-medium text-zinc-400 italic">by Tadimarri Dadapeer</p>
               </Link>
@@ -354,37 +249,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Story Categories Section */}
-      <section id="categories" className="py-40 bg-white">
-        <div className="unified-axis">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-32 items-start">
-            <div className="sticky top-40">
-              <h2 className="text-h1 tracking-ultra-tight mb-8 md:mb-10 uppercase leading-none">
-                What's your <br />
-                <span className="italic serif font-normal text-zinc-300">story?</span>
-              </h2>
-              <p className="text-zinc-500 font-medium text-xl max-w-md mb-14 leading-relaxed">
-                Browse through thousands of genres curated by our editorial team. Find your voice in our library for just ₹99 per book.
-              </p>
-              <Link href="/marketplace" className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] group">
-                <span className="border-b-2 border-black pb-1 group-hover:opacity-60 transition-all">Explore Marketplace</span>
-                <ArrowRight size={14} className="group-hover:translate-x-2 transition-transform" />
-              </Link>
-            </div>
-            
-            <div className="flex flex-col border-t border-zinc-100">
-              {['Love', 'Comedy', 'Education', 'Mystery', 'Fiction', 'History', 'Sci-Fi', 'Thriller', 'Biography', 'Poetry'].map((cat) => (
-                <CategoryRow key={cat} label={cat} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Process Section */}
-      <section className="section-padding bg-black text-white">
+      <section className="section-padding bg-gradient-to-br from-zinc-950 via-zinc-900 to-indigo-950 text-white">
         <div className="unified-axis">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-32">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-32">
             <ProcessItem 
               number="01" 
               title="Write" 
@@ -408,53 +276,53 @@ export default function Home() {
       </section>
 
       {/* Pricing / Join Section */}
-      <section id="pricing" className="section-padding bg-white overflow-hidden relative">
+      <section id="pricing" className="py-12 md:py-20 bg-white overflow-hidden relative flex flex-col justify-center min-h-[90vh]">
         <div className="absolute inset-0 bg-zinc-50/50 -z-10" />
-        <div className="unified-axis relative">
+        <div className="unified-axis relative w-full">
           <div className="max-w-5xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1 }}
             >
-              <div className="inline-flex items-center gap-3 px-6 py-2 bg-black text-white rounded-full mb-12">
+              <div className="inline-flex items-center gap-3 px-6 py-2 bg-black text-white rounded-full mb-6">
                 <Sparkles size={14} className="text-zinc-400" />
                 <span className="text-[10px] font-black uppercase tracking-[0.3em]">Premium Membership</span>
               </div>
               
-              <h2 className="text-h1 tracking-ultra-tight text-black mb-16 uppercase">
-                Ready to turn your <br /> manuscript <br /> into a legacy?
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-heading font-black tracking-ultra-tight text-black mb-10 uppercase leading-none">
+                Ready to turn your <br /> manuscript into a legacy?
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-24 max-w-4xl mx-auto text-left">
-                <div className="p-8 border border-zinc-100 bg-zinc-50/50 rounded-sm">
-                  <div className="w-12 h-12 bg-black flex items-center justify-center mb-6">
-                    <Zap size={20} className="text-white" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12 max-w-4xl mx-auto text-left">
+                <div className="p-6 md:p-8 border border-zinc-200 bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4 md:mb-6 text-primary">
+                    <Zap size={20} />
                   </div>
-                  <h3 className="text-xl font-heading font-bold uppercase mb-4 tracking-tighter">Flat Pricing</h3>
-                  <p className="text-sm text-zinc-500 font-medium leading-relaxed">Every manuscript on the platform is priced at a fixed ₹99. No subscriptions, no hidden fees.</p>
+                  <h3 className="text-lg md:text-xl font-heading font-bold uppercase mb-3 tracking-tighter text-zinc-900">Flat Pricing</h3>
+                  <p className="text-xs md:text-sm text-zinc-500 font-medium leading-relaxed">Every manuscript on the platform is priced at a fixed ₹99. No subscriptions, no hidden fees.</p>
                 </div>
 
-                <div className="p-8 border border-zinc-100 bg-zinc-50/50 rounded-sm">
-                  <div className="w-12 h-12 bg-black flex items-center justify-center mb-6">
-                    <ShieldCheck size={20} className="text-white" />
+                <div className="p-6 md:p-8 border border-zinc-200 bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-violet-50 flex items-center justify-center mb-4 md:mb-6 text-secondary">
+                    <ShieldCheck size={20} />
                   </div>
-                  <h3 className="text-xl font-heading font-bold uppercase mb-4 tracking-tighter">Total Ownership</h3>
-                  <p className="text-sm text-zinc-500 font-medium leading-relaxed">Buy once, own forever. Access your library from any device, anytime, with our distraction-free reader.</p>
+                  <h3 className="text-lg md:text-xl font-heading font-bold uppercase mb-3 tracking-tighter text-zinc-900">Total Ownership</h3>
+                  <p className="text-xs md:text-sm text-zinc-500 font-medium leading-relaxed">Buy once, own forever. Access your library from any device, anytime, with our distraction-free reader.</p>
                 </div>
 
-                <div className="p-8 border border-zinc-100 bg-zinc-50/50 rounded-sm">
-                  <div className="w-12 h-12 bg-black flex items-center justify-center mb-6">
-                    <Users size={20} className="text-white" />
+                <div className="p-6 md:p-8 border border-zinc-200 bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4 md:mb-6 text-accent">
+                    <Users size={20} />
                   </div>
-                  <h3 className="text-xl font-heading font-bold uppercase mb-4 tracking-tighter">Author Direct</h3>
-                  <p className="text-sm text-zinc-500 font-medium leading-relaxed">We take a minimal commission. Most of your ₹99 goes directly into the author's pocket.</p>
+                  <h3 className="text-lg md:text-xl font-heading font-bold uppercase mb-3 tracking-tighter text-zinc-900">Author Direct</h3>
+                  <p className="text-xs md:text-sm text-zinc-500 font-medium leading-relaxed">We take a minimal commission. Most of your ₹99 goes directly into the author's pocket.</p>
                 </div>
               </div>
 
               <Link 
                 href="/signup" 
-                className="inline-block px-20 py-10 bg-black text-white font-black text-[11px] uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-[0_40px_80px_-20px_rgba(0,0,0,0.4)]"
+                className="inline-block px-16 py-6 button-premium text-white font-black text-[11px] uppercase tracking-[0.4em] rounded-full shadow-[0_12px_40px_rgba(99,102,241,0.3)]"
               >
                 Join Writersthing Pro
               </Link>
@@ -479,18 +347,18 @@ function CategoryRow({ label }: { label: string }) {
 
 function ProcessItem({ number, title, icon, description }: any) {
   return (
-    <div className="flex flex-col gap-10 group">
+    <div className="flex flex-col gap-6 md:gap-10 group cursor-default grayscale hover:grayscale-0 transition-all duration-500">
       <div className="flex items-center gap-6">
-        <span className="text-6xl font-heading font-black tracking-tighter text-zinc-800 group-hover:text-white transition-all duration-500">
+        <span className="text-6xl font-heading font-black tracking-tighter text-zinc-800 group-hover:text-primary transition-all duration-500">
           {number}
         </span>
-        <div className="p-4 border border-zinc-800 transition-all duration-500 group-hover:border-white">
+        <div className="p-4 border border-zinc-800 rounded-2xl bg-zinc-900/50 group-hover:border-primary group-hover:bg-primary/10 transition-all duration-500">
           {icon}
         </div>
       </div>
       <div>
         <h3 className="text-3xl font-heading font-black tracking-tight uppercase mb-6">{title}</h3>
-        <p className="text-zinc-500 font-medium leading-relaxed text-lg">{description}</p>
+        <p className="text-zinc-400 font-medium leading-relaxed text-lg">{description}</p>
       </div>
     </div>
   );

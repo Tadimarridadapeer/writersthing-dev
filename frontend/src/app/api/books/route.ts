@@ -16,7 +16,9 @@ export async function POST(req: Request) {
       language, 
       genre, 
       pdfUrl, 
-      authorId 
+      authorId,
+      isbn,
+      bankDetails
     } = body;
 
     if (!title || !content) {
@@ -48,7 +50,21 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabase
       .from("books")
-      .insert([insertPayload])
+      .insert([
+        {
+          title,
+          description: description || content.substring(0, 160),
+          category: genre || "Fiction",
+          cover_url: coverImage || "",
+          pdf_path: pdfUrl || "", // Store the storage path
+          price: price || 99,
+          author_id: authorId,
+          status: "Published",
+          isbn: isbn || null,
+          bank_details: bankDetails || null,
+          deletion_status: "None"
+        },
+      ])
       .select();
 
     if (error) {
@@ -69,7 +85,7 @@ export async function GET(req: Request) {
   try {
     const { data, error } = await supabase
       .from("books")
-      .select("*, authors:author_id(*, users:user_id(name))")
+      .select("*, authors:author_id(user_id, users:user_id(name))")
       .eq("status", "Published")
       .order("created_at", { ascending: false });
 

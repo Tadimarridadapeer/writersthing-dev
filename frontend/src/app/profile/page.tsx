@@ -20,7 +20,9 @@ import {
   Feather,
   Loader2,
   LogOut,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon,
+  X
 } from "lucide-react";
 import { uploadAvatar } from "@/lib/avatar";
 import Link from "next/link";
@@ -36,6 +38,24 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+
+  const [bankDetails, setBankDetails] = useState("");
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  useEffect(() => {
+    if (user && user.bank_details) {
+      setBankDetails(user.bank_details);
+    }
+  }, [user]);
+
+  // Webcam modal state
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const [reputation, setReputation] = useState<any>(null);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -51,8 +71,100 @@ export default function ProfilePage() {
     }
   }, [toast]);
 
+  // Stop webcam stream helper
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+  };
+
+  // Open webcam modal and start stream
+  const handleCameraChoice = async () => {
+    setShowAvatarMenu(false);
+    setCapturedImage(null);
+    setCameraReady(false);
+    setShowCameraModal(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        setCameraReady(true);
+      }
+    } catch (err) {
+      console.error('Camera access denied:', err);
+      setShowCameraModal(false);
+      setToast({ message: 'Camera access was denied. Please allow camera permissions and try again.', type: 'error' });
+    }
+  };
+
+  // Capture a still frame from the video
+  const handleCapture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    setCapturedImage(dataUrl);
+    stopStream();
+  };
+
+  // Retake — restart the stream
+  const handleRetake = async () => {
+    setCapturedImage(null);
+    setCameraReady(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        setCameraReady(true);
+      }
+    } catch {}
+  };
+
+  // Use the captured photo — convert dataURL to File and upload
+  const handleUsePhoto = async () => {
+    if (!capturedImage) return;
+    setShowCameraModal(false);
+    setUploading(true);
+    setToast(null);
+    try {
+      const res = await fetch(capturedImage);
+      const blob = await res.blob();
+      const file = new File([blob], `avatar_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const publicUrl = await uploadAvatar(file, user.id);
+      if (publicUrl) {
+        const updatedUser = { ...user, avatar_url: publicUrl };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setToast({ message: 'Profile picture updated successfully!', type: 'success' });
+      }
+    } catch (err: any) {
+      setToast({ message: err.message || 'Failed to upload photo.', type: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Close camera modal cleanly
+  const handleCloseCameraModal = () => {
+    stopStream();
+    setCapturedImage(null);
+    setCameraReady(false);
+    setShowCameraModal(false);
+  };
+
   const handleAvatarClick = () => {
-    if (!uploading) fileInputRef.current?.click();
+    if (!uploading) setShowAvatarMenu(prev => !prev);
+  };
+
+  const handleUploadChoice = () => {
+    setShowAvatarMenu(false);
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,6 +211,96 @@ export default function ProfilePage() {
   const [purchasedBooks, setPurchasedBooks] = useState<any[]>([]);
   const [myManuscripts, setMyManuscripts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookmarkedItems, setBookmarkedItems] = useState<any[]>([]);
+  const [likedItems, setLikedItems] = useState<any[]>([]);
+  const [hasLibraryError, setHasLibraryError] = useState(false);
+  const [hasSavesError, setHasSavesError] = useState(false);
+  const [hasLikesError, setHasLikesError] = useState(false);
+  const [libraryPerspective, setLibraryPerspective] = useState<"reader" | "author">("reader");
+  const [libraryFilter, setLibraryFilter] = useState<"all" | "book" | "article" | "blog">("all");
+  const [bookmarkFilter, setBookmarkFilter] = useState<"all" | "book" | "article" | "blog">("all");
+  const [likeFilter, setLikeFilter] = useState<"all" | "book" | "article" | "blog">("all");
+  const [readedItems, setReadedItems] = useState<any[]>([]);
+  const [publishedItems, setPublishedItems] = useState<any[]>([]);
+  const [hasImpressionsError, setHasImpressionsError] = useState(false);
+
+  const getAuthorName = (book: any) => {
+    if (!book) return "Unknown";
+    if (typeof book.author === "string") return book.author;
+    if (book.author?.name) return book.author.name;
+    if (book.authors?.users?.name) return book.authors.users.name;
+    if (book.users?.name) return book.users.name;
+    if (book.author?.users?.name) return book.author.users.name;
+    return "Unknown";
+  };
+
+  const fetchItemsDetails = async (items: any[]) => {
+    if (!items || !items.length) return [];
+    
+    const bookIds = items.filter(i => i.content_type === "book").map(i => i.content_id);
+    const articleIds = items.filter(i => i.content_type === "article").map(i => i.content_id);
+    const blogIds = items.filter(i => i.content_type === "blog").map(i => i.content_id);
+    
+    const [booksRes, articlesRes, blogsRes] = await Promise.all([
+      bookIds.length 
+        ? supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").in("id", bookIds) 
+        : Promise.resolve({ data: [] }),
+      articleIds.length 
+        ? supabase.from("articles").select("*, authors:author_id(*, users:user_id(name))").in("id", articleIds) 
+        : Promise.resolve({ data: [] }),
+      blogIds.length 
+        ? supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").in("id", blogIds) 
+        : Promise.resolve({ data: [] })
+    ]);
+    
+    const booksMap = new Map((booksRes.data || []).map(b => [b.id, { ...b, type: "book" }]));
+    const articlesMap = new Map((articlesRes.data || []).map(a => [a.id, { ...a, type: "article" }]));
+    const blogsMap = new Map((blogsRes.data || []).map(b => [b.id, { ...b, type: "blog" }]));
+    
+    return items.map(item => {
+      let details = null;
+      if (item.content_type === "book") details = booksMap.get(item.content_id);
+      else if (item.content_type === "article") details = articlesMap.get(item.content_id);
+      else if (item.content_type === "blog") details = blogsMap.get(item.content_id);
+      
+      return details ? { ...item, details } : null;
+    }).filter(Boolean);
+  };
+
+  const handleUnsave = async (saveId: string) => {
+    try {
+      const { error } = await supabase
+        .from("saves")
+        .delete()
+        .eq("id", saveId);
+      if (!error) {
+        setBookmarkedItems(prev => prev.filter(item => item.id !== saveId));
+        setStats(prev => ({ ...prev, bookmarks: Math.max(0, prev.bookmarks - 1) }));
+        setToast({ message: "Bookmark removed successfully!", type: "success" });
+      } else {
+        setToast({ message: error.message, type: "error" });
+      }
+    } catch (err: any) {
+      setToast({ message: err.message, type: "error" });
+    }
+  };
+
+  const handleUnlike = async (likeId: string) => {
+    try {
+      const { error } = await supabase
+        .from("likes")
+        .delete()
+        .eq("id", likeId);
+      if (!error) {
+        setLikedItems(prev => prev.filter(item => item.id !== likeId));
+        setToast({ message: "Like removed successfully!", type: "success" });
+      } else {
+        setToast({ message: error.message, type: "error" });
+      }
+    } catch (err: any) {
+      setToast({ message: err.message, type: "error" });
+    }
+  };
 
   const fetchProfileData = async () => {
     const storedUser = localStorage.getItem("user");
@@ -111,35 +313,113 @@ export default function ProfilePage() {
     setUser(parsedUser);
 
     try {
-      // 1. Fetch Stats, Library and Manuscripts, and dynamic reputation view details
-      const [libRes, authorRes, manuscriptRes, repRes] = await Promise.all([
-        supabase.from("library").select("*, books(*)").eq("user_id", parsedUser.id),
+      // Fetch stats and library in parallel
+      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes] = await Promise.all([
+        supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
         supabase.from("authors").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("books").select("*").eq("author_id", parsedUser.id),
-        supabase.from("author_reputation").select("*").eq("user_id", parsedUser.id).maybeSingle()
+        supabase.from("saves").select("*").eq("user_id", parsedUser.id),
+        supabase.from("likes").select("*").eq("user_id", parsedUser.id),
+        supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false })
       ]);
 
-      if (libRes.data) setPurchasedBooks(libRes.data.map(l => l.books));
-      if (manuscriptRes.data) setMyManuscripts(manuscriptRes.data);
-      
-      if (repRes.data) {
-        setReputation(repRes.data);
-        setStats({
-          library: libRes.data?.length || 0,
-          bookmarks: 0,
-          earnings: authorRes.data?.total_earnings || 0,
-          followers: repRes.data.followers_count || 0,
-          following: repRes.data.following_count || 0
+      if (libRes.error) {
+        console.warn("Library table error:", libRes.error.message);
+        if (libRes.error.code === "PGRST205") setHasLibraryError(true);
+      } else if (libRes.data) {
+        setPurchasedBooks(libRes.data.map(l => l.books).filter(Boolean));
+      }
+
+      if (manuscriptRes.data) {
+        setMyManuscripts(manuscriptRes.data);
+      }
+
+      if (savesRes.error) {
+        console.warn("Saves table error:", savesRes.error.message);
+        if (savesRes.error.code === "PGRST205") setHasSavesError(true);
+      } else if (savesRes.data) {
+        const resolvedSaves = await fetchItemsDetails(savesRes.data);
+        setBookmarkedItems(resolvedSaves);
+      }
+
+      if (likesRes.error) {
+        console.warn("Likes table error:", likesRes.error.message);
+        if (likesRes.error.code === "PGRST205") setHasLikesError(true);
+      } else if (likesRes.data) {
+        const resolvedLikes = await fetchItemsDetails(likesRes.data);
+        setLikedItems(resolvedLikes);
+      }
+
+      // 1. Process Readed Items (from impressions + library)
+      if (impRes.error) {
+        console.warn("Impressions table error:", impRes.error.message);
+        if (impRes.error.code === "PGRST205") setHasImpressionsError(true);
+      }
+
+      let readedSaves: any[] = [];
+      if (impRes.data && impRes.data.length > 0) {
+        const seen = new Set();
+        const uniqueImpressions = impRes.data.filter((imp: any) => {
+          const key = `${imp.content_type}-${imp.content_id}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
         });
-      } else {
-        setStats({
-          library: libRes.data?.length || 0,
-          bookmarks: 0,
-          earnings: authorRes.data?.total_earnings || 0,
-          followers: authorRes.data?.followers_count || 0,
-          following: 0
+        readedSaves = uniqueImpressions;
+      }
+
+      // Merge purchased books that aren't already logged in impressions
+      if (libRes.data) {
+        libRes.data.forEach((lib: any) => {
+          if (lib.books) {
+            const exists = readedSaves.some(imp => imp.content_type === "book" && imp.content_id === lib.book_id);
+            if (!exists) {
+              readedSaves.push({
+                content_type: "book",
+                content_id: lib.book_id,
+                created_at: lib.last_read || new Date().toISOString()
+              });
+            }
+          }
         });
       }
+
+      const resolvedReaded = await fetchItemsDetails(readedSaves);
+      setReadedItems(resolvedReaded);
+
+      // 2. Process Published Items (for Authors/Admins)
+      if (parsedUser.role === "Author" || parsedUser.role === "Admin") {
+        const { data: authorProfile } = await supabase
+          .from("authors")
+          .select("id")
+          .eq("user_id", parsedUser.id)
+          .maybeSingle();
+
+        if (authorProfile) {
+          const [pubBooksRes, pubArticlesRes, pubBlogsRes] = await Promise.all([
+            supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", parsedUser.id),
+            supabase.from("articles").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id),
+            supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id)
+          ]);
+          
+          const books = (pubBooksRes.data || []).map((b: any) => ({ ...b, type: "book", content_type: "book", details: b }));
+          const articles = (pubArticlesRes.data || []).map((a: any) => ({ ...a, type: "article", content_type: "article", details: a }));
+          const blogs = (pubBlogsRes.data || []).map((b: any) => ({ ...b, type: "blog", content_type: "blog", details: b }));
+          
+          setPublishedItems([...books, ...articles, ...blogs]);
+        }
+      }
+
+      const libraryCount = libRes.data?.length || 0;
+      const bookmarksCount = savesRes.data?.length || 0;
+
+      setStats({
+        library: libraryCount,
+        bookmarks: bookmarksCount,
+        earnings: authorRes.data?.total_earnings || 0,
+        followers: authorRes.data?.followers_count || 0,
+        following: 0
+      });
 
     } catch (err) {
       console.error("Profile fetch error:", err);
@@ -198,20 +478,6 @@ export default function ProfilePage() {
       
       if (!error) {
         setSocialList(prev => prev.filter(item => item.id !== targetId));
-        // Refresh dynamic reputation data
-        const { data: repData } = await supabase
-          .from("author_reputation")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (repData) {
-          setReputation(repData);
-          setStats(prev => ({
-            ...prev,
-            followers: repData.followers_count,
-            following: repData.following_count
-          }));
-        }
       }
     } catch (err) {
       console.error(err);
@@ -223,16 +489,17 @@ export default function ProfilePage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="pt-8 pb-20">
-        <div className="unified-axis">
+      <div className="pt-4 md:pt-8 pb-12 md:pb-20">
+        <div className="unified-axis max-w-6xl">
           {/* Profile Header */}
-          <header className="flex flex-col md:flex-row items-center gap-12 mb-24 pb-24 border-b border-zinc-100">
-            <div className="relative group cursor-pointer" onClick={handleAvatarClick} title="Click to upload profile photo">
+          <header className="flex flex-col md:flex-row items-center gap-8 mb-8 pb-8 border-b border-zinc-100">
+            <div className="relative" style={{ userSelect: 'none' }}>
+              {/* Avatar circle */}
               <div className="w-40 h-40 bg-zinc-50 border border-zinc-100 rounded-full flex items-center justify-center text-5xl font-black text-zinc-200 overflow-hidden shadow-2xl relative">
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} className="w-full h-full object-cover" />
+                {user.user_metadata?.avatar_url || user.avatar_url ? (
+                  <img src={user.user_metadata?.avatar_url || user.avatar_url} className="w-full h-full object-cover" />
                 ) : (
-                  user.name.charAt(0)
+                  (user.user_metadata?.name || user.name || user.email || 'U').charAt(0).toUpperCase()
                 )}
                 {uploading && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
@@ -241,13 +508,70 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
+
+              {/* Camera toggle button */}
               <button 
                 type="button"
+                onClick={handleAvatarClick}
                 className="absolute bottom-2 right-2 p-3 bg-black text-white rounded-full shadow-xl hover:scale-110 transition-all z-10"
                 disabled={uploading}
+                title="Change profile photo"
               >
                 <Camera size={18} />
               </button>
+
+              {/* Options popup */}
+              <AnimatePresence>
+                {showAvatarMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.92, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.92, y: 8 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute bottom-0 left-full ml-4 z-20 bg-white border border-zinc-200 shadow-2xl rounded-sm overflow-hidden w-48"
+                  >
+                    {/* close strip */}
+                    <div className="flex justify-between items-center px-4 py-2.5 border-b border-zinc-100">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Change Photo</span>
+                      <button onClick={() => setShowAvatarMenu(false)} className="text-zinc-300 hover:text-black transition-colors cursor-pointer">
+                        <X size={12} />
+                      </button>
+                    </div>
+
+                    {/* Camera option */}
+                    <button
+                      type="button"
+                      onClick={handleCameraChoice}
+                      className="flex items-center gap-3 w-full px-4 py-3.5 text-left hover:bg-zinc-50 transition-colors group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Camera size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Camera</p>
+                        <p className="text-[8px] text-zinc-400 mt-0.5">Take a photo now</p>
+                      </div>
+                    </button>
+
+                    {/* Upload option */}
+                    <button
+                      type="button"
+                      onClick={handleUploadChoice}
+                      className="flex items-center gap-3 w-full px-4 py-3.5 text-left hover:bg-zinc-50 transition-colors group border-t border-zinc-100 cursor-pointer"
+                    >
+                      <div className="w-8 h-8 bg-zinc-100 text-zinc-700 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ImageIcon size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Upload</p>
+                        <p className="text-[8px] text-zinc-400 mt-0.5">Choose from device</p>
+                      </div>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Hidden file input for Upload */}
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -256,11 +580,13 @@ export default function ProfilePage() {
                 onChange={handleFileChange} 
                 disabled={uploading}
               />
+              {/* Hidden canvas used to capture a frame from the webcam stream */}
+              <canvas ref={canvasRef} className="hidden" />
             </div>
             
             <div className="flex-grow text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 select-none">
-                <h1 className="text-5xl font-heading font-black uppercase tracking-tighter">{user.name}</h1>
+                <h1 className="text-3xl md:text-5xl font-heading font-black uppercase tracking-tighter">{user.name}</h1>
                 
                 {reputation && (
                   <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-zinc-50 border border-zinc-100 rounded-full w-fit mx-auto md:mx-0">
@@ -301,9 +627,9 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                <Link href="/dashboard/settings" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2">
+                <button onClick={() => setActiveSection("Settings")} className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2 cursor-pointer">
                   <Settings size={14} /> Edit Profile
-                </Link>
+                </button>
                 <Link href="/write" className="px-8 py-3 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all flex items-center gap-2">
                   <Feather size={14} /> Publish Work
                 </Link>
@@ -336,6 +662,8 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Book size={18} />} label="My Library" active={activeSection === "Library"} onClick={() => setActiveSection("Library")} />
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
+                <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
+                <ProfileNavBtn icon={<Sparkles size={18} />} label="Preferences" active={activeSection === "Preferences"} onClick={() => setActiveSection("Preferences")} />
                 
                 {(user.role === "Author" || user.role === "Admin") && (
                   <>
@@ -360,28 +688,425 @@ export default function ProfilePage() {
                   transition={{ duration: 0.3 }}
                 >
                   {activeSection === "Library" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                      {purchasedBooks.map((book) => (
-                        <div key={book.id} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
-                          <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden">
-                            <img src={book.cover_url || "/placeholder-cover.jpg"} alt={book.title} className="w-full h-full object-cover" />
+                    hasLibraryError ? (
+                      <div className="py-20 text-center bg-zinc-50 border border-red-100 rounded-sm border-dashed">
+                        <p className="text-red-500 font-medium italic mb-4">Table 'library' (Reader Library) is missing from the database.</p>
+                        <p className="text-xs text-zinc-400 max-w-md mx-auto mb-6">Please run the SQL migration script <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-black font-mono">supabase_schema.sql</code> in your Supabase SQL Editor to enable your library.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Perspective Toggle (only for Author/Admin) */}
+                        {(user.role === "Author" || user.role === "Admin") && (
+                          <div className="flex gap-2 mb-8 border-b border-zinc-100 pb-4 select-none">
+                            <button
+                              onClick={() => setLibraryPerspective("reader")}
+                              className={`px-6 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                                libraryPerspective === "reader"
+                                  ? "bg-black text-white"
+                                  : "bg-zinc-50 text-zinc-400 hover:text-black border border-zinc-100 hover:border-black"
+                              }`}
+                            >
+                              Reader Library
+                            </button>
+                            <button
+                              onClick={() => setLibraryPerspective("author")}
+                              className={`px-6 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                                libraryPerspective === "author"
+                                  ? "bg-black text-white"
+                                  : "bg-zinc-50 text-zinc-400 hover:text-black border border-zinc-100 hover:border-black"
+                              }`}
+                            >
+                              Author Portfolio
+                            </button>
                           </div>
-                          <div className="flex-grow flex flex-col justify-between">
-                            <div>
-                              <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none">{book.title}</h3>
-                              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {book.users?.name || "Unknown"}</p>
-                            </div>
-                            <Link href={`/read/pdf?id=${book.id}&title=${encodeURIComponent(book.title)}`} className="block text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
-                              Read Now
-                            </Link>
-                          </div>
+                        )}
+
+                        {/* Filter Pills */}
+                        <div className="flex flex-wrap gap-2 mb-8 select-none">
+                          {[
+                            { value: "all", label: "All Content" },
+                            { value: "book", label: "Books" },
+                            { value: "article", label: "Articles" },
+                            { value: "blog", label: "Blogs" }
+                          ].map((f) => (
+                            <button
+                              key={f.value}
+                              onClick={() => setLibraryFilter(f.value as any)}
+                              className={`px-4 py-2 text-[8px] font-black uppercase tracking-widest transition-all border rounded-full cursor-pointer ${
+                                libraryFilter === f.value
+                                  ? "bg-black border-black text-white"
+                                  : "bg-white border-zinc-200 text-zinc-400 hover:text-black hover:border-black"
+                              }`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
                         </div>
-                      ))}
-                      <Link href="/marketplace" className="border-2 border-dashed border-zinc-200 rounded-sm flex flex-col items-center justify-center p-12 text-zinc-300 hover:border-black hover:text-black transition-all gap-4">
-                        <Book size={32} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Explore Marketplace</span>
-                      </Link>
-                    </div>
+
+                        {/* List Render */}
+                        {(() => {
+                          const itemsToShow = libraryPerspective === "reader" ? readedItems : publishedItems;
+                          const filtered = itemsToShow.filter(item => {
+                            if (libraryFilter === "all") return true;
+                            return item.content_type === libraryFilter;
+                          });
+
+                          if (filtered.length > 0) {
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {filtered.map((item) => {
+                                  const details = item.details;
+                                  if (!details) return null;
+                                  const isBook = item.content_type === "book" || details.cover_url !== undefined;
+                                  const isArticle = item.content_type === "article" || details.thumbnail_url !== undefined;
+                                  const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
+
+                                  let badge = "CONTENT";
+                                  let link = "";
+                                  let cover = details.cover_url || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+
+                                  if (isBook) {
+                                    badge = "BOOK";
+                                    link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
+                                  } else if (isArticle) {
+                                    badge = "ARTICLE";
+                                    link = `/articles/${details.id}`;
+                                  } else if (isBlog) {
+                                    badge = "BLOG";
+                                    link = `/blogs/${details.id}`;
+                                  }
+
+                                  return (
+                                    <div key={item.id || `${item.content_type}-${item.content_id}-${details.id}`} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
+                                      <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
+                                        <img src={cover} alt={details.title} className="w-full h-full object-cover" />
+                                        <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
+                                      </div>
+                                      <div className="flex-grow flex flex-col justify-between">
+                                        <div>
+                                          <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
+                                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                            Read Now
+                                          </Link>
+                                          {libraryPerspective === "author" && (
+                                            <button 
+                                              onClick={() => {
+                                                if (isBook) {
+                                                  const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
+                                                  if (reason) {
+                                                    fetch(`/api/books/${details.id}`, {
+                                                      method: "PATCH",
+                                                      headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
+                                                    }).then(res => {
+                                                      if (res.ok) alert("Deletion requested successfully. Pending 48hr approval.");
+                                                      else alert("Failed to request deletion.");
+                                                    });
+                                                  }
+                                                } else {
+                                                  if (confirm("Are you sure you want to delete this content?")) {
+                                                    fetch(`/api/articles/${details.id}`, {
+                                                      method: "DELETE"
+                                                    }).then(res => {
+                                                      if (res.ok) {
+                                                        alert("Content deleted successfully.");
+                                                        window.location.reload();
+                                                      }
+                                                      else alert("Failed to delete content.");
+                                                    });
+                                                  }
+                                                }
+                                              }}
+                                              className="px-3 py-2 border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-500 transition-all text-[9px] font-black uppercase tracking-widest"
+                                              title={isBook ? "Request Deletion" : "Delete"}
+                                            >
+                                              {isBook ? (details.deletion_status === "Pending_Approval" ? "Pending..." : "Req. Delete") : "Delete"}
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {libraryPerspective === "reader" && (
+                                  <Link href="/marketplace" className="border-2 border-dashed border-zinc-200 rounded-sm flex flex-col items-center justify-center p-12 text-zinc-300 hover:border-black hover:text-black transition-all gap-4 min-h-[160px]">
+                                    <Book size={32} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Explore Marketplace</span>
+                                  </Link>
+                                )}
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed flex flex-col items-center justify-center p-12">
+                                <p className="text-zinc-400 font-medium italic mb-6">
+                                  {libraryPerspective === "reader" 
+                                    ? `Your library has no ${libraryFilter === "all" ? "content" : libraryFilter + "s"} yet.` 
+                                    : `You haven't published any ${libraryFilter === "all" ? "works" : libraryFilter + "s"} yet.`}
+                                </p>
+                                {libraryPerspective === "reader" ? (
+                                  <div className="flex flex-wrap gap-4 justify-center">
+                                    {(libraryFilter === "all" || libraryFilter === "book") && (
+                                      <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Explore Marketplace</Link>
+                                    )}
+                                    {(libraryFilter === "all" || libraryFilter === "article") && (
+                                      <Link href="/articles" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Articles</Link>
+                                    )}
+                                    {(libraryFilter === "all" || libraryFilter === "blog") && (
+                                      <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <Link href="/write" className="px-10 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">
+                                    Publish Your First {libraryFilter === "all" ? "Work" : libraryFilter.toUpperCase()}
+                                  </Link>
+                                )}
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    )
+                  )}
+
+                  {activeSection === "Bookmarks" && (
+                    hasSavesError ? (
+                      <div className="py-20 text-center bg-zinc-50 border border-red-100 rounded-sm border-dashed">
+                        <p className="text-red-500 font-medium italic mb-4">Table 'saves' (Bookmarks) is missing from the database.</p>
+                        <p className="text-xs text-zinc-400 max-w-md mx-auto mb-6">Please run the SQL migration script <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-black font-mono">supabase_engagement_schema.sql</code> in your Supabase SQL Editor to enable bookmarks.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Filter Pills */}
+                        <div className="flex flex-wrap gap-2 mb-8 select-none">
+                          {[
+                            { value: "all", label: "All Content" },
+                            { value: "book", label: "Books" },
+                            { value: "article", label: "Articles" },
+                            { value: "blog", label: "Blogs" }
+                          ].map((f) => (
+                            <button
+                              key={f.value}
+                              onClick={() => setBookmarkFilter(f.value as any)}
+                              className={`px-4 py-2 text-[8px] font-black uppercase tracking-widest transition-all border rounded-full cursor-pointer ${
+                                bookmarkFilter === f.value
+                                  ? "bg-black border-black text-white"
+                                  : "bg-white border-zinc-200 text-zinc-400 hover:text-black hover:border-black"
+                              }`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* List Render */}
+                        {(() => {
+                          const filtered = bookmarkedItems.filter(item => {
+                            if (bookmarkFilter === "all") return true;
+                            return item.content_type === bookmarkFilter;
+                          });
+
+                          if (filtered.length > 0) {
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {filtered.map((item) => {
+                                  const details = item.details;
+                                  if (!details) return null;
+                                  const isBook = item.content_type === "book" || details.cover_url !== undefined;
+                                  const isArticle = item.content_type === "article" || details.thumbnail_url !== undefined;
+                                  const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
+
+                                  let badge = "CONTENT";
+                                  let link = "";
+                                  let cover = details.cover_url || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+
+                                  if (isBook) {
+                                    badge = "BOOK";
+                                    link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
+                                  } else if (isArticle) {
+                                    badge = "ARTICLE";
+                                    link = `/articles/${details.id}`;
+                                  } else if (isBlog) {
+                                    badge = "BLOG";
+                                    link = `/blogs/${details.id}`;
+                                  }
+
+                                  return (
+                                    <div key={item.id} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
+                                      <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
+                                        <img src={cover} alt={details.title} className="w-full h-full object-cover" />
+                                        <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
+                                      </div>
+                                      <div className="flex-grow flex flex-col justify-between">
+                                        <div>
+                                          <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
+                                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Link href={link} className="flex-grow block text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                            Read Now
+                                          </Link>
+                                          <button 
+                                            onClick={(e) => { e.preventDefault(); handleUnsave(item.id); }}
+                                            className="px-3 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-sm text-zinc-600 hover:text-black transition-all"
+                                            title="Remove bookmark"
+                                          >
+                                            <Bookmark size={14} className="fill-current text-zinc-600" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed flex flex-col items-center justify-center p-12">
+                                <p className="text-zinc-400 font-medium italic mb-8">
+                                  You haven't bookmarked any {bookmarkFilter === "all" ? "files" : bookmarkFilter + "s"} yet.
+                                </p>
+                                <div className="flex flex-wrap gap-4 justify-center">
+                                  {(bookmarkFilter === "all" || bookmarkFilter === "book") && (
+                                    <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Browse Books</Link>
+                                  )}
+                                  {(bookmarkFilter === "all" || bookmarkFilter === "article") && (
+                                    <Link href="/articles" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Articles</Link>
+                                  )}
+                                  {(bookmarkFilter === "all" || bookmarkFilter === "blog") && (
+                                    <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    )
+                  )}
+
+                  {activeSection === "Likes" && (
+                    hasLikesError ? (
+                      <div className="py-20 text-center bg-zinc-50 border border-red-100 rounded-sm border-dashed">
+                        <p className="text-red-500 font-medium italic mb-4">Table 'likes' (Likes) is missing from the database.</p>
+                        <p className="text-xs text-zinc-400 max-w-md mx-auto mb-6">Please run the SQL migration script <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-black font-mono">supabase_engagement_schema.sql</code> in your Supabase SQL Editor to enable liked content.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Filter Pills */}
+                        <div className="flex flex-wrap gap-2 mb-8 select-none">
+                          {[
+                            { value: "all", label: "All Content" },
+                            { value: "book", label: "Books" },
+                            { value: "article", label: "Articles" },
+                            { value: "blog", label: "Blogs" }
+                          ].map((f) => (
+                            <button
+                              key={f.value}
+                              onClick={() => setLikeFilter(f.value as any)}
+                              className={`px-4 py-2 text-[8px] font-black uppercase tracking-widest transition-all border rounded-full cursor-pointer ${
+                                likeFilter === f.value
+                                  ? "bg-black border-black text-white"
+                                  : "bg-white border-zinc-200 text-zinc-400 hover:text-black hover:border-black"
+                              }`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* List Render */}
+                        {(() => {
+                          const filtered = likedItems.filter(item => {
+                            if (likeFilter === "all") return true;
+                            return item.content_type === likeFilter;
+                          });
+
+                          if (filtered.length > 0) {
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {filtered.map((item) => {
+                                  const details = item.details;
+                                  if (!details) return null;
+                                  const isBook = item.content_type === "book" || details.cover_url !== undefined;
+                                  const isArticle = item.content_type === "article" || details.thumbnail_url !== undefined;
+                                  const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
+
+                                  let badge = "CONTENT";
+                                  let link = "";
+                                  let cover = details.cover_url || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+
+                                  if (isBook) {
+                                    badge = "BOOK";
+                                    link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
+                                  } else if (isArticle) {
+                                    badge = "ARTICLE";
+                                    link = `/articles/${details.id}`;
+                                  } else if (isBlog) {
+                                    badge = "BLOG";
+                                    link = `/blogs/${details.id}`;
+                                  }
+
+                                  return (
+                                    <div key={item.id} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
+                                      <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
+                                        <img src={cover} alt={details.title} className="w-full h-full object-cover" />
+                                        <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
+                                      </div>
+                                      <div className="flex-grow flex flex-col justify-between">
+                                        <div>
+                                          <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
+                                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Link href={link} className="flex-grow block text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                            Read Now
+                                          </Link>
+                                          <button 
+                                            onClick={(e) => { e.preventDefault(); handleUnlike(item.id); }}
+                                            className="px-3 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded-sm text-rose-500 hover:text-rose-600 transition-all"
+                                            title="Unlike"
+                                          >
+                                            <Heart size={14} className="fill-current text-rose-500" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed col-span-full flex flex-col items-center justify-center p-12">
+                                <p className="text-zinc-400 font-medium italic mb-8">
+                                  You haven't liked any {likeFilter === "all" ? "files" : likeFilter + "s"} yet.
+                                </p>
+                                <div className="flex flex-wrap gap-4 justify-center">
+                                  {(likeFilter === "all" || likeFilter === "book") && (
+                                    <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Browse Books</Link>
+                                  )}
+                                  {(likeFilter === "all" || likeFilter === "article") && (
+                                    <Link href="/articles" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Articles</Link>
+                                  )}
+                                  {(likeFilter === "all" || likeFilter === "blog") && (
+                                    <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    )
+                  )}
+
+                  {activeSection === "Preferences" && (
+                    <PreferencesSettings />
                   )}
 
                   {activeSection === "Manuscripts" && (
@@ -402,12 +1127,36 @@ export default function ProfilePage() {
                                   <div className="flex items-center gap-4 mt-2">
                                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${m.status === 'Published' ? 'bg-green-100 text-green-600' : 'bg-zinc-100 text-zinc-400'}`}>{m.status}</span>
                                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{m.sales_count} Sales • ₹{m.price}</p>
+                                     {m.deletion_status === "Pending_Approval" && (
+                                       <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">Pending Deletion</span>
+                                     )}
                                   </div>
                                </div>
                             </div>
-                            <Link href={`/book/${m.id}`} className="p-4 bg-white border border-zinc-100 rounded-sm hover:bg-black hover:text-white transition-all">
-                              <ChevronRight size={18} />
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
+                                  if (reason) {
+                                    fetch(`/api/books/${m.id}`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
+                                    }).then(res => {
+                                      if (res.ok) alert("Deletion requested successfully.");
+                                      else alert("Failed to request deletion.");
+                                    });
+                                  }
+                                }}
+                                className="px-3 py-4 bg-white border border-red-100 rounded-sm hover:bg-red-50 text-red-500 hover:text-red-600 transition-all text-[9px] font-black uppercase tracking-widest"
+                                title="Request Deletion"
+                              >
+                                {m.deletion_status === "Pending_Approval" ? "Pending" : "Delete"}
+                              </button>
+                              <Link href={`/book/${m.id}`} className="p-4 bg-white border border-zinc-100 rounded-sm hover:bg-black hover:text-white transition-all">
+                                <ChevronRight size={18} />
+                              </Link>
+                            </div>
                           </div>
                         )) : (
                           <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed">
@@ -421,10 +1170,22 @@ export default function ProfilePage() {
 
                   {activeSection === "Analytics" && (
                     <div className="space-y-12">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <AnalyticsCard title="Monthly Sales" value={myManuscripts.reduce((acc, m) => acc + (m.sales_count || 0), 0)} unit="Units" />
-                        <AnalyticsCard title="Gross Revenue" value={`₹${stats.earnings.toLocaleString()}`} unit="INR" />
-                        <AnalyticsCard title="Avg. Retention" value="78%" unit="Rate" />
+                      <div>
+                        <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Profile & Audience Reach</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                          <AnalyticsCard title="Blogs Reach" value="14.2K" unit="Views" />
+                          <AnalyticsCard title="Following Reach" value="8.5K" unit="Accounts" />
+                          <AnalyticsCard title="New Followers" value="+124" unit="This Month" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Sales Analytics</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                          <AnalyticsCard title="Monthly Sales" value={myManuscripts.reduce((acc, m) => acc + (m.sales_count || 0), 0)} unit="Units" />
+                          <AnalyticsCard title="Gross Revenue" value={`₹${stats.earnings.toLocaleString()}`} unit="INR" />
+                          <AnalyticsCard title="Avg. Retention" value="78%" unit="Rate" />
+                        </div>
                       </div>
 
                       <div className="bg-zinc-50 border border-zinc-100 p-12 rounded-sm text-center">
@@ -531,12 +1292,166 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
+                  {activeSection === "Settings" && (
+                    <div className="py-12 px-8 bg-zinc-50 border border-zinc-200 rounded-sm text-left">
+                      <h3 className="font-heading font-black text-2xl uppercase mb-8">Profile Settings</h3>
+                      
+                      <div className="space-y-6 max-w-xl">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block mb-2">Banking Information (For Payouts)</label>
+                          <input 
+                            type="text"
+                            value={bankDetails}
+                            onChange={(e) => setBankDetails(e.target.value)}
+                            placeholder="Account Number & IFSC/Routing"
+                            className="w-full bg-white border border-zinc-300 p-4 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all placeholder:text-zinc-400 text-zinc-950"
+                          />
+                          <p className="text-[10px] uppercase tracking-widest text-zinc-400 mt-2 font-medium">This information is used to process payouts for your published books.</p>
+                        </div>
+
+                        <button 
+                          onClick={async () => {
+                            setIsSavingSettings(true);
+                            try {
+                              const { error } = await supabase.from('users').update({ bank_details: bankDetails }).eq('id', user.id);
+                              if (error) throw error;
+                              const updated = { ...user, bank_details: bankDetails };
+                              setUser(updated);
+                              localStorage.setItem("user", JSON.stringify(updated));
+                              setToast({ message: "Settings saved successfully", type: "success" });
+                            } catch (err: any) {
+                              setToast({ message: err.message, type: "error" });
+                            } finally {
+                              setIsSavingSettings(false);
+                            }
+                          }}
+                          disabled={isSavingSettings}
+                          className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isSavingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Webcam Camera Modal ── */}
+      <AnimatePresence>
+        {showCameraModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) handleCloseCameraModal(); }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-sm shadow-2xl overflow-hidden w-full max-w-xl"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                    <Camera size={14} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-zinc-900">Take a Photo</p>
+                    <p className="text-[9px] text-zinc-400">Position yourself and click Capture</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseCameraModal}
+                  className="p-2 hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
+                >
+                  <X size={16} className="text-zinc-500" />
+                </button>
+              </div>
+
+              {/* Video / Preview Area */}
+              <div className="relative bg-zinc-950 aspect-video flex items-center justify-center overflow-hidden">
+                {/* Live video feed */}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${
+                    capturedImage ? 'hidden' : 'block'
+                  }`}
+                />
+
+                {/* Captured snapshot preview */}
+                {capturedImage && (
+                  <img
+                    src={capturedImage}
+                    alt="Captured"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+
+                {/* Loading state before camera is ready */}
+                {!cameraReady && !capturedImage && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3">
+                    <Loader2 className="animate-spin" size={28} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Starting camera...</span>
+                  </div>
+                )}
+
+                {/* Overlay frame guide */}
+                {cameraReady && !capturedImage && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-40 h-40 rounded-full border-2 border-white/30 border-dashed" />
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="px-6 py-5 flex items-center justify-between bg-zinc-50 border-t border-zinc-100">
+                {!capturedImage ? (
+                  <>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                      {cameraReady ? 'Ready — align your face in the circle' : 'Requesting camera access...'}
+                    </p>
+                    <button
+                      onClick={handleCapture}
+                      disabled={!cameraReady}
+                      className="flex items-center gap-2 px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
+                    >
+                      <Camera size={14} />
+                      Capture
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleRetake}
+                      className="flex items-center gap-2 px-5 py-3 border border-zinc-300 text-zinc-700 text-[10px] font-black uppercase tracking-widest hover:border-black transition-all cursor-pointer"
+                    >
+                      Retake
+                    </button>
+                    <button
+                      onClick={handleUsePhoto}
+                      className="flex items-center gap-2 px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all cursor-pointer"
+                    >
+                      <UploadCloud size={14} />
+                      Use This Photo
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Social Follows Modal Overlay */}
       {(showFollowersModal || showFollowingModal) && (
@@ -571,13 +1486,11 @@ export default function ProfilePage() {
                 socialList.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-2 border-b border-zinc-50 last:border-b-0 hover:bg-zinc-50/50 transition-all rounded-sm">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-zinc-50 border border-zinc-100 rounded-full overflow-hidden flex items-center justify-center text-[11px] font-black">
-                        {item.avatar_url ? (
-                          <img src={item.avatar_url} className="w-full h-full object-cover" />
-                        ) : (
-                          (item.name || "A").charAt(0)
-                        )}
-                      </div>
+                      <img 
+                        src={item.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100"} 
+                        alt={item.name} 
+                        className="w-10 h-10 rounded-full object-cover border border-zinc-100 shrink-0" 
+                      />
                       <div>
                         <span className="block text-xs font-black uppercase tracking-widest text-zinc-950">{item.name || "Anonymous"}</span>
                       </div>
@@ -673,6 +1586,156 @@ function BenefitItem({ title, desc }: { title: string; desc: string }) {
       <div>
         <h5 className="text-sm font-heading font-black uppercase tracking-tight mb-2">{title}</h5>
         <p className="text-xs text-zinc-400 font-medium leading-relaxed italic">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+export function PreferencesSettings() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [contentTypes, setContentTypes] = useState<string[]>([]);
+  const [goals, setGoals] = useState<string[]>([]);
+  const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
+
+  const INTERESTS_LIST = [
+    "Artificial Intelligence", "Technology", "Programming", "Data Science", 
+    "Business", "Entrepreneurship", "Self Help", "Psychology", 
+    "Finance", "Design", "History", "Science", 
+    "Health", "Fitness", "Romance", "Mystery", 
+    "Thriller", "Fantasy", "Horror", "Biography", 
+    "Philosophy", "Poetry", "Education", "Comics", 
+    "Travel", "Cooking"
+  ];
+
+  const CONTENT_TYPES_LIST = [
+    "Books", "Articles", "Blogs", "Short Reads", 
+    "Learning Series", "Stories", "Writing Tips", "Book Recommendations"
+  ];
+
+  const GOALS_LIST = [
+    "Read more books", "Learn new skills", "Improve my knowledge",
+    "Learn AI", "Discover new writers", "Publish my own books",
+    "Write blogs", "Become an author", "Build a reading habit",
+    "Get daily inspiration", "Support independent writers"
+  ];
+
+  useEffect(() => {
+    fetch("/api/user/preferences")
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setInterests(data.interests || []);
+          setContentTypes(data.contentTypes || []);
+          setGoals(data.goals || []);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interests, contentTypes, goals })
+      });
+      if (!res.ok) throw new Error("Failed to save preferences");
+      setMessage({ text: "Preferences updated successfully!", type: "success" });
+    } catch (err: any) {
+      setMessage({ text: err.message, type: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggle = (list: string[], setList: any, item: string) => {
+    setList(list.includes(item) ? list.filter(i => i !== item) : [...list, item]);
+  };
+
+  if (loading) return <div className="py-20 text-center"><Loader2 className="animate-spin text-zinc-300 mx-auto" size={32} /></div>;
+
+  return (
+    <div className="space-y-12">
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Reading Interests</h2>
+        <p className="text-sm text-zinc-500 mb-6">Update the topics you want to see more of in your feed.</p>
+        <div className="flex flex-wrap gap-2">
+          {INTERESTS_LIST.map(interest => {
+            const isSelected = interests.includes(interest);
+            return (
+              <button
+                key={interest}
+                onClick={() => toggle(interests, setInterests, interest)}
+                className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all border-2
+                  ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'}`}
+              >
+                {interest}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Preferred Content</h2>
+        <div className="flex flex-wrap gap-2">
+          {CONTENT_TYPES_LIST.map(type => {
+            const isSelected = contentTypes.includes(type);
+            return (
+              <button
+                key={type}
+                onClick={() => toggle(contentTypes, setContentTypes, type)}
+                className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all border-2
+                  ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'}`}
+              >
+                {type}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Your Goals</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {GOALS_LIST.map(goal => {
+            const isSelected = goals.includes(goal);
+            return (
+              <label key={goal} className="flex items-center gap-3 p-3 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50">
+                <input 
+                  type="checkbox" 
+                  checked={isSelected} 
+                  onChange={() => toggle(goals, setGoals, goal)} 
+                  className="w-4 h-4 accent-black" 
+                />
+                <span className="text-sm font-semibold text-zinc-700">{goal}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="pt-8 border-t border-zinc-200 flex items-center justify-between">
+        {message ? (
+          <p className={`text-sm font-bold ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {message.text}
+          </p>
+        ) : <div />}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-black text-white px-8 py-3 text-xs font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save Preferences"}
+        </button>
       </div>
     </div>
   );

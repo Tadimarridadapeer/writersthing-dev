@@ -1,27 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Mail, Lock } from "lucide-react";
+import { ArrowRight, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import { ensureAuthorProfile } from "@/lib/author";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [redirectUrl, setRedirectUrl] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    setRedirectUrl(searchParams.get("redirect") || "");
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Invalid email address");
+      setLoading(false);
+      return;
+    }
 
     try {
       // 1. Supabase Auth Login
@@ -59,7 +73,12 @@ export default function LoginPage() {
         await new Promise(r => setTimeout(r, 500));
 
         const searchParams = new URLSearchParams(window.location.search);
-        const redirectTo = searchParams.get("redirect") || "/profile";
+        let redirectTo = searchParams.get("redirect") || "/marketplace";
+        
+        if (!profile?.onboarding_completed) {
+          redirectTo = "/onboarding";
+        }
+        
         router.push(redirectTo);
       }
     } catch (err: any) {
@@ -84,7 +103,7 @@ export default function LoginPage() {
           </Link>
           
           <div className="max-w-xl">
-            <h1 className="text-5xl xl:text-7xl 2xl:text-8xl font-heading font-black tracking-ultra-tight uppercase leading-[0.85] mb-6 xl:mb-8">
+            <h1 className="text-4xl xl:text-5xl 2xl:text-6xl font-heading font-bold tracking-tight uppercase leading-[0.9] mb-4 xl:mb-6">
               Where Stories <br /> Find Their <br /> Legacy.
             </h1>
             <p className="text-sm xl:text-base 2xl:text-lg text-zinc-400 font-medium leading-relaxed italic border-l-2 border-zinc-800 pl-8">
@@ -94,18 +113,19 @@ export default function LoginPage() {
         </div>
 
 
-        <div className="relative z-10">
-           <div className="flex -space-x-4 mb-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="w-10 h-10 rounded-full border-4 border-black bg-zinc-800 overflow-hidden grayscale">
-                  <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" />
-                </div>
-              ))}
-              <div className="w-10 h-10 rounded-full border-4 border-black bg-zinc-900 flex items-center justify-center text-[8px] font-black">
-                +12K
-              </div>
+        <div className="relative z-10 space-y-4">
+           <div className="flex items-center gap-3">
+             <div className="w-1 h-1 bg-zinc-500 rounded-full" />
+             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Publish Globally</p>
            </div>
-           <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Joined by creators worldwide</p>
+           <div className="flex items-center gap-3">
+             <div className="w-1 h-1 bg-zinc-500 rounded-full" />
+             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Retain 100% Rights</p>
+           </div>
+           <div className="flex items-center gap-3">
+             <div className="w-1 h-1 bg-zinc-500 rounded-full" />
+             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Connect with Readers</p>
+           </div>
         </div>
 
         {/* Decorative background element */}
@@ -124,7 +144,7 @@ export default function LoginPage() {
             <div className="lg:hidden mb-6">
                <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Writersthing</h2>
             </div>
-            <h1 className="text-4xl xl:text-5xl font-heading font-black tracking-ultra-tight uppercase mb-3">Welcome Back</h1>
+            <h1 className="text-3xl xl:text-4xl font-heading font-bold tracking-tight uppercase mb-3">Welcome Back</h1>
             <p className="text-zinc-500 text-sm font-medium italic">Enter your email and password to access your account.</p>
           </header>
 
@@ -162,13 +182,20 @@ export default function LoginPage() {
               <div className="relative group">
                 <Lock className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-300 group-focus-within:text-black transition-colors" size={18} />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
-                  className="w-full bg-transparent border-b border-zinc-100 py-3 pl-8 pr-4 outline-none focus:border-black transition-all font-medium text-base placeholder:text-zinc-200"
+                  className="w-full bg-transparent border-b border-zinc-100 py-3 pl-8 pr-10 outline-none focus:border-black transition-all font-medium text-base placeholder:text-zinc-200"
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-black transition-colors p-2 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -187,7 +214,7 @@ export default function LoginPage() {
               New to Writersthing?
             </p>
             <Link 
-              href="/signup" 
+              href={redirectUrl ? `/signup?redirect=${encodeURIComponent(redirectUrl)}` : "/signup"} 
               className="w-full py-4 bg-zinc-50 hover:bg-black border border-zinc-100 hover:border-black text-black hover:text-white text-[10px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 group relative overflow-hidden rounded-sm shadow-sm"
             >
               <span>Create an Account</span>
