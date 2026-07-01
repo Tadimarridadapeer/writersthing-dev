@@ -23,8 +23,60 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
+import { getApiUrl } from "@/lib/config";
+import { ensureAuthorProfile } from "@/lib/author";
 
 type ContentType = "Book" | "Blog" | "Article" | "Magazine";
+
+// Reusable helper function to get current author and validate schema
+async function getCurrentAuthor() {
+  console.log("getCurrentAuthor - Initiating author validation flow");
+  
+  // 1. Get current auth user
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error("getCurrentAuthor - Auth Error:", authError);
+    throw new Error("Unable to retrieve authenticated user. Please log in again.");
+  }
+  
+  console.log("getCurrentAuthor - Auth User ID:", user.id);
+  console.log("getCurrentAuthor - Auth User Object:", user);
+
+  // 2. Fetch users table record
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+    
+  console.log("getCurrentAuthor - Users Query Result:", userData);
+  if (userError) {
+    console.error("getCurrentAuthor - Users Query RLS/DB Error:", userError);
+  }
+  
+  // 3. Ensure author table record using helper
+  let authorData;
+  try {
+    authorData = await ensureAuthorProfile(supabase, user.id);
+  } catch (authorError: any) {
+    console.error("getCurrentAuthor - Authors Query/Create Error:", authorError);
+    throw authorError;
+  }
+
+  console.log('Current User:', user);
+  console.log('User ID:', user?.id);
+  console.log('Authors Query Data:', authorData);
+
+  if (!userData) {
+    throw new Error(`Users record missing for auth ID ${user.id}. DB Error: ${userError?.message || "None"}`);
+  }
+
+  return {
+    user: user,
+    userRecord: userData,
+    authorRecord: authorData
+  };
+}
 
 function WritePageContent() {
   const [step, setStep] = useState<"selection" | "form" | "success">("selection");
@@ -41,7 +93,33 @@ function WritePageContent() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   
   const [errorMessage, setErrorMessage] = useState("");
+  const [showCreateAuthorBtn, setShowCreateAuthorBtn] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+
+  const handleCreateAuthor = async () => {
+    setIsSubmitting(true);
+    setErrorMessage("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Authentication required.");
+      
+      console.log("Attempting to automatically create authors record for user_id:", user.id);
+      const { data, error } = await supabase.from('authors').insert({ user_id: user.id }).select();
+      
+      if (error && error.code !== '23505') {
+        throw new Error(`DB Error creating author: ${error.message}`);
+      }
+      
+      console.log("Author record creation result:", data);
+      setErrorMessage("Author profile created successfully! You can now publish.");
+      setShowCreateAuthorBtn(false);
+    } catch (err: any) {
+      console.error("handleCreateAuthor error:", err);
+      setErrorMessage("Failed to create author profile: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const typeParam = searchParams.get("type");
@@ -90,12 +168,14 @@ function WritePageContent() {
         throw new Error("Authentication required. Please log in.");
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // Execute full lookup and validation
+      const authorProfile = await getCurrentAuthor();
+      const userId = authorProfile.user.id;
 
       let coverUrl = "";
       if (coverFile) {
         const coverExt = coverFile.name.split(".").pop();
-        const coverPath = `${user?.id}/${Date.now()}-cover.${coverExt}`;
+        const coverPath = `${userId}/${Date.now()}-cover.${coverExt}`;
         const { error: coverError } = await supabase.storage
           .from("covers")
           .upload(coverPath, coverFile);
@@ -110,7 +190,7 @@ function WritePageContent() {
 
       let pdfPath = "";
       if (pdfFile) {
-        pdfPath = `${user?.id}/${Date.now()}-manuscript.pdf`;
+        pdfPath = `${userId}/${Date.now()}-manuscript.pdf`;
         const { error: pdfError } = await supabase.storage
           .from("books")
           .upload(pdfPath, pdfFile);
@@ -120,26 +200,37 @@ function WritePageContent() {
 
       const finalCategory = category ? `Book - ${category}` : "Book";
 
-      const res = await fetch("http://localhost:5000/api/books", {
+      const payload = {
+        title: title,
+        description: description,
+        genre: finalCategory,
+        price: 99,
+        coverImage: coverUrl,
+        pdfUrl: pdfPath,
+        authorId: userId
+      };
+      
+      console.log("Manuscript Upload - Submitting payload to backend:", payload);
+
+      const res = await fetch(getApiUrl("/api/books"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({
-          title: title,
-          description: description,
-          genre: finalCategory,
-          price: 99,
-          coverImage: coverUrl,
-          pdfUrl: pdfPath,
-          authorId: user?.id
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || res.statusText);
+        console.error("Manuscript Upload - Backend responded with error:", errorData);
+        const errMsg = errorData.error || errorData.message || res.statusText;
+        
+        if (errMsg) {
+          throw new Error(`Database error: ${errMsg}`);
+        }
+        
+        throw new Error("An unexpected error occurred during manuscript upload.");
       }
 
       const { book } = await res.json();
@@ -149,6 +240,11 @@ function WritePageContent() {
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err.message);
+      if (err.message && err.message.includes("Authors record missing")) {
+        setShowCreateAuthorBtn(true);
+      } else {
+        setShowCreateAuthorBtn(false);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -168,12 +264,14 @@ function WritePageContent() {
       const token = session?.access_token;
 
       if (!token) throw new Error("Authentication required. Please log in.");
-      const { data: { user } } = await supabase.auth.getUser();
+      
+      const authorProfile = await getCurrentAuthor();
+      const userId = authorProfile.user.id;
 
       let thumbnailUrl = "";
       if (articleThumbnail) {
         const ext = articleThumbnail.name.split(".").pop();
-        const imgPath = `${user?.id}/${Date.now()}-article.${ext}`;
+        const imgPath = `${userId}/${Date.now()}-article.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("article-images")
           .upload(imgPath, articleThumbnail);
@@ -214,6 +312,11 @@ function WritePageContent() {
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err.message);
+      if (err.message && err.message.includes("Authors record missing")) {
+        setShowCreateAuthorBtn(true);
+      } else {
+        setShowCreateAuthorBtn(false);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -231,12 +334,14 @@ function WritePageContent() {
       const token = session?.access_token;
 
       if (!token) throw new Error("Authentication required. Please log in.");
-      const { data: { user } } = await supabase.auth.getUser();
+      
+      const authorProfile = await getCurrentAuthor();
+      const userId = authorProfile.user.id;
 
       let bannerUrl = "";
       if (blogBanner) {
         const ext = blogBanner.name.split(".").pop();
-        const imgPath = `${user?.id}/${Date.now()}-blog.${ext}`;
+        const imgPath = `${userId}/${Date.now()}-blog.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("blog-images")
           .upload(imgPath, blogBanner);
@@ -276,6 +381,11 @@ function WritePageContent() {
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err.message);
+      if (err.message && err.message.includes("Authors record missing")) {
+        setShowCreateAuthorBtn(true);
+      } else {
+        setShowCreateAuthorBtn(false);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -284,8 +394,7 @@ function WritePageContent() {
 
   return (
     <div className="min-h-screen bg-white pb-20">
-      <Navbar />
-      <div className="unified-axis max-w-4xl pt-32">
+      <div className="unified-axis max-w-4xl pt-10">
         <AnimatePresence mode="wait">
           {step === "selection" && (
             <motion.div
@@ -352,6 +461,8 @@ function WritePageContent() {
                   onPdfChange={(e: any) => setPdfFile(e.target.files?.[0] || null)}
                   isSubmitting={isSubmitting}
                   errorMessage={errorMessage}
+                  showCreateAuthorBtn={showCreateAuthorBtn}
+                  onCreateAuthor={handleCreateAuthor}
                 />
               )}
 
@@ -487,6 +598,138 @@ function InputField({ label, placeholder, value, onChange }: any) {
   );
 }
 
+function CategoryInputField({ label, placeholder, value, onChange }: any) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  const CATEGORY_SUGGESTIONS = [
+    "Technology",
+    "Fiction",
+    "Education",
+    "Mystery",
+    "Sci-Fi",
+    "Thriller",
+    "Biography",
+    "Poetry",
+    "Culture",
+    "Insight",
+    "Love",
+    "Comedy",
+    "History"
+  ];
+
+  const filtered = CATEGORY_SUGGESTIONS.filter(item => 
+    item.toLowerCase().includes(value.toLowerCase()) &&
+    value.trim() !== ""
+  );
+
+  return (
+    <div className="space-y-4 relative">
+      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{label}</label>
+      <div className="relative">
+        <input 
+          type="text"
+          required
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => {
+            setTimeout(() => setShowSuggestions(false), 200);
+          }}
+          className="w-full bg-white border border-zinc-100 p-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-black transition-all placeholder:text-zinc-200"
+        />
+        
+        {showSuggestions && filtered.length > 0 && (
+          <div className="absolute z-50 left-0 right-0 top-full bg-white border border-zinc-100 shadow-2xl p-2 mt-2 max-h-48 overflow-y-auto rounded-sm">
+            {filtered.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  onChange(item);
+                  setShowSuggestions(false);
+                }}
+                className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black hover:bg-zinc-50 transition-all rounded-sm cursor-pointer border-0 bg-transparent block"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ArticleCategoryInputField({ label, placeholder, value, onChange }: any) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  const CATEGORY_SUGGESTIONS = [
+    "Technology",
+    "Fiction",
+    "Education",
+    "Mystery",
+    "Sci-Fi",
+    "Thriller",
+    "Biography",
+    "Poetry",
+    "Culture",
+    "Insight",
+    "Love",
+    "Comedy",
+    "History"
+  ];
+
+  const filtered = CATEGORY_SUGGESTIONS.filter(item => 
+    item.toLowerCase().includes(value.toLowerCase()) &&
+    value.trim() !== ""
+  );
+
+  return (
+    <div className="flex flex-col gap-2 flex-grow min-w-[200px] relative">
+      <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{label}</label>
+      <div className="relative">
+        <input 
+          type="text"
+          required
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => {
+            setTimeout(() => setShowSuggestions(false), 200);
+          }}
+          className="bg-transparent text-sm font-bold uppercase tracking-widest outline-none border border-zinc-100 p-4 w-full focus:border-black transition-colors placeholder:text-zinc-200"
+        />
+        
+        {showSuggestions && filtered.length > 0 && (
+          <div className="absolute z-50 left-0 right-0 top-full bg-white border border-zinc-100 shadow-2xl p-2 mt-2 max-h-48 overflow-y-auto rounded-sm">
+            {filtered.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  onChange(item);
+                  setShowSuggestions(false);
+                }}
+                className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black hover:bg-zinc-50 transition-all rounded-sm cursor-pointer border-0 bg-transparent block"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TextAreaField({ label, placeholder, value, onChange }: any) {
   return (
     <div className="space-y-4">
@@ -591,7 +834,8 @@ function BookUploadUI({
   category, setCategory, 
   description, setDescription, 
   onCoverChange, onPdfChange, 
-  isSubmitting, errorMessage 
+  isSubmitting, errorMessage,
+  showCreateAuthorBtn, onCreateAuthor
 }: any) {
   return (
     <div className="space-y-12 bg-white p-8 md:p-12 border border-zinc-100 rounded-sm">
@@ -600,8 +844,19 @@ function BookUploadUI({
       </h2>
       
       {errorMessage && (
-        <div className="mb-8 p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500">
-          {errorMessage}
+        <div className="mb-8 p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500 flex flex-col items-start gap-4">
+          <p>{errorMessage}</p>
+          {showCreateAuthorBtn && (
+            <button 
+              type="button"
+              onClick={onCreateAuthor}
+              disabled={isSubmitting}
+              className="px-6 py-2 bg-red-600 text-white rounded-sm hover:bg-red-700 transition-colors flex items-center gap-2"
+            >
+              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Auto-Create Author Profile
+            </button>
+          )}
         </div>
       )}
 
@@ -609,7 +864,7 @@ function BookUploadUI({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           <div className="space-y-8">
             <InputField label="Book Title" placeholder="The title of your manuscript..." value={title} onChange={setTitle} />
-            <InputField label="Category" placeholder="e.g. Fiction, Education, Technology..." value={category} onChange={setCategory} />
+            <CategoryInputField label="Category" placeholder="e.g. Fiction, Education, Technology..." value={category} onChange={setCategory} />
             <TextAreaField label="Synopsis" placeholder="A brief summary of your work..." value={description} onChange={setDescription} />
           </div>
           
@@ -681,17 +936,12 @@ function ArticleEditorUI({
         </div>
 
         <div className="flex flex-wrap gap-8 items-center py-10 border-b border-zinc-100">
-          <div className="flex flex-col gap-2 flex-grow min-w-[200px]">
-            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Category</label>
-            <input 
-              type="text"
-              placeholder="e.g. Technology, Culture, Insight"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="bg-transparent text-sm font-bold uppercase tracking-widest outline-none border border-zinc-100 p-4 w-full focus:border-black transition-colors"
-              required
-            />
-          </div>
+          <ArticleCategoryInputField 
+            label="Category" 
+            placeholder="e.g. Technology, Culture, Insight" 
+            value={category} 
+            onChange={setCategory} 
+          />
 
           <div className="flex flex-col gap-2 flex-grow min-w-[200px]">
             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Tags (comma-separated)</label>

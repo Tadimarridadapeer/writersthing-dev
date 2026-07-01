@@ -7,7 +7,7 @@ router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('books')
-      .select('*, authors:author_id(name)')
+      .select('*, authors:author_id(*, users:user_id(name))')
       .eq('status', 'Published')
       .order('created_at', { ascending: false });
 
@@ -24,6 +24,9 @@ router.post('/', async (req, res) => {
     const { title, content, description, price, coverImage, language, genre, pdfUrl, authorId } = req.body;
     const token = req.headers.authorization?.split(' ')[1];
 
+    console.log("Express POST /api/books - Received request body:", req.body);
+    console.log("Express POST /api/books - Authenticated User ID (authorId):", authorId);
+
     let userSupabase = supabase;
     if (token) {
       const { createClient } = require('@supabase/supabase-js');
@@ -32,25 +35,33 @@ router.post('/', async (req, res) => {
       });
     }
 
+    const insertPayload = {
+      title,
+      description: description || (content ? content.substring(0, 160) : ''),
+      category: genre || 'Fiction',
+      cover_url: coverImage,
+      pdf_path: pdfUrl,
+      price: price || 99,
+      author_id: authorId,
+      status: 'Published'
+    };
+
+    console.log("Express POST /api/books - Executing Supabase insert:", insertPayload);
+
     const { data, error } = await userSupabase
       .from('books')
-      .insert([
-        {
-          title,
-          description: description || (content ? content.substring(0, 160) : ''),
-          category: genre || 'Fiction',
-          cover_url: coverImage,
-          pdf_path: pdfUrl,
-          price: price || 99,
-          author_id: authorId,
-          status: 'Published'
-        }
-      ])
+      .insert([insertPayload])
       .select();
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      console.error("Express POST /api/books - Supabase Insert Error:", error.message, error.details);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log("Express POST /api/books - Supabase Insert Success:", data[0]);
     res.status(201).json({ message: 'Book published', book: data[0] });
   } catch (err) {
+    console.error("Express POST /api/books - Unexpected Server Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

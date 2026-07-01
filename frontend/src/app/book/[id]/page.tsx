@@ -26,11 +26,29 @@ export default function BookDetailPage() {
   const [rating, setRating] = useState(5);
   const [user, setUser] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) setUser(JSON.parse(storedUser));
     fetchBookData();
+  }, [params.id]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`book-reviews-${params.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reviews", filter: `book_id=eq.${params.id}` },
+        () => {
+          fetchBookData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [params.id]);
 
   const fetchBookData = async () => {
@@ -46,7 +64,7 @@ export default function BookDetailPage() {
 
       const { data: reviewData } = await supabase
         .from("reviews")
-        .select("*, users:user_id(name)")
+        .select("*, users:user_id(name, avatar_url)")
         .eq("book_id", params.id)
         .order("created_at", { ascending: false });
       
@@ -57,7 +75,7 @@ export default function BookDetailPage() {
           .from("follows")
           .select("*")
           .eq("follower_id", user.id)
-          .eq("author_id", bookData.author_id)
+          .eq("following_id", bookData.author_id)
           .single();
         if (follow) setIsFollowing(true);
       }
@@ -73,7 +91,6 @@ export default function BookDetailPage() {
       router.push("/login?redirect=" + window.location.pathname);
       return;
     }
-    // Redirect to marketplace for now, or trigger checkout flow directly
     router.push("/marketplace");
   };
 
@@ -81,10 +98,10 @@ export default function BookDetailPage() {
     if (!user) return router.push("/login");
     try {
       if (isFollowing) {
-        await supabase.from("follows").delete().eq("follower_id", user.id).eq("author_id", book.author_id);
+        await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", book.author_id);
         setIsFollowing(false);
       } else {
-        await supabase.from("follows").insert({ follower_id: user.id, author_id: book.author_id });
+        await supabase.from("follows").insert({ follower_id: user.id, following_id: book.author_id });
         setIsFollowing(true);
       }
     } catch (err) {
@@ -95,19 +112,64 @@ export default function BookDetailPage() {
   const submitReview = async () => {
     if (!user) return;
     try {
-      const { error } = await supabase.from("reviews").insert({
-        book_id: book.id,
-        user_id: user.id,
-        rating,
-        comment: reviewText
-      });
-      if (!error) {
-        setReviewText("");
-        fetchBookData();
+      if (editingReviewId) {
+        const { error } = await supabase
+          .from("reviews")
+          .update({
+            rating,
+            comment: reviewText
+          })
+          .eq("id", editingReviewId);
+        
+        if (!error) {
+          setEditingReviewId(null);
+          setReviewText("");
+          setRating(5);
+          fetchBookData();
+        }
+      } else {
+        const { error } = await supabase.from("reviews").insert({
+          book_id: book.id,
+          user_id: user.id,
+          rating,
+          comment: reviewText
+        });
+        if (!error) {
+          setReviewText("");
+          setRating(5);
+          fetchBookData();
+        }
       }
     } catch (err) {
       console.error("Review error:", err);
     }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    try {
+      const { error } = await supabase
+        .from("reviews")
+        .delete()
+        .eq("id", reviewId);
+      
+      if (!error) {
+        fetchBookData();
+      }
+    } catch (err) {
+      console.error("Delete review error:", err);
+    }
+  };
+
+  const handleStartEdit = (review: any) => {
+    setEditingReviewId(review.id);
+    setRating(review.rating);
+    setReviewText(review.comment || "");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReviewId(null);
+    setRating(5);
+    setReviewText("");
   };
 
   if (loading) return <div className="min-h-screen bg-white flex items-center justify-center">Loading Manuscript...</div>;
@@ -115,13 +177,11 @@ export default function BookDetailPage() {
 
   return (
     <div className="bg-white min-h-screen flex flex-col overflow-hidden">
-      <Navbar />
-      
-      <main className="flex-grow flex items-center justify-center pt-24 px-8 relative">
+      <div className="flex-grow flex items-center justify-center pt-6 pb-20 px-8 relative">
         <div className="absolute top-0 right-0 w-1/3 h-full bg-zinc-50/50 -z-10 hidden lg:block" />
 
         <div className="unified-axis w-full max-w-6xl">
-          <Link href="/marketplace" className="absolute top-32 left-8 lg:left-24 inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all group">
+          <Link href="/marketplace" className="inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all group mb-12">
             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
             Back to Collection
           </Link>
@@ -230,7 +290,9 @@ export default function BookDetailPage() {
 
                   {user && (
                     <div className="mb-16 bg-zinc-50 p-8 rounded-sm">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4">Write a review</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4">
+                        {editingReviewId ? "Edit your review" : "Write a review"}
+                      </p>
                       <div className="flex gap-2 mb-4">
                         {[1, 2, 3, 4, 5].map((s) => (
                           <button key={s} onClick={() => setRating(s)}>
@@ -245,12 +307,22 @@ export default function BookDetailPage() {
                         className="w-full bg-white border border-zinc-100 p-4 rounded-sm outline-none focus:border-black transition-all italic text-sm mb-4"
                         rows={3}
                       />
-                      <button 
-                        onClick={submitReview}
-                        className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest"
-                      >
-                        Submit Review
-                      </button>
+                      <div className="flex items-center">
+                        <button 
+                          onClick={submitReview}
+                          className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                        >
+                          {editingReviewId ? "Update Review" : "Submit Review"}
+                        </button>
+                        {editingReviewId && (
+                          <button 
+                            onClick={handleCancelEdit}
+                            className="px-8 py-3 border border-zinc-200 text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:border-black hover:text-black transition-all ml-4"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                   
@@ -258,10 +330,10 @@ export default function BookDetailPage() {
                     {reviews.length > 0 ? reviews.map((review) => (
                       <ReviewItem 
                         key={review.id}
-                        user={review.users?.name || "Anonymous"} 
-                        rating={review.rating} 
-                        comment={review.comment} 
-                        date={new Date(review.created_at).toLocaleDateString()} 
+                        review={review}
+                        currentUser={user}
+                        onEdit={() => handleStartEdit(review)}
+                        onDelete={() => handleDeleteReview(review.id)}
                       />
                     )) : (
                       <p className="text-zinc-400 italic text-sm">No reviews yet. Be the first to share your thoughts.</p>
@@ -277,27 +349,59 @@ export default function BookDetailPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
 
-function ReviewItem({ user, rating, comment, date }: any) {
+function ReviewItem({ review, currentUser, onEdit, onDelete }: any) {
+  const reviewer = review.users || {};
+  const isOwner = currentUser && currentUser.id === review.user_id;
+
   return (
-    <div className="pb-10 border-b border-zinc-50">
+    <div className="pb-10 border-b border-zinc-50 group/item">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-zinc-50 rounded-full flex items-center justify-center text-[10px] font-black">{user[0]}</div>
-          <span className="text-[10px] font-black uppercase tracking-widest">{user}</span>
+          <div className="w-8 h-8 bg-zinc-50 border border-zinc-100 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-black">
+            {reviewer.avatar_url ? (
+              <img src={reviewer.avatar_url} className="w-full h-full object-cover" />
+            ) : (
+              (reviewer.name || "A").charAt(0)
+            )}
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest">{reviewer.name || "Anonymous"}</span>
         </div>
-        <div className="flex text-zinc-900">
-          {[1, 2, 3, 4, 5].map((s) => (
-            <Star key={s} size={10} fill={s <= rating ? "currentColor" : "none"} className={s <= rating ? "" : "text-zinc-200"} />
-          ))}
+        
+        <div className="flex items-center gap-4">
+          <div className="flex text-zinc-900">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star key={s} size={10} fill={s <= review.rating ? "currentColor" : "none"} className={s <= review.rating ? "" : "text-zinc-200"} />
+            ))}
+          </div>
+          
+          {isOwner && (
+            <div className="flex items-center gap-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
+              <button 
+                onClick={onEdit} 
+                className="text-[8px] font-black uppercase tracking-widest text-zinc-400 hover:text-black transition-colors cursor-pointer"
+              >
+                Edit
+              </button>
+              <span className="text-[8px] text-zinc-200">•</span>
+              <button 
+                onClick={onDelete} 
+                className="text-[8px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      <p className="text-sm font-medium text-zinc-500 leading-relaxed italic mb-4">"{comment}"</p>
-      <p className="text-[8px] font-bold text-zinc-300 uppercase tracking-widest">{date}</p>
+      <p className="text-sm font-medium text-zinc-500 leading-relaxed italic mb-4">"{review.comment}"</p>
+      <p className="text-[8px] font-bold text-zinc-300 uppercase tracking-widest">
+        {new Date(review.created_at).toLocaleDateString()}
+      </p>
     </div>
   );
 }

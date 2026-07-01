@@ -17,12 +17,25 @@ import { useState } from "react";
 export default function AdminContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   
-  const contents = [
+  const [contents, setContents] = useState([
     { id: "1", title: "The Art of Prompt", author: "Tadimarri Dadapeer", type: "Book", status: "Active", sales: 1450, reports: 0 },
     { id: "2", title: "Quantum Dreams", author: "Elena Vance", type: "Book", status: "Active", sales: 820, reports: 2 },
     { id: "3", title: "The Dark Net", author: "Marcus Thorne", type: "Book", status: "Flagged", sales: 12, reports: 15 },
     { id: "4", title: "Neo-Stoicism", author: "John Doe", type: "Article", status: "Active", sales: 0, reports: 0 },
-  ];
+  ]);
+
+  const handleToggleStatus = (id: string) => {
+    setContents(contents.map(item => 
+      item.id === id 
+        ? { ...item, status: item.status === 'Active' ? 'Flagged' : 'Active' }
+        : item
+    ));
+  };
+
+  const filteredContents = contents.filter(item => 
+    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.author.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="flex min-h-screen bg-[#FDFDFD]">
@@ -61,7 +74,7 @@ export default function AdminContentPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {contents.map((item) => (
+              {filteredContents.map((item) => (
                 <tr key={item.id} className="group hover:bg-zinc-50 transition-colors">
                   <td className="p-8">
                     <div className="flex items-center gap-6">
@@ -93,7 +106,11 @@ export default function AdminContentPage() {
                       <button className="p-2 hover:bg-white rounded-sm border border-transparent hover:border-zinc-100 transition-all text-zinc-400 hover:text-black">
                         <Eye size={16} />
                       </button>
-                      <button className="p-2 hover:bg-white rounded-sm border border-transparent hover:border-zinc-100 transition-all text-zinc-400 hover:text-red-500">
+                      <button 
+                        onClick={() => handleToggleStatus(item.id)}
+                        className="p-2 hover:bg-white rounded-sm border border-transparent hover:border-zinc-100 transition-all text-zinc-400 hover:text-red-500"
+                        title={item.status === 'Active' ? 'Flag Content' : 'Approve Content'}
+                      >
                         {item.status === 'Active' ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
                       </button>
                     </div>
