@@ -13,7 +13,9 @@ export async function POST(req: Request) {
       language, 
       genre, 
       pdfUrl, 
-      authorId 
+      authorId,
+      isbn,
+      bankDetails
     } = body;
 
     if (!title || !content) {
@@ -33,6 +35,9 @@ export async function POST(req: Request) {
           price: price || 99,
           author_id: authorId,
           status: "Published",
+          isbn: isbn || null,
+          bank_details: bankDetails || null,
+          deletion_status: "None"
         },
       ])
       .select();
@@ -52,7 +57,7 @@ export async function GET(req: Request) {
   try {
     const { data, error } = await supabase
       .from("books")
-      .select("*, authors:author_id(name)")
+      .select("*, authors:author_id(user_id, users:user_id(name))")
       .eq("status", "Published")
       .order("created_at", { ascending: false });
 

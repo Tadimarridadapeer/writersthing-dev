@@ -9,11 +9,7 @@ export const uploadAvatar = async (file: File, userId: string): Promise<string |
       throw new Error("Invalid file type. Only PNG, JPG, JPEG, and WEBP are allowed.");
     }
 
-    // 2. Max File Size Validation (2MB)
-    const maxSize = 2 * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new Error("File is too large. Max size allowed is 2MB.");
-    }
+    // Max File Size Validation has been removed per user request
 
     // 3. Define path: profiles/{user_id}/avatar.{ext}
     const filePath = `${userId}/avatar.${fileExt}`;

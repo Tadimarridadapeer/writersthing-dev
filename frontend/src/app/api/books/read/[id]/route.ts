@@ -4,10 +4,10 @@ import { cookies } from "next/headers";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const bookId = params.id;
+    const { id: bookId } = await params;
 
     // 1. Authenticate User
     const cookieStore = await cookies();

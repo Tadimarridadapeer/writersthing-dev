@@ -355,10 +355,10 @@ export default function BlogPost() {
 
           <header className="mb-20">
             <span className="inline-block px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mb-10">{blog.category}</span>
-            <h1 className="text-6xl font-heading font-black tracking-tighter uppercase mb-10 leading-[0.95]">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-black tracking-tighter uppercase mb-6 md:mb-10 leading-[0.95]">
               {blog.title}
             </h1>
-            <div className="flex items-center justify-between py-8 border-y border-zinc-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-8 border-y border-zinc-100">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-zinc-100 flex items-center justify-center rounded-full">
                   <User size={20} className="text-zinc-400" />

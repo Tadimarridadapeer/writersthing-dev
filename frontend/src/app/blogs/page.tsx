@@ -26,22 +26,24 @@ export default function BlogsPage() {
   };
 
   return (
-    <div className="bg-[#fcfcfc] min-h-screen">
-      <div className="pt-12 pb-20">
+    <div className="bg-white">
+      <div className="pt-6 md:pt-12 pb-12 md:pb-20">
         <div className="unified-axis">
           {/* Magazine Header */}
-          <header className="mb-32 flex flex-col md:flex-row justify-between items-end gap-12">
+          <header className="mb-8 flex flex-col md:flex-row justify-between items-end gap-12">
             <div className="max-w-2xl">
-              <div className="flex items-center gap-4 mb-10">
+              <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-px bg-black" />
                 <span className="text-[10px] font-black uppercase tracking-[0.5em]">The Journal</span>
               </div>
-              <h1 className="text-7xl lg:text-8xl font-heading font-black tracking-tight uppercase leading-[0.9] mb-12">
-                Author <br /> Stories
-              </h1>
-              <p className="text-xl font-medium leading-relaxed italic text-zinc-500 max-w-xl">
-                A curated selection of personal narratives and fictional explorations from our global community of writers.
-              </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-end">
+                <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-black tracking-tight uppercase leading-[0.9] mb-2">
+                  Personal <br /> Blogs
+                </h1>
+                <p className="text-xl font-medium leading-relaxed italic text-zinc-500 max-w-xl">
+                  A curated selection of personal narratives and fictional explorations from our global community of writers.
+                </p>
+              </div>
             </div>
             <div className="flex flex-col items-end text-right gap-6">
               <div>
@@ -63,14 +65,14 @@ export default function BlogsPage() {
               <Loader2 size={32} className="animate-spin text-zinc-200" />
             </div>
           ) : blogs.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-16">
               {blogs.map((blog, index) => (
                 <motion.div 
                   key={blog.id}
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.2 }}
-                  className={`${index === 0 ? "lg:col-span-7" : "lg:col-span-5"} group`}
+                  transition={{ delay: index * 0.1 }}
+                  className="group flex flex-col"
                 >
                   <Link href={`/blogs/${blog.id}`} className="block">
                     <div className="aspect-[16/10] overflow-hidden mb-10 bg-zinc-100">
@@ -88,11 +90,11 @@ export default function BlogsPage() {
                       </span>
                     </div>
 
-                    <h2 className="text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-6 leading-tight group-hover:text-zinc-600 transition-colors">
+                    <h2 className="text-2xl lg:text-3xl font-heading font-black tracking-tighter uppercase mb-4 leading-tight group-hover:text-zinc-600 transition-colors line-clamp-3">
                       {blog.title}
                     </h2>
 
-                    <p className="text-lg font-medium leading-relaxed text-zinc-500 mb-10 italic line-clamp-2">
+                    <p className="text-sm font-medium leading-relaxed text-zinc-500 mb-6 italic line-clamp-2">
                       "{blog.description}"
                     </p>
 
@@ -113,7 +115,7 @@ export default function BlogsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-20 border-y border-zinc-100">
+            <div className="text-center py-12 border-y border-zinc-100">
               <p className="text-zinc-400 italic text-xl">No stories shared yet. Start the first issue today.</p>
             </div>
           )}
@@ -124,9 +126,9 @@ export default function BlogsPage() {
             whileInView={{ opacity: 1 }}
             className="mt-48 border-t-8 border-black pt-20 flex flex-col lg:flex-row items-center justify-between gap-12"
           >
-            <div className="max-w-xl">
-              <h3 className="text-4xl font-heading font-black uppercase tracking-tight mb-6 italic">Your Voice, Recognized.</h3>
-              <p className="text-lg font-medium text-zinc-500 italic">
+            <div className="relative z-10 w-full lg:w-1/2">
+              <h3 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black uppercase tracking-tight mb-6 italic">Your Voice, Recognized.</h3>
+              <p className="text-lg text-zinc-500 font-serif leading-relaxed mb-10">
                 Sharing your story is the first step toward becoming a recognized author. Our community is waiting to hear your perspective.
               </p>
             </div>

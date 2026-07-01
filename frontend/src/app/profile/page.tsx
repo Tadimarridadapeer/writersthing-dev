@@ -40,6 +40,15 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
 
+  const [bankDetails, setBankDetails] = useState("");
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  useEffect(() => {
+    if (user && user.bank_details) {
+      setBankDetails(user.bank_details);
+    }
+  }, [user]);
+
   // Webcam modal state
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -305,11 +314,10 @@ export default function ProfilePage() {
 
     try {
       // Fetch stats and library in parallel
-      const [libRes, authorRes, manuscriptRes, repRes, savesRes, likesRes, impRes] = await Promise.all([
+      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes] = await Promise.all([
         supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
         supabase.from("authors").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("books").select("*").eq("author_id", parsedUser.id),
-        supabase.from("author_reputation").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("saves").select("*").eq("user_id", parsedUser.id),
         supabase.from("likes").select("*").eq("user_id", parsedUser.id),
         supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false })
@@ -404,25 +412,14 @@ export default function ProfilePage() {
 
       const libraryCount = libRes.data?.length || 0;
       const bookmarksCount = savesRes.data?.length || 0;
-      
-      if (repRes.data) {
-        setReputation(repRes.data);
-        setStats({
-          library: libraryCount,
-          bookmarks: bookmarksCount,
-          earnings: authorRes.data?.total_earnings || 0,
-          followers: repRes.data.followers_count || 0,
-          following: repRes.data.following_count || 0
-        });
-      } else {
-        setStats({
-          library: libraryCount,
-          bookmarks: bookmarksCount,
-          earnings: authorRes.data?.total_earnings || 0,
-          followers: authorRes.data?.followers_count || 0,
-          following: 0
-        });
-      }
+
+      setStats({
+        library: libraryCount,
+        bookmarks: bookmarksCount,
+        earnings: authorRes.data?.total_earnings || 0,
+        followers: authorRes.data?.followers_count || 0,
+        following: 0
+      });
 
     } catch (err) {
       console.error("Profile fetch error:", err);
@@ -481,20 +478,6 @@ export default function ProfilePage() {
       
       if (!error) {
         setSocialList(prev => prev.filter(item => item.id !== targetId));
-        // Refresh dynamic reputation data
-        const { data: repData } = await supabase
-          .from("author_reputation")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (repData) {
-          setReputation(repData);
-          setStats(prev => ({
-            ...prev,
-            followers: repData.followers_count,
-            following: repData.following_count
-          }));
-        }
       }
     } catch (err) {
       console.error(err);
@@ -506,17 +489,17 @@ export default function ProfilePage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="pt-8 pb-20">
-        <div className="unified-axis">
+      <div className="pt-4 md:pt-8 pb-12 md:pb-20">
+        <div className="unified-axis max-w-6xl">
           {/* Profile Header */}
-          <header className="flex flex-col md:flex-row items-center gap-12 mb-24 pb-24 border-b border-zinc-100">
+          <header className="flex flex-col md:flex-row items-center gap-8 mb-8 pb-8 border-b border-zinc-100">
             <div className="relative" style={{ userSelect: 'none' }}>
               {/* Avatar circle */}
               <div className="w-40 h-40 bg-zinc-50 border border-zinc-100 rounded-full flex items-center justify-center text-5xl font-black text-zinc-200 overflow-hidden shadow-2xl relative">
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} className="w-full h-full object-cover" />
+                {user.user_metadata?.avatar_url || user.avatar_url ? (
+                  <img src={user.user_metadata?.avatar_url || user.avatar_url} className="w-full h-full object-cover" />
                 ) : (
-                  user.name.charAt(0)
+                  (user.user_metadata?.name || user.name || user.email || 'U').charAt(0).toUpperCase()
                 )}
                 {uploading && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
@@ -603,7 +586,7 @@ export default function ProfilePage() {
             
             <div className="flex-grow text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 select-none">
-                <h1 className="text-5xl font-heading font-black uppercase tracking-tighter">{user.name}</h1>
+                <h1 className="text-3xl md:text-5xl font-heading font-black uppercase tracking-tighter">{user.name}</h1>
                 
                 {reputation && (
                   <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-zinc-50 border border-zinc-100 rounded-full w-fit mx-auto md:mx-0">
@@ -644,9 +627,9 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                <Link href="/dashboard/settings" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2">
+                <button onClick={() => setActiveSection("Settings")} className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2 cursor-pointer">
                   <Settings size={14} /> Edit Profile
-                </Link>
+                </button>
                 <Link href="/write" className="px-8 py-3 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all flex items-center gap-2">
                   <Feather size={14} /> Publish Work
                 </Link>
@@ -679,6 +662,8 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Book size={18} />} label="My Library" active={activeSection === "Library"} onClick={() => setActiveSection("Library")} />
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
+                <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
+                <ProfileNavBtn icon={<Sparkles size={18} />} label="Preferences" active={activeSection === "Preferences"} onClick={() => setActiveSection("Preferences")} />
                 
                 {(user.role === "Author" || user.role === "Admin") && (
                   <>
@@ -802,9 +787,46 @@ export default function ProfilePage() {
                                           <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
                                           <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
                                         </div>
-                                        <Link href={link} className="block text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
-                                          Read Now
-                                        </Link>
+                                        <div className="flex gap-2">
+                                          <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                            Read Now
+                                          </Link>
+                                          {libraryPerspective === "author" && (
+                                            <button 
+                                              onClick={() => {
+                                                if (isBook) {
+                                                  const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
+                                                  if (reason) {
+                                                    fetch(`/api/books/${details.id}`, {
+                                                      method: "PATCH",
+                                                      headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
+                                                    }).then(res => {
+                                                      if (res.ok) alert("Deletion requested successfully. Pending 48hr approval.");
+                                                      else alert("Failed to request deletion.");
+                                                    });
+                                                  }
+                                                } else {
+                                                  if (confirm("Are you sure you want to delete this content?")) {
+                                                    fetch(`/api/articles/${details.id}`, {
+                                                      method: "DELETE"
+                                                    }).then(res => {
+                                                      if (res.ok) {
+                                                        alert("Content deleted successfully.");
+                                                        window.location.reload();
+                                                      }
+                                                      else alert("Failed to delete content.");
+                                                    });
+                                                  }
+                                                }
+                                              }}
+                                              className="px-3 py-2 border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-500 transition-all text-[9px] font-black uppercase tracking-widest"
+                                              title={isBook ? "Request Deletion" : "Delete"}
+                                            >
+                                              {isBook ? (details.deletion_status === "Pending_Approval" ? "Pending..." : "Req. Delete") : "Delete"}
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   );
@@ -1083,6 +1105,10 @@ export default function ProfilePage() {
                     )
                   )}
 
+                  {activeSection === "Preferences" && (
+                    <PreferencesSettings />
+                  )}
+
                   {activeSection === "Manuscripts" && (
                     <div className="space-y-6">
                       <div className="flex justify-between items-center mb-8">
@@ -1101,12 +1127,36 @@ export default function ProfilePage() {
                                   <div className="flex items-center gap-4 mt-2">
                                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${m.status === 'Published' ? 'bg-green-100 text-green-600' : 'bg-zinc-100 text-zinc-400'}`}>{m.status}</span>
                                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{m.sales_count} Sales • ₹{m.price}</p>
+                                     {m.deletion_status === "Pending_Approval" && (
+                                       <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">Pending Deletion</span>
+                                     )}
                                   </div>
                                </div>
                             </div>
-                            <Link href={`/book/${m.id}`} className="p-4 bg-white border border-zinc-100 rounded-sm hover:bg-black hover:text-white transition-all">
-                              <ChevronRight size={18} />
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
+                                  if (reason) {
+                                    fetch(`/api/books/${m.id}`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
+                                    }).then(res => {
+                                      if (res.ok) alert("Deletion requested successfully.");
+                                      else alert("Failed to request deletion.");
+                                    });
+                                  }
+                                }}
+                                className="px-3 py-4 bg-white border border-red-100 rounded-sm hover:bg-red-50 text-red-500 hover:text-red-600 transition-all text-[9px] font-black uppercase tracking-widest"
+                                title="Request Deletion"
+                              >
+                                {m.deletion_status === "Pending_Approval" ? "Pending" : "Delete"}
+                              </button>
+                              <Link href={`/book/${m.id}`} className="p-4 bg-white border border-zinc-100 rounded-sm hover:bg-black hover:text-white transition-all">
+                                <ChevronRight size={18} />
+                              </Link>
+                            </div>
                           </div>
                         )) : (
                           <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed">
@@ -1120,10 +1170,22 @@ export default function ProfilePage() {
 
                   {activeSection === "Analytics" && (
                     <div className="space-y-12">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <AnalyticsCard title="Monthly Sales" value={myManuscripts.reduce((acc, m) => acc + (m.sales_count || 0), 0)} unit="Units" />
-                        <AnalyticsCard title="Gross Revenue" value={`₹${stats.earnings.toLocaleString()}`} unit="INR" />
-                        <AnalyticsCard title="Avg. Retention" value="78%" unit="Rate" />
+                      <div>
+                        <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Profile & Audience Reach</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                          <AnalyticsCard title="Blogs Reach" value="14.2K" unit="Views" />
+                          <AnalyticsCard title="Following Reach" value="8.5K" unit="Accounts" />
+                          <AnalyticsCard title="New Followers" value="+124" unit="This Month" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Sales Analytics</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                          <AnalyticsCard title="Monthly Sales" value={myManuscripts.reduce((acc, m) => acc + (m.sales_count || 0), 0)} unit="Units" />
+                          <AnalyticsCard title="Gross Revenue" value={`₹${stats.earnings.toLocaleString()}`} unit="INR" />
+                          <AnalyticsCard title="Avg. Retention" value="78%" unit="Rate" />
+                        </div>
                       </div>
 
                       <div className="bg-zinc-50 border border-zinc-100 p-12 rounded-sm text-center">
@@ -1227,6 +1289,47 @@ export default function ProfilePage() {
                           <BenefitItem title="Algorithmic Marketplace Boost" desc="Get featured priority visibility in the home page archives and active search filters." />
                           <BenefitItem title="Advanced Creator Analytics" desc="Access deep audience metrics, demographic distribution, and retention maps." />
                         </div>
+                      </div>
+                    </div>
+                  )}
+                  {activeSection === "Settings" && (
+                    <div className="py-12 px-8 bg-zinc-50 border border-zinc-200 rounded-sm text-left">
+                      <h3 className="font-heading font-black text-2xl uppercase mb-8">Profile Settings</h3>
+                      
+                      <div className="space-y-6 max-w-xl">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block mb-2">Banking Information (For Payouts)</label>
+                          <input 
+                            type="text"
+                            value={bankDetails}
+                            onChange={(e) => setBankDetails(e.target.value)}
+                            placeholder="Account Number & IFSC/Routing"
+                            className="w-full bg-white border border-zinc-300 p-4 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all placeholder:text-zinc-400 text-zinc-950"
+                          />
+                          <p className="text-[10px] uppercase tracking-widest text-zinc-400 mt-2 font-medium">This information is used to process payouts for your published books.</p>
+                        </div>
+
+                        <button 
+                          onClick={async () => {
+                            setIsSavingSettings(true);
+                            try {
+                              const { error } = await supabase.from('users').update({ bank_details: bankDetails }).eq('id', user.id);
+                              if (error) throw error;
+                              const updated = { ...user, bank_details: bankDetails };
+                              setUser(updated);
+                              localStorage.setItem("user", JSON.stringify(updated));
+                              setToast({ message: "Settings saved successfully", type: "success" });
+                            } catch (err: any) {
+                              setToast({ message: err.message, type: "error" });
+                            } finally {
+                              setIsSavingSettings(false);
+                            }
+                          }}
+                          disabled={isSavingSettings}
+                          className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isSavingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1483,6 +1586,156 @@ function BenefitItem({ title, desc }: { title: string; desc: string }) {
       <div>
         <h5 className="text-sm font-heading font-black uppercase tracking-tight mb-2">{title}</h5>
         <p className="text-xs text-zinc-400 font-medium leading-relaxed italic">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+export function PreferencesSettings() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [contentTypes, setContentTypes] = useState<string[]>([]);
+  const [goals, setGoals] = useState<string[]>([]);
+  const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
+
+  const INTERESTS_LIST = [
+    "Artificial Intelligence", "Technology", "Programming", "Data Science", 
+    "Business", "Entrepreneurship", "Self Help", "Psychology", 
+    "Finance", "Design", "History", "Science", 
+    "Health", "Fitness", "Romance", "Mystery", 
+    "Thriller", "Fantasy", "Horror", "Biography", 
+    "Philosophy", "Poetry", "Education", "Comics", 
+    "Travel", "Cooking"
+  ];
+
+  const CONTENT_TYPES_LIST = [
+    "Books", "Articles", "Blogs", "Short Reads", 
+    "Learning Series", "Stories", "Writing Tips", "Book Recommendations"
+  ];
+
+  const GOALS_LIST = [
+    "Read more books", "Learn new skills", "Improve my knowledge",
+    "Learn AI", "Discover new writers", "Publish my own books",
+    "Write blogs", "Become an author", "Build a reading habit",
+    "Get daily inspiration", "Support independent writers"
+  ];
+
+  useEffect(() => {
+    fetch("/api/user/preferences")
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setInterests(data.interests || []);
+          setContentTypes(data.contentTypes || []);
+          setGoals(data.goals || []);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interests, contentTypes, goals })
+      });
+      if (!res.ok) throw new Error("Failed to save preferences");
+      setMessage({ text: "Preferences updated successfully!", type: "success" });
+    } catch (err: any) {
+      setMessage({ text: err.message, type: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggle = (list: string[], setList: any, item: string) => {
+    setList(list.includes(item) ? list.filter(i => i !== item) : [...list, item]);
+  };
+
+  if (loading) return <div className="py-20 text-center"><Loader2 className="animate-spin text-zinc-300 mx-auto" size={32} /></div>;
+
+  return (
+    <div className="space-y-12">
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Reading Interests</h2>
+        <p className="text-sm text-zinc-500 mb-6">Update the topics you want to see more of in your feed.</p>
+        <div className="flex flex-wrap gap-2">
+          {INTERESTS_LIST.map(interest => {
+            const isSelected = interests.includes(interest);
+            return (
+              <button
+                key={interest}
+                onClick={() => toggle(interests, setInterests, interest)}
+                className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all border-2
+                  ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'}`}
+              >
+                {interest}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Preferred Content</h2>
+        <div className="flex flex-wrap gap-2">
+          {CONTENT_TYPES_LIST.map(type => {
+            const isSelected = contentTypes.includes(type);
+            return (
+              <button
+                key={type}
+                onClick={() => toggle(contentTypes, setContentTypes, type)}
+                className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all border-2
+                  ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'}`}
+              >
+                {type}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Your Goals</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {GOALS_LIST.map(goal => {
+            const isSelected = goals.includes(goal);
+            return (
+              <label key={goal} className="flex items-center gap-3 p-3 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50">
+                <input 
+                  type="checkbox" 
+                  checked={isSelected} 
+                  onChange={() => toggle(goals, setGoals, goal)} 
+                  className="w-4 h-4 accent-black" 
+                />
+                <span className="text-sm font-semibold text-zinc-700">{goal}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="pt-8 border-t border-zinc-200 flex items-center justify-between">
+        {message ? (
+          <p className={`text-sm font-bold ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {message.text}
+          </p>
+        ) : <div />}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-black text-white px-8 py-3 text-xs font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save Preferences"}
+        </button>
       </div>
     </div>
   );

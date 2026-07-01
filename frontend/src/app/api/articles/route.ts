@@ -4,8 +4,6 @@ import { cookies } from "next/headers";
 import { ensureAuthorProfile } from "@/lib/author";
 import ServerCache from "@/lib/cache";
 
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
-
 function getSupabase() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,13 +27,6 @@ export async function GET(req: Request) {
     const now = Date.now();
 
     if (type === "Article") {
-      const cached = ServerCache.getArticles();
-      if (cached) {
-        console.log("[SERVERLESS ARTICLES CACHE] HIT");
-        return NextResponse.json(cached);
-      }
-
-      console.log("[SERVERLESS ARTICLES CACHE] MISS (Fetching from DB)");
       const { data, error } = await supabase
         .from("articles")
         .select("*, authors:author_id(user_id, users:user_id(name))")
@@ -61,18 +52,9 @@ export async function GET(req: Request) {
         }
       }));
 
-      ServerCache.setArticles(mappedData, CACHE_DURATION);
-
       return NextResponse.json(mappedData);
     } else {
       // Blog
-      const cached = ServerCache.getBlogs();
-      if (cached) {
-        console.log("[SERVERLESS BLOGS CACHE] HIT");
-        return NextResponse.json(cached);
-      }
-
-      console.log("[SERVERLESS BLOGS CACHE] MISS (Fetching from DB)");
       const { data, error } = await supabase
         .from("blogs")
         .select("*, authors:author_id(user_id, users:user_id(name))")
@@ -96,9 +78,6 @@ export async function GET(req: Request) {
           name: item.authors?.users?.name || "Unknown Author"
         }
       }));
-
-      ServerCache.setBlogs(mappedData, CACHE_DURATION);
-
       return NextResponse.json(mappedData);
     }
   } catch (error: any) {

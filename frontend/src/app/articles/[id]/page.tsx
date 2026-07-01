@@ -357,10 +357,10 @@ export default function ArticlePost() {
               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Article / {article.category}</span>
               <div className="h-px w-8 bg-zinc-200" />
             </div>
-            <h1 className="text-5xl lg:text-7xl font-heading font-black tracking-tighter uppercase mb-12 leading-[0.95]">
+            <h1 className="text-4xl md:text-5xl lg:text-7xl font-heading font-black tracking-tighter uppercase mb-6 md:mb-12 leading-[0.95]">
               {article.title}
             </h1>
-            <div className="flex items-center justify-between py-10 border-y border-zinc-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-10 border-y border-zinc-100">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-black flex items-center justify-center rounded-full">
                   <User size={20} className="text-white" />

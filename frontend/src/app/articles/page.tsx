@@ -26,17 +26,17 @@ export default function ArticlesPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="pt-12 pb-20">
+    <div className="bg-white">
+      <div className="pt-6 md:pt-12 pb-12 md:pb-20">
         <div className="unified-axis">
           {/* Professional Header */}
-          <header className="mb-32">
+          <header className="mb-8">
             <div className="flex items-center gap-6 mb-12">
               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-300">The Repository</span>
               <div className="h-px flex-grow bg-zinc-100" />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-end">
-              <h1 className="text-7xl lg:text-9xl font-heading font-black tracking-ultra-tight uppercase leading-[0.85]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-end">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-black tracking-ultra-tight uppercase leading-[0.85]">
                 Expert <br /> Insights
               </h1>
               <div className="max-w-md">
@@ -91,7 +91,7 @@ export default function ArticlesPage() {
                         </span>
                       </div>
 
-                      <h2 className="text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-6 group-hover:translate-x-4 transition-transform duration-500">
+                      <h2 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-6 group-hover:translate-x-4 transition-transform duration-500">
                         {article.title}
                       </h2>
 
@@ -110,7 +110,7 @@ export default function ArticlesPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-20 border-y border-zinc-100">
+            <div className="text-center py-12 border-y border-zinc-100">
               <p className="text-zinc-400 italic text-xl">No articles published yet. Be the first to share your insights.</p>
             </div>
           )}
@@ -122,7 +122,7 @@ export default function ArticlesPage() {
             </div>
             
             <div className="relative z-10 max-w-2xl">
-              <h3 className="text-5xl font-heading font-black uppercase tracking-tight mb-8">Share Your Expertise</h3>
+              <h3 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black uppercase tracking-tight mb-8">Share Your Expertise</h3>
               <p className="text-xl font-medium italic text-zinc-400 mb-12">
                 Join our editorial community. Professional insights help build the foundation for a more transparent publishing industry.
               </p>

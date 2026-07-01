@@ -2,355 +2,346 @@
 
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
-import { motion } from "framer-motion";
-import { Search, Filter, BookOpen, Clock, Star, Loader2, ArrowRight, X, Globe, ChevronDown, Feather } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Bookmark, MoreHorizontal } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
-
-import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/config";
+import { useAuth } from "@/context/AuthContext";
 
 function MarketplaceContent() {
+  const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get("category") || "All Genres";
-  const [activeCategory, setActiveCategory] = useState(initialCategory);
-  const [activeLanguage, setActiveLanguage] = useState("English");
-  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
-  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const typeParam = searchParams?.get("type");
+  const initialFeedType = typeParam === "Book" ? "books" : 
+                          typeParam === "Article" ? "articles" : 
+                          typeParam === "Blog" ? "blogs" : "all";
+                          
   const [books, setBooks] = useState<any[]>([]);
+  const [articles, setArticles] = useState<any[]>([]);
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [preferences, setPreferences] = useState<{ interests: string[], contentTypes: string[], goals: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [purchasing, setPurchasing] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
-  
+  const [feedType, setFeedType] = useState<"all" | "books" | "articles" | "blogs">(initialFeedType);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
   useEffect(() => {
-    fetchBooks();
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  // Keep feedType in sync with URL changes
+  useEffect(() => {
+    if (typeParam === "Book") setFeedType("books");
+    else if (typeParam === "Article") setFeedType("articles");
+    else if (typeParam === "Blog") setFeedType("blogs");
+    else setFeedType("all");
+  }, [typeParam]);
+
+  useEffect(() => {
+    const fetchFeed = async () => {
+      setLoading(true);
+      try {
+        if (user) {
+          const prefRes = await fetch("/api/user/preferences");
+          if (prefRes.ok) {
+            const prefData = await prefRes.json();
+            setPreferences(prefData);
+          }
+        }
+
+        const booksRes = await fetch("/api/books");
+        const booksData = await booksRes.json();
+        setBooks(Array.isArray(booksData) ? booksData : []);
+
+        const articlesRes = await fetch("/api/articles?type=Article");
+        const articlesData = await articlesRes.json();
+        setArticles(Array.isArray(articlesData) ? articlesData : []);
+
+        const blogsRes = await fetch("/api/articles?type=Blog");
+        const blogsData = await blogsRes.json();
+        setBlogs(Array.isArray(blogsData) ? blogsData : []);
+      } catch (err) {
+        console.error("Marketplace fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeed();
   }, []);
 
-  const fetchBooks = async () => {
-    try {
-      const res = await fetch(getApiUrl("/api/books"));
-      if (!res.ok) throw new Error("Failed to fetch books from backend");
-      const data = await res.json();
+  const mergedFeed = [
+    ...books.map(b => ({ id: b.id, title: b.title, type: "Book", description: b.description || "An immersive book exploring captivating themes and rich narratives.", category: b.category || "Novel", cover: b.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800", author: b.authors?.users?.name || b.authors?.name || b.author?.name || (user && user.id === b.authors?.user_id ? (user.name || "Unknown") : "Unknown") || "Unknown", url: `/book/${b.id}`, date: b.created_at, price: b.price || 99 })),
+    ...articles.map(a => ({ id: a.id, title: a.title, type: "Article", description: a.description || "A deep dive into professional insights and industry knowledge.", category: a.category || "Insight", cover: a.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800", author: a.authors?.name || "Unknown", url: `/articles/${a.id}`, date: a.created_at, price: a.price || 0 })),
+    ...blogs.map(bl => ({ id: bl.id, title: bl.title, type: "Blog", description: bl.description || "A personal take and casual exploration of interesting concepts.", category: "Personal", cover: bl.cover_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800", author: bl.authors?.name || "Unknown", url: `/blogs/${bl.id}`, date: bl.created_at, price: bl.price || 0 }))
+  ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
-      const mapped = (data || []).map((b: any) => ({
-        ...b,
-        author: b.authors || b.author
-      }));
-      setBooks(mapped);
-    } catch (err: any) {
-      console.error("Fetch error:", err);
-      setBooks([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePurchase = async (book: any) => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      alert("Please login to purchase books.");
-      window.location.href = "/login?redirect=/marketplace";
-      return;
-    }
-
-    const user = JSON.parse(storedUser);
-    setPurchasing(book.id);
-
-    try {
-      // 1. Create Order in Backend Express
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      const res = await fetch(getApiUrl("/api/pay/order"), {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token || ""}`
-        },
-        body: JSON.stringify({
-          bookId: book.id,
-          amount: book.price || 99
-        }),
-      });
-
-      const order = await res.json();
-
-      // 2. Initialize Razorpay (Mocking the window.Razorpay part for now)
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder",
-        amount: order.amount,
-        currency: order.currency,
-        name: "Writersthing",
-        description: `Purchase: ${book.title}`,
-        order_id: order.id,
-        handler: async function (response: any) {
-          // 3. Verify Payment on Backend Express
-          const verifyRes = await fetch(getApiUrl("/api/pay/verify"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-            }),
-          });
-
-          if (verifyRes.ok) {
-            setShowSuccess(true);
-          } else {
-            alert("Payment verification failed.");
-          }
-        },
-        prefill: {
-          name: user.name,
-          email: user.email,
-        },
-        theme: {
-          color: "#000000",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      console.error("Purchase error:", err);
-      alert("Payment failed to initialize.");
-    } finally {
-      setPurchasing(null);
-    }
-  };
-
-  const categories = ["All Genres", "Love", "Comedy", "Education", "Mystery", "Fiction", "Non-Fiction", "History", "Sci-Fi", "Thriller", "Biography", "Poetry"];
-  const languages = ["English", "Hindi", "Telugu", "Tamil", "Marathi", "Bengali", "Kannada", "Malayalam", "Urdu", "Gujarati", "Punjabi", "Odia", "Assamese", "Maithili", "Sanskrit", "Konkani"];
-
-  const filteredBooks = books.filter(book => {
-    const bookGenre = (book.genre || book.category || "").toLowerCase();
-    const cleanGenre = bookGenre.replace(/^book\s*-\s*/i, "").trim();
-    const categoryMatch = activeCategory === "All Genres" || cleanGenre === activeCategory.toLowerCase();
-    const languageMatch = (book.language || "English").toLowerCase() === activeLanguage.toLowerCase();
-    return categoryMatch && languageMatch;
+  const filteredFeed = mergedFeed.filter(item => {
+    if (feedType === "all") return true;
+    if (feedType === "books") return item.type === "Book";
+    if (feedType === "articles") return item.type === "Article";
+    if (feedType === "blogs") return item.type === "Blog";
+    return true;
   });
 
+  const staffPicks = mergedFeed.slice(0, 4);
+
   return (
-    <div className="bg-white min-h-screen relative overflow-x-hidden">
-      <AnimatePresence>
-        {isFilterSidebarOpen && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsFilterSidebarOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]" 
-            />
-            <motion.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white z-[210] shadow-2xl p-12 overflow-y-auto"
-            >
-              <div className="flex justify-between items-center mb-16">
-                <h2 className="text-2xl font-heading font-black uppercase tracking-tighter">Advanced Filters</h2>
-                <button onClick={() => setIsFilterSidebarOpen(false)} className="p-2 hover:bg-zinc-100 rounded-full transition-all">
-                  <X size={20} />
-                </button>
+    <div className="flex bg-white">
+      <div className="unified-axis max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 lg:gap-24 pt-6 md:pt-12 pb-8 md:pb-12">
+        
+        {/* MAIN FEED */}
+        <div className="lg:col-span-8">
+          <header className="mb-10 mt-6">
+            {preferences?.interests && preferences.interests.length > 0 ? (
+              <div className="mb-8">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-2">Personalized for you</span>
+                <h1 className="text-3xl md:text-4xl font-heading font-black tracking-tight uppercase">Because you like <span className="text-primary italic">{preferences.interests[0]}</span></h1>
               </div>
-
-              <div className="space-y-12">
-                <FilterSection title="Genres">
-                  <div className="grid grid-cols-2 gap-3">
-                    {categories.map(c => (
-                      <button 
-                        key={c}
-                        onClick={() => setActiveCategory(c)}
-                        className={`py-3 px-4 text-[9px] font-black uppercase tracking-widest rounded-sm border transition-all ${activeCategory === c ? "bg-black text-white border-black" : "bg-zinc-50 text-zinc-400 border-zinc-100 hover:border-zinc-300"}`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </FilterSection>
-
-                <FilterSection title="Indian Languages">
-                  <div className="grid grid-cols-2 gap-3">
-                    {languages.map(l => (
-                      <button 
-                        key={l}
-                        onClick={() => setActiveLanguage(l)}
-                        className={`py-3 px-4 text-[9px] font-black uppercase tracking-widest rounded-sm border transition-all ${activeLanguage === l ? "bg-black text-white border-black" : "bg-zinc-50 text-zinc-400 border-zinc-100 hover:border-zinc-300"}`}
-                      >
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                </FilterSection>
+            ) : (
+              <h1 className="text-4xl font-heading font-black tracking-tight uppercase mb-8">Marketplace</h1>
+            )}
+            
+            {/* Tabs and Actions */}
+            <div className="flex justify-between items-end border-b border-zinc-150 relative">
+              <div className="flex gap-8">
+                {(["all", "books", "articles", "blogs"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setFeedType(t)}
+                    className={`pb-4 text-[12px] font-bold uppercase tracking-widest transition-all ${
+                      feedType === t ? "text-black border-b-2 border-black" : "text-zinc-400 hover:text-black"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+              
+            </div>
+          </header>
 
-      {/* Success Modal */}
+          {loading ? (
+            <div className="py-20 flex justify-center">
+              <Loader2 className="animate-spin text-zinc-300" size={32} />
+            </div>
+          ) : filteredFeed.length === 0 ? (
+            <div className="py-20 text-center text-zinc-500 italic">No content available at the moment.</div>
+          ) : (
+            <div className="flex flex-col">
+              {filteredFeed.map((item) => (
+                <Link key={`${item.type}-${item.id}`} href={item.url} className="group py-8 border-b border-zinc-100 flex gap-6 md:gap-12 items-center">
+                  <div className="flex-1 flex flex-col justify-center">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[9px] font-black uppercase text-zinc-500 border border-zinc-200 shadow-sm">
+                        {item.author ? item.author[0] : "?"}
+                      </div>
+                      <span className="text-sm font-semibold text-zinc-800">{item.author || "Unknown"}</span>
+                      <span className="text-zinc-400 text-xs">in</span>
+                      <span className="text-sm font-semibold text-zinc-800">{item.category}</span>
+                    </div>
+
+                    <h2 className="text-xl md:text-[22px] font-bold font-heading tracking-tight mb-2 group-hover:text-zinc-600 transition-colors line-clamp-2 leading-tight">
+                      {item.title}
+                    </h2>
+                    
+                    <p className="text-sm md:text-base text-zinc-500 font-serif leading-relaxed mb-4 line-clamp-2">
+                      {item.description}
+                    </p>
+
+                    <div className="flex items-center justify-between text-xs text-zinc-500">
+                      <div className="flex items-center gap-3">
+                        <span>{new Date(item.date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span className="w-1 h-1 rounded-full bg-zinc-300" />
+                        <span className="bg-zinc-100 px-2 py-1 rounded-sm text-[9px] font-black tracking-widest uppercase text-zinc-600">{item.type}</span>
+                        {item.type === "Book" && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-zinc-300" />
+                            <span className="font-bold text-black border-b border-black">₹{item.price}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex gap-4 items-center">
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            alert("Saved to reading list!");
+                          }}
+                          className="hover:text-black transition-colors"
+                        >
+                          <Bookmark size={18} strokeWidth={1.5} />
+                        </button>
+                        
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveMenu(activeMenu === `${item.type}-${item.id}` ? null : `${item.type}-${item.id}`);
+                            }}
+                            className="hover:text-black transition-colors"
+                          >
+                            <MoreHorizontal size={18} strokeWidth={1.5} />
+                          </button>
+                          
+                          {activeMenu === `${item.type}-${item.id}` && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 shadow-xl rounded-sm py-2 z-50 text-sm font-medium text-zinc-600">
+                              <button 
+                                onClick={(e) => { 
+                                  e.preventDefault(); 
+                                  e.stopPropagation(); 
+                                  const url = window.location.origin + '/' + (item.type.toLowerCase() === 'book' ? 'book' : item.type.toLowerCase() + 's') + '/' + item.id;
+                                  navigator.clipboard.writeText(url);
+                                  setToast({ message: "Link copied to clipboard!", type: "success" }); 
+                                  setActiveMenu(null); 
+                                }} 
+                                className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors"
+                              >
+                                Share story...
+                              </button>
+                              <div className="h-px bg-zinc-100 my-1" />
+                              <button 
+                                onClick={(e) => { 
+                                  e.preventDefault(); 
+                                  e.stopPropagation(); 
+                                  setToast({ message: `Following ${item.author}`, type: "success" }); 
+                                  setActiveMenu(null); 
+                                }} 
+                                className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors"
+                              >
+                                Follow author
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-28 md:w-32 lg:w-40 shrink-0 aspect-[16/10] bg-zinc-100 overflow-hidden shadow-sm">
+                    <img src={item.cover} alt={item.title} className="w-full h-full object-cover grayscale hover:grayscale-0 group-hover:grayscale-0 transition-all duration-700 hover:scale-105 group-hover:scale-105" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* SIDEBAR */}
+        <div className="lg:col-span-4 hidden lg:block pt-12 pl-12 border-l border-zinc-100 relative">
+          <div className="sticky top-12">
+            
+            {/* Staff Picks */}
+            <div className="mb-12">
+              <h3 className="font-black text-sm mb-6 text-black tracking-tight">Staff Picks</h3>
+              {staffPicks.map(pick => (
+                <Link key={`pick-${pick.id}`} href={pick.url} className="block mb-6 group">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-black uppercase text-zinc-500 border border-zinc-200">
+                      {pick.author ? pick.author[0] : "?"}
+                    </div>
+                    <span className="text-[10px] font-semibold text-zinc-700 truncate max-w-[120px]">{pick.author || "Unknown"}</span>
+                  </div>
+                  <h4 className="font-bold font-heading text-[15px] leading-snug group-hover:text-zinc-600 transition-colors line-clamp-2">{pick.title}</h4>
+                </Link>
+              ))}
+              <Link href="#" className="text-sm text-green-700 hover:text-green-800 font-medium">See the full list</Link>
+            </div>
+
+            {/* Recommended Topics */}
+            <div className="mb-12">
+              <h3 className="font-black text-sm mb-6 tracking-tight">Recommended topics</h3>
+              <div className="flex flex-wrap gap-2.5">
+                {["Fiction", "Self Improvement", "Programming", "Politics", "Technology", "History", "Relationships", "Data Science"].map(topic => (
+                  <button key={topic} className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 transition-colors text-sm font-medium rounded-full text-zinc-800">
+                    {topic}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Blogs vs Articles Section (Based on Image) */}
+            <div className="p-6 bg-[#eaeaf7] border border-[#d6d6ed] rounded-lg shadow-inner">
+              <h3 className="font-heading font-black text-xl text-[#0b16a2] mb-6 text-center leading-tight">
+                <span className="text-[#3245db] italic">Blogs</span> Vs. <span className="text-[#3245db]">Articles</span>:<br />What Are the Differences?
+              </h3>
+              
+              <div className="flex flex-col gap-4 text-[11px] leading-relaxed">
+                <div className="bg-[#b9c8f0] border-2 border-black rounded-sm p-4 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                  <h4 className="font-black uppercase tracking-widest text-center border-b-2 border-black pb-2 mb-3">Blogs ✍️</h4>
+                  <ul className="list-disc pl-4 space-y-2 text-black">
+                    <li>Casual, <strong>conversational tone</strong></li>
+                    <li><strong>Flexible</strong> structure</li>
+                    <li><strong>Shares opinions</strong>, tips, or updates</li>
+                    <li>Short to medium length <strong>(300-1,200 words)</strong></li>
+                    <li>Few or <strong>no citations</strong></li>
+                    <li>Published on <strong>sites</strong>, personal sites, or informal media</li>
+                    <li>Covers topics at a <strong>surface or moderate depth</strong></li>
+                    <li>Aimed at <strong>casual or general audiences</strong></li>
+                    <li>Often optimized for <strong>SEO and traffic</strong></li>
+                    <li><strong>Credibility varies</strong> by author/site</li>
+                  </ul>
+                </div>
+
+                <div className="bg-[#b9b8df] border-2 border-black rounded-sm p-4 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                  <h4 className="font-black uppercase tracking-widest text-center border-b-2 border-black pb-2 mb-3">Articles 🎓</h4>
+                  <ul className="list-disc pl-4 space-y-2 text-black">
+                    <li><strong>Formal</strong>, objective tone</li>
+                    <li>Follows a <strong>strict structure</strong></li>
+                    <li><strong>Presents</strong> research, analysis, or evidence-based insights</li>
+                    <li>Longer and in-depth <strong>(1,500-5,000+ words)</strong></li>
+                    <li>Includes <strong>proper citations and references</strong></li>
+                    <li>Published in <strong>journals, news outlets</strong>, or official documents</li>
+                    <li>Deeply explores and <strong>explains complex topics</strong></li>
+                    <li>Targeted at <strong>serious readers</strong></li>
+                    <li>Focuses more on <strong>quality, accuracy, and credibility</strong>.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer links */}
+            <div className="mt-12 pt-6 border-t border-zinc-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-500 font-medium">
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Help</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Status</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">About</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Careers</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Blog</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Privacy</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Terms</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Text to speech</Link>
+              <Link href="#" className="hover:text-zinc-800 transition-colors">Teams</Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toast Notification */}
       <AnimatePresence>
-        {showSuccess && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 z-[500] flex items-center justify-center p-8 backdrop-blur-md"
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 50, x: "-50%" }}
+            className="fixed bottom-8 left-1/2 z-[400] flex items-center gap-3 bg-white px-6 py-4 border border-zinc-200 shadow-2xl rounded-full"
           >
-            <motion.div 
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-white p-20 text-center max-w-xl w-full rounded-sm shadow-2xl"
-            >
-              <div className="w-24 h-24 bg-green-500 flex items-center justify-center mx-auto mb-12 rounded-full text-white">
-                <Star size={48} />
-              </div>
-              <h2 className="text-5xl font-heading font-black uppercase tracking-tight mb-6">Payment Success</h2>
-              <p className="text-zinc-500 font-medium italic text-xl mb-6">Funds have been directly transferred to the Author's bank account.</p>
-              <p className="text-zinc-400 text-sm mb-12">The manuscript has been added to your Library.</p>
-              <button 
-                onClick={() => (window.location.href = "/dashboard/library")}
-                className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-[0.3em] hover:scale-105 transition-all shadow-2xl"
-              >
-                Go to Library
-              </button>
-            </motion.div>
+            <div className={`w-2.5 h-2.5 rounded-full ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div className="unified-axis py-32">
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-12 mb-24">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-4 mb-6 md:mb-8">
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">The Library</span>
-              <div className="h-px w-12 bg-zinc-200" />
-            </div>
-            <h1 className="text-h1 tracking-ultra-tight uppercase mb-6 md:mb-8">Marketplace</h1>
-            <p className="text-zinc-500 font-medium text-lg md:text-xl leading-relaxed italic">
-              Independent voices, decentralized stories. All digital manuscripts are flat-priced at <span className="text-black font-bold border-b-2 border-black pb-1">₹99</span>.
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row w-full lg:w-auto gap-4">
-            <div className="relative flex-grow lg:w-96">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
-              <input 
-                type="text" 
-                placeholder="Search books..." 
-                className="w-full bg-zinc-50 border border-zinc-100 rounded-sm py-5 pl-16 pr-8 outline-none focus:border-black transition-all font-bold text-sm uppercase tracking-widest placeholder:text-zinc-300"
-              />
-            </div>
-            <Link 
-              href="/write?type=book"
-              className="px-10 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-sm flex items-center justify-center gap-3"
-            >
-              <Feather size={14} /> Publish Yours
-            </Link>
-          </div>
-        </header>
-
-        {loading ? (
-          <div className="py-40 flex flex-col items-center gap-6">
-            <Loader2 className="animate-spin text-zinc-200" size={48} />
-            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-300">Synchronizing Archive...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-24">
-            {filteredBooks.map((book) => (
-              <MarketBookCard 
-                key={book.id}
-                id={book.id}
-                title={book.title} 
-                author={book.author?.name || "Unknown"} 
-                genre={book.category} 
-                image={book.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=800"} 
-                language={book.language}
-                price={book.price}
-                onPurchase={() => handlePurchase(book)}
-                isPurchasing={purchasing === book.id}
-              />
-            ))}
-            
-            {filteredBooks.length === 0 && (
-              <div className="col-span-full py-40 text-center bg-zinc-50 border border-zinc-100 rounded-sm">
-                <p className="text-zinc-400 font-medium italic text-xl mb-4">No manuscripts found for your selection.</p>
-                <button 
-                  onClick={() => {
-                    setActiveCategory("All Genres");
-                    setActiveLanguage("English");
-                  }}
-                  className="text-[10px] font-black uppercase tracking-widest border-b border-black pb-1 hover:opacity-60 transition-all"
-                >
-                  Clear all filters
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MarketBookCard({ id, title, author, genre, image, language, price, onPurchase, isPurchasing }: any) {
-  return (
-    <Link href={`/book/${id}`}>
-      <motion.div 
-        whileHover={{ y: -10 }}
-        className="group cursor-pointer"
-      >
-        <div className="aspect-[3/4.5] bg-zinc-100 overflow-hidden relative shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] group-hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)] transition-all duration-700">
-          <img src={image} alt={title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-transform duration-1000 group-hover:scale-105" />
-          <div className="absolute top-6 right-6 z-10">
-            <span className="bg-black/80 backdrop-blur-sm text-white px-4 py-2 text-[8px] font-black uppercase tracking-widest rounded-full">{language}</span>
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="absolute bottom-0 left-0 right-0 p-8 transform translate-y-8 group-hover:translate-y-0 transition-all duration-500">
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onPurchase();
-              }}
-              disabled={isPurchasing}
-              className="w-full bg-white text-black py-4 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-zinc-100 transition-colors flex items-center justify-center gap-3"
-            >
-              {isPurchasing ? <Loader2 size={14} className="animate-spin" /> : null}
-              {isPurchasing ? "Processing..." : `Purchase for ₹${price || 99}`}
-            </button>
-          </div>
-        </div>
-        
-        <div className="mt-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-2">{genre}</p>
-          <h3 className="text-2xl font-heading font-black tracking-tight uppercase leading-none mb-2">{title}</h3>
-          <p className="text-sm font-medium text-zinc-400 italic">by {author}</p>
-        </div>
-      </motion.div>
-    </Link>
-  );
-}
-
-function FilterSection({ title, children }: any) {
-  return (
-    <div>
-      <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300 mb-6">{title}</h3>
-      {children}
     </div>
   );
 }
 
 export default function MarketplacePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+    <Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center"><Loader2 className="animate-spin" /></div>}>
       <MarketplaceContent />
     </Suspense>
   );
 }
-
-
-

@@ -305,10 +305,10 @@ This book is not just about using AI. It is about learning a skill that will sta
         </aside>
 
         {/* Reading Area */}
-        <main className="flex-grow py-32 px-48 max-w-5xl">
+        <main className="flex-grow py-12 px-6 md:py-32 md:px-48 max-w-5xl">
           <article className="prose prose-zinc max-w-none">
             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-6">Chapter One</p>
-            <h1 className="text-8xl font-heading font-black tracking-ultra-tight uppercase mb-12 leading-none">{bookData.intro}</h1>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-black tracking-ultra-tight uppercase mb-6 md:mb-12 leading-none">{bookData.intro}</h1>
             
             <div className="flex items-center gap-6 mb-20 border-b border-zinc-100 pb-12">
               <div className="w-10 h-10 bg-zinc-100 rounded-sm overflow-hidden grayscale">
@@ -321,7 +321,7 @@ This book is not just about using AI. It is about learning a skill that will sta
             </div>
 
             <div className={`space-y-10 text-xl leading-[1.8] font-body ${isDarkMode ? "text-zinc-300" : "text-zinc-800"} tracking-tight`}>
-              <p className="first-letter:text-8xl first-letter:font-heading first-letter:font-black first-letter:float-left first-letter:mr-6 first-letter:leading-none">
+              <p className="first-letter:text-6xl md:first-letter:text-8xl first-letter:font-heading first-letter:font-black first-letter:float-left first-letter:mr-4 md:first-letter:mr-6 first-letter:leading-none">
                 {bookData.content.split('\n')[0]}
               </p>
               
@@ -329,7 +329,7 @@ This book is not just about using AI. It is about learning a skill that will sta
                 <p key={i}>{p}</p>
               ))}
 
-              <blockquote className={`border-l-4 ${isDarkMode ? "border-white" : "border-black"} pl-12 py-8 my-20 italic text-4xl font-serif text-zinc-400 leading-tight`}>
+              <blockquote className={`border-l-4 ${isDarkMode ? "border-white" : "border-black"} pl-6 md:pl-12 py-4 md:py-8 my-10 md:my-20 italic text-2xl md:text-4xl font-serif text-zinc-400 leading-tight`}>
                 {isArtOfPrompt ? "Master the way you ask. Shape the way you learn." : '"The truth is never written in ink anymore. It\'s written in light, and light can be turned off."'}
               </blockquote>
 
