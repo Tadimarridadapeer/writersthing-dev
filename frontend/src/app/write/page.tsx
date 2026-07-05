@@ -28,7 +28,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import { getApiUrl } from "@/lib/config";
 import { ensureAuthorProfile } from "@/lib/author";
 
-type ContentType = "Book" | "Blog" | "Article" | "Magazine";
+type ContentType = "Book" | "Blog" | "Story" | "Magazine";
 
 // Reusable helper function to get current author and validate schema
 async function getCurrentAuthor() {
@@ -130,7 +130,7 @@ function WritePageContent() {
       const typeMap: Record<string, ContentType> = {
         "book": "Book",
         "blog": "Blog",
-        "article": "Article",
+        "story": "Story",
         "magazine": "Magazine"
       };
       if (typeMap[typeParam.toLowerCase()]) {
@@ -252,12 +252,12 @@ function WritePageContent() {
     }
   };
 
-  const handleArticleSubmit = async (
-    articleTitle: string,
-    articleCategory: string,
-    articleTags: string[],
-    articleThumbnail: File | null,
-    articleContent: string
+  const handleStorySubmit = async (
+    storyTitle: string,
+    storyCategory: string,
+    storyTags: string[],
+    storyThumbnail: File | null,
+    storyContent: string
   ) => {
     setIsSubmitting(true);
     setErrorMessage("");
@@ -272,35 +272,35 @@ function WritePageContent() {
       const userId = authorProfile.user.id;
 
       let thumbnailUrl = "";
-      if (articleThumbnail) {
-        const ext = articleThumbnail.name.split(".").pop();
-        const imgPath = `${userId}/${Date.now()}-article.${ext}`;
+      if (storyThumbnail) {
+        const ext = storyThumbnail.name.split(".").pop();
+        const imgPath = `${userId}/${Date.now()}-story.${ext}`;
         const { error: uploadError } = await supabase.storage
-          .from("article-images")
-          .upload(imgPath, articleThumbnail);
+          .from("story-images")
+          .upload(imgPath, storyThumbnail);
         
         if (uploadError) throw new Error("Thumbnail Upload Failed: " + uploadError.message);
         
         const { data: { publicUrl } } = supabase.storage
-          .from("article-images")
+          .from("story-images")
           .getPublicUrl(imgPath);
         thumbnailUrl = publicUrl;
       }
 
-      const res = await fetch("/api/articles", {
+      const res = await fetch("/api/stories", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          title: articleTitle,
-          description: articleContent.replace(/<[^>]*>?/gm, '').substring(0, 160) + "...",
-          content: articleContent,
-          category: articleCategory || "General",
-          type: "Article",
+          title: storyTitle,
+          description: storyContent.replace(/<[^>]*>?/gm, '').substring(0, 160) + "...",
+          content: storyContent,
+          category: storyCategory || "General",
+          type: "Story",
           coverUrl: thumbnailUrl,
-          tags: articleTags
+          tags: storyTags
         })
       });
 
@@ -310,7 +310,7 @@ function WritePageContent() {
       }
 
       const responseData = await res.json();
-      router.push(`/articles/${responseData.id}`);
+      router.push(`/storys/${responseData.id}`);
 
     } catch (err: any) {
       console.error(err);
@@ -347,18 +347,18 @@ function WritePageContent() {
         const ext = blogBanner.name.split(".").pop();
         const imgPath = `${userId}/${Date.now()}-blog.${ext}`;
         const { error: uploadError } = await supabase.storage
-          .from("article-images")
+          .from("story-images")
           .upload(imgPath, blogBanner);
         
         if (uploadError) throw new Error("Banner Upload Failed: " + uploadError.message);
         
         const { data: { publicUrl } } = supabase.storage
-          .from("article-images")
+          .from("story-images")
           .getPublicUrl(imgPath);
         bannerUrl = publicUrl;
       }
 
-      const res = await fetch("/api/articles", {
+      const res = await fetch("/api/stories", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -415,27 +415,28 @@ function WritePageContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <TypeCard 
                   title="Book" 
-                  description="A full-length manuscript or novel. Supports PDF format." 
+                  description="Publish full-length manuscripts and novels. Complete PDF support." 
                   icon={<Book size={32} />} 
                   onClick={() => handleTypeSelect("Book")} 
                 />
                 <TypeCard 
                   title="Blog" 
-                  description="Personal stories, thoughts, and quick updates." 
+                  description="Share personal thoughts, quick updates, and engaging moments." 
                   icon={<Layout size={32} />} 
                   onClick={() => handleTypeSelect("Blog")} 
                 />
                 <TypeCard 
-                  title="Article" 
-                  description="Professional insights, deep dives, and analysis." 
+                  title="Story" 
+                  description="Craft in-depth narratives, professional insights, and deep analysis." 
                   icon={<FileText size={32} />} 
-                  onClick={() => handleTypeSelect("Article")} 
+                  onClick={() => handleTypeSelect("Story")} 
                 />
                 <TypeCard 
                   title="Magazine" 
-                  description="Curated collections, visual stories, and issues." 
+                  description="Curate visual collections, serial issues, and editorial pieces." 
                   icon={<Library size={32} />} 
-                  onClick={() => handleTypeSelect("Magazine")} 
+                  onClick={() => {}} 
+                  disabled={true}
                 />
               </div>
             </motion.div>
@@ -471,12 +472,12 @@ function WritePageContent() {
                 />
               )}
 
-              {selectedType === "Article" && (
-                <ArticleEditorUI 
+              {selectedType === "Story" && (
+                <StoryEditorUI 
                   onSubmit={(e: any) => {
                     e.preventDefault();
                     const tagArr = tags.split(",").map((t: string) => t.trim()).filter((t: string) => t !== "");
-                    handleArticleSubmit(title, category, tagArr, coverFile, content);
+                    handleStorySubmit(title, category, tagArr, coverFile, content);
                   }}
                   title={title} setTitle={setTitle}
                   category={category} setCategory={setCategory}
@@ -574,17 +575,33 @@ export default function WritePage() {
   );
 }
 
-function TypeCard({ title, description, icon, onClick }: any) {
+function TypeCard({ title, description, icon, onClick, disabled }: any) {
   return (
     <button 
-      onClick={onClick}
-      className="group p-12 bg-zinc-50 border border-zinc-100 rounded-sm text-left transition-all hover:bg-black hover:text-white hover:shadow-2xl hover:scale-[1.02]"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`group p-12 bg-zinc-50 border border-zinc-100 rounded-sm text-left transition-all relative ${
+        disabled 
+          ? "opacity-70 cursor-not-allowed grayscale" 
+          : "hover:bg-black hover:text-white hover:shadow-2xl hover:scale-[1.02]"
+      }`}
     >
-      <div className="w-16 h-16 border border-zinc-200 flex items-center justify-center mb-8 transition-all group-hover:border-white/20 group-hover:bg-white/10">
+      {disabled && (
+        <div className="absolute top-8 right-8 bg-zinc-200 text-zinc-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-sm">
+          Soon
+        </div>
+      )}
+      <div className={`w-16 h-16 border border-zinc-200 flex items-center justify-center mb-8 transition-all ${
+        disabled ? "" : "group-hover:border-white/20 group-hover:bg-white/10"
+      }`}>
         {icon}
       </div>
-      <h3 className="text-3xl font-heading font-black uppercase tracking-tight mb-4">{title}</h3>
-      <p className="text-sm font-medium text-zinc-400 group-hover:text-zinc-300 italic leading-relaxed">{description}</p>
+      <h3 className="text-3xl font-heading font-black uppercase tracking-tight mb-4 flex items-center gap-4">
+        {title}
+      </h3>
+      <p className={`text-sm font-medium italic leading-relaxed ${
+        disabled ? "text-zinc-400" : "text-zinc-400 group-hover:text-zinc-300"
+      }`}>{description}</p>
     </button>
   );
 }
@@ -671,23 +688,18 @@ function CategoryInputField({ label, placeholder, value, onChange }: any) {
   );
 }
 
-function ArticleCategoryInputField({ label, placeholder, value, onChange }: any) {
+function StoryCategoryInputField({ label, placeholder, value, onChange }: any) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   const CATEGORY_SUGGESTIONS = [
-    "Technology",
+    "Love Stories",
+    "Comic",
+    "Rom-Com",
+    "Inspirations",
+    "Experiences",
+    "Confessions",
     "Fiction",
-    "Education",
-    "Mystery",
-    "Sci-Fi",
-    "Thriller",
-    "Biography",
-    "Poetry",
-    "Culture",
-    "Insight",
-    "Love",
-    "Comedy",
-    "History"
+    "Non-Fiction"
   ];
 
   const filtered = CATEGORY_SUGGESTIONS.filter(item => 
@@ -913,113 +925,50 @@ function BookUploadUI({
   );
 }
 
-function ArticleEditorUI({ 
+function StoryEditorUI({ 
   onSubmit, 
   title, setTitle, 
-  category, setCategory, 
-  tags, setTags,
   content, setContent,
-  onThumbnailChange, 
   isSubmitting, errorMessage 
 }: any) {
   return (
-    <div className="min-h-[70vh] bg-zinc-50 border border-zinc-200 p-4 md:p-8 rounded-sm max-w-[1400px] mx-auto">
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_350px] gap-8">
-        <div className="bg-white p-6 md:p-8 border border-zinc-200 shadow-sm rounded-sm">
-          <form onSubmit={onSubmit} className="space-y-12">
-            <div className="flex items-center gap-4 text-zinc-400 mb-8 pb-4 border-b border-zinc-100">
-              <Sparkles size={16} className="text-zinc-950" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-950">Article Studio</span>
-              <div className="h-px flex-grow bg-zinc-100" />
+    <div className="min-h-screen bg-[#FDFCF8] px-4 py-12 md:py-24 text-zinc-900 font-serif">
+      <div className="max-w-[700px] mx-auto">
+        <form onSubmit={onSubmit} className="space-y-10">
+          
+          {errorMessage && (
+            <div className="p-4 bg-zinc-100 border border-zinc-300 text-zinc-800 text-xs font-mono uppercase tracking-widest flex items-center gap-3">
+              <span className="font-bold">Error:</span> {errorMessage}
             </div>
+          )}
 
-            {errorMessage && (
-              <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500">
-                {errorMessage}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <input 
-                type="text"
-                placeholder="Article Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-3xl md:text-5xl lg:text-6xl font-heading font-black tracking-tighter uppercase outline-none text-zinc-950 placeholder:text-zinc-300 transition-all leading-tight border-b border-zinc-200 focus:border-zinc-950 pb-4"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-              <ArticleCategoryInputField 
-                label="Category" 
-                placeholder="Technology, Culture..." 
-                value={category} 
-                onChange={setCategory} 
-              />
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Tags</label>
-                <input 
-                  type="text"
-                  placeholder="e.g. guide, swift, tutorial"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  className="bg-transparent text-sm font-bold uppercase tracking-widest outline-none border border-zinc-200 p-4 w-full focus:border-zinc-950 transition-colors placeholder:text-zinc-300"
-                />
-              </div>
-            </div>
-
-            <FileUploadField 
-              label="Article Thumbnail" 
-              description="Optional: Feed card cover" 
-              accept="image/*"
-              icon={<ImageIcon size={24} />}
-              onChange={onThumbnailChange}
+          <div className="space-y-6 border-b border-zinc-200 pb-10">
+            <input 
+              type="text"
+              placeholder="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-none focus:ring-0"
+              required
             />
-
-            <div className="space-y-4 pt-8">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2">
-                <Type size={14} /> Content
-              </label>
-              <RichTextEditor content={content} onChange={setContent} placeholder="Write your formal article here..." />
-            </div>
-
-            <div className="pt-8 border-t border-zinc-100 flex justify-end">
-              <button 
-                type="submit"
-                disabled={isSubmitting || !title || !content}
-                className="px-12 py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-xl flex items-center gap-4 disabled:opacity-50 rounded-sm group"
-              >
-                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish Article"}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Sidebar Rules */}
-        <div className="hidden xl:block space-y-6 sticky top-24 h-max">
-          <div className="bg-white border border-zinc-200 p-6 shadow-sm rounded-sm">
-            <h3 className="text-xs font-black uppercase tracking-widest mb-6 border-b border-zinc-100 pb-4">Article Rules</h3>
-            <ul className="space-y-6">
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Professional Tone</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Maintain a formal and authoritative voice. Focus on facts and insights.</p>
-              </li>
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Length</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Usually 1,500 to 5,000 words. Deep dives are encouraged.</p>
-              </li>
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Structure</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Clear headings, properly formatted quotes, and bullet points.</p>
-              </li>
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Citations</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">External links and sources should be properly attributed.</p>
-              </li>
-            </ul>
           </div>
-        </div>
+
+          <div className="space-y-2">
+            <div className="prose prose-zinc max-w-none">
+              <RichTextEditor content={content} onChange={setContent} placeholder="Write your story..." />
+            </div>
+          </div>
+
+          <div className="pt-16 pb-12 flex justify-start">
+            <button 
+              type="submit"
+              disabled={isSubmitting || !title || !content}
+              className="px-8 py-3 bg-zinc-900 text-white font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center gap-3"
+            >
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish Story"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -1055,7 +1004,7 @@ function BlogEditorUI({
                 placeholder="Blog Title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-3xl md:text-5xl lg:text-6xl font-heading font-black tracking-tighter uppercase outline-none text-zinc-950 placeholder:text-zinc-300 transition-all leading-tight border-b border-zinc-200 focus:border-zinc-950 pb-4"
+                className="w-full text-3xl md:text-4xl lg:text-5xl font-heading font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-b border-zinc-200 focus:border-zinc-950 pb-4"
                 required
               />
             </div>

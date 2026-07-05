@@ -22,7 +22,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type ManuscriptType = "book" | "article" | "blog" | null;
+type ManuscriptType = "book" | "story" | "blog" | null;
 type EditorMode = "edit" | "preview";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -326,13 +326,13 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
       const ext = file.name.split(".").pop();
       const path = `${user.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from("article-images")
+        .from("story-images")
         .upload(path, file);
 
       if (uploadError) throw new Error("Image Upload Failed: " + uploadError.message);
 
       const { data: { publicUrl } } = supabase.storage
-        .from("article-images")
+        .from("story-images")
         .getPublicUrl(path);
 
       const imageMarkdown = `\n![${file.name}](${publicUrl})\n`;
@@ -456,6 +456,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     
     for (const line of lines) {
       const trimmed = line.trim();
+      
+
       
       if (trimmed === "") {
         if (inParagraph) { html += "</p>"; inParagraph = false; }

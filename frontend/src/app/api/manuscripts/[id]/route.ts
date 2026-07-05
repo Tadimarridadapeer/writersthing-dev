@@ -45,9 +45,9 @@ export async function GET(
     const { id } = await params;
 
     // Run lookups in parallel to minimize database connection overhead and roundtrips
-    const [bookRes, articleRes, blogRes] = await Promise.all([
+    const [bookRes, storyRes, blogRes] = await Promise.all([
       supabase.from("books").select("*").eq("id", id).maybeSingle(),
-      supabase.from("articles").select("*, users:author_id(*)").eq("id", id).maybeSingle(),
+      supabase.from("stories").select("*, users:author_id(*)").eq("id", id).maybeSingle(),
       supabase.from("blogs").select("*, users:author_id(*)").eq("id", id).maybeSingle()
     ]);
 
@@ -78,18 +78,18 @@ export async function GET(
       });
     }
 
-    // Check articles (publicly readable)
-    if (articleRes.data) {
-      const article = articleRes.data;
+    // Check stories (publicly readable)
+    if (storyRes.data) {
+      const story = storyRes.data;
       return NextResponse.json({
-        title: article.title,
-        content: article.content || "",
-        updatedAt: article.created_at,
-        category: article.category || "General",
-        author: article.users?.name || "Writersthing Author",
-        authorId: article.author_id,
-        type: "article",
-        cover_url: article.thumbnail_url
+        title: story.title,
+        content: story.content || "",
+        updatedAt: story.created_at,
+        category: story.category || "General",
+        author: story.users?.name || "Writersthing Author",
+        authorId: story.author_id,
+        type: "story",
+        cover_url: story.thumbnail_url
       });
     }
 
@@ -138,9 +138,9 @@ export async function PATCH(
     console.log("[API MANUSCRIPTS PATCH] Payload:", { id, title, contentLength: content ? content.length : 0, contentPreview: content ? content.substring(0, 100) : "", status });
 
     // Determine which table this manuscript belongs to (parallel lookup using admin client)
-    const [bookRes, articleRes, blogRes] = await Promise.all([
+    const [bookRes, storyRes, blogRes] = await Promise.all([
       supabaseAdmin.from("books").select("id, author_id, pdf_path").eq("id", id).maybeSingle(),
-      supabaseAdmin.from("articles").select("id, author_id").eq("id", id).maybeSingle(),
+      supabaseAdmin.from("stories").select("id, author_id").eq("id", id).maybeSingle(),
       supabaseAdmin.from("blogs").select("id, author_id").eq("id", id).maybeSingle()
     ]);
 
@@ -200,9 +200,9 @@ export async function PATCH(
       });
     }
 
-    // ── Handle Articles ───────────────────────────────────────
-    if (articleRes.data) {
-      const article = articleRes.data;
+    // ── Handle Stories ───────────────────────────────────────
+    if (storyRes.data) {
+      const story = storyRes.data;
 
       // Explicit author authorization check
       const { data: authorData } = await supabaseAdmin
@@ -211,7 +211,7 @@ export async function PATCH(
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!authorData || article.author_id !== authorData.id) {
+      if (!authorData || story.author_id !== authorData.id) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
 
@@ -224,18 +224,18 @@ export async function PATCH(
       }
 
       const { error: updateError } = await supabaseAdmin
-        .from("articles")
+        .from("stories")
         .update(updateData)
         .eq("id", id);
 
       if (updateError) throw updateError;
 
-      // Invalidate articles cache
-      ServerCache.clearArticles();
+      // Invalidate stories cache
+      ServerCache.clearStories();
 
       return NextResponse.json({
-        message: "Article saved successfully",
-        type: "article",
+        message: "Story saved successfully",
+        type: "story",
         updatedAt: now
       });
     }

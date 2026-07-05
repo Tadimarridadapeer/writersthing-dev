@@ -57,7 +57,7 @@ export default function AdminDashboard() {
       const { count: bookCount } = await supabase.from("books").select("*", { count: "exact", head: true });
       const { data: orders } = await supabase.from("orders").select("amount").eq("status", "Success");
       
-      const totalRevenue = orders?.reduce((acc, order) => acc + Number(order.amount), 0) || 0;
+      const totalRevenue = orders?.reduce((acc: number, order: any) => acc + Number(order.amount), 0) || 0;
 
       // 2. Fetch Books for Review
       const { data: pending, count: pendingCount } = await supabase

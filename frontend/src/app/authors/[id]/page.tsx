@@ -25,12 +25,12 @@ export default function AuthorProfilePage() {
   const [authorProfile, setAuthorProfile] = useState<any>(null);
   
   const [blogs, setBlogs] = useState<any[]>([]);
-  const [articles, setArticles] = useState<any[]>([]);
+  const [storys, setStorys] = useState<any[]>([]);
   const [books, setBooks] = useState<any[]>([]);
   
   const [followersCount, setFollowersCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"blogs" | "books" | "articles">("blogs");
+  const [activeTab, setActiveTab] = useState<"blogs" | "books" | "storys">("blogs");
   const [loading, setLoading] = useState(true);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersList, setFollowersList] = useState<any[]>([]);
@@ -51,7 +51,7 @@ export default function AuthorProfilePage() {
       const storedUser = localStorage.getItem("user");
       const parsedUser = storedUser ? JSON.parse(storedUser) : null;
 
-      // The URL ID could be a users.id OR an authors.id (blogs/articles FK → authors.id).
+      // The URL ID could be a users.id OR an authors.id (blogs/storys FK → authors.id).
       // Try direct users lookup first; if that fails, resolve through the authors table.
       let resolvedUserId = authorId;
 
@@ -72,7 +72,7 @@ export default function AuthorProfilePage() {
         followsCountRes,
         followStatusRes,
         blogsRes,
-        articlesRes
+        storysRes
       ] = await Promise.all([
         directUserRes.data
           ? Promise.resolve(directUserRes)
@@ -81,7 +81,7 @@ export default function AuthorProfilePage() {
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", resolvedUserId),
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("blogs").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
-        supabase.from("articles").select("*").eq("author_id", authorId).order("created_at", { ascending: false })
+        supabase.from("storys").select("*").eq("author_id", authorId).order("created_at", { ascending: false })
       ]);
 
       if (userRes.error || !userRes.data) {
@@ -93,7 +93,7 @@ export default function AuthorProfilePage() {
       setFollowersCount(followsCountRes.count || 0);
       setIsFollowing(!!followStatusRes.data);
       setBlogs(blogsRes.data || []);
-      setArticles(articlesRes.data || []);
+      setStorys(storysRes.data || []);
 
       // Books query depends on author profileData ID
       if (profileRes.data) {
@@ -178,7 +178,7 @@ export default function AuthorProfilePage() {
     );
   }
 
-  const totalWorksCount = blogs.length + articles.length + books.length;
+  const totalWorksCount = blogs.length + storys.length + books.length;
 
   return (
     <div className="bg-zinc-50/30 min-h-screen font-outfit text-zinc-900 pb-20">
@@ -273,12 +273,12 @@ export default function AuthorProfilePage() {
             Books ({books.length})
           </button>
           <button 
-            onClick={() => setActiveTab("articles")}
+            onClick={() => setActiveTab("storys")}
             className={`pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
-              activeTab === "articles" ? "border-zinc-950 text-zinc-950" : "border-transparent text-zinc-400 hover:text-zinc-600"
+              activeTab === "storys" ? "border-zinc-950 text-zinc-950" : "border-transparent text-zinc-400 hover:text-zinc-600"
             }`}
           >
-            Articles ({articles.length})
+            Storys ({storys.length})
           </button>
         </div>
 
@@ -369,23 +369,23 @@ export default function AuthorProfilePage() {
             </motion.div>
           )}
 
-          {/* 3. Articles Tab */}
-          {activeTab === "articles" && (
+          {/* 3. Storys Tab */}
+          {activeTab === "storys" && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
-              {articles.length > 0 ? (
-                articles.map(artItem => (
+              {storys.length > 0 ? (
+                storys.map(artItem => (
                   <Link 
                     key={artItem.id} 
-                    href={`/articles/${artItem.id}`}
+                    href={`/storys/${artItem.id}`}
                     className="block bg-white border border-zinc-100 rounded-3xl p-6 hover:border-zinc-950 hover:shadow-md transition-all group"
                   >
                     <div className="flex justify-between items-start gap-4 mb-4">
                       <span className="px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-zinc-500">
-                        {artItem.category || "Article"}
+                        {artItem.category || "Story"}
                       </span>
                       <span className="flex items-center gap-1.5 text-zinc-300 text-[9px] font-bold">
                         <Clock size={11} /> {new Date(artItem.created_at).toLocaleDateString()}
@@ -403,7 +403,7 @@ export default function AuthorProfilePage() {
                 ))
               ) : (
                 <div className="col-span-2 text-center py-16 bg-white border border-zinc-100 rounded-3xl text-zinc-400 italic text-sm">
-                  No articles published yet.
+                  No storys published yet.
                 </div>
               )}
             </motion.div>

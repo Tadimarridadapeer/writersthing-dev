@@ -1,17 +1,17 @@
 class ServerCache {
-  private static articles: any = null;
-  private static articlesExpiry = 0;
+  private static stories: any = null;
+  private static storiesExpiry = 0;
   private static blogs: any = null;
   private static blogsExpiry = 0;
 
-  static getArticles() {
-    if (Date.now() < this.articlesExpiry) return this.articles;
+  static getStories() {
+    if (Date.now() < this.storiesExpiry) return this.stories;
     return null;
   }
 
-  static setArticles(data: any, ttlMs: number) {
-    this.articles = data;
-    this.articlesExpiry = Date.now() + ttlMs;
+  static setStories(data: any, ttlMs: number) {
+    this.stories = data;
+    this.storiesExpiry = Date.now() + ttlMs;
   }
 
   static getBlogs() {
@@ -24,10 +24,10 @@ class ServerCache {
     this.blogsExpiry = Date.now() + ttlMs;
   }
 
-  static clearArticles() {
-    console.log("[SERVERLESS ARTICLES CACHE] Invalidated!");
-    this.articles = null;
-    this.articlesExpiry = 0;
+  static clearStories() {
+    console.log("[SERVERLESS STORIES CACHE] Invalidated!");
+    this.stories = null;
+    this.storiesExpiry = 0;
   }
 
   static clearBlogs() {

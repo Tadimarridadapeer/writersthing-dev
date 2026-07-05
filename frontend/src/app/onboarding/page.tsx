@@ -19,11 +19,11 @@ const INTERESTS = [
 
 const CONTENT_TYPES = [
   { id: "Books", icon: <BookOpen size={24} /> },
-  { id: "Articles", icon: <FileText size={24} /> },
+  { id: "Stories", icon: <FileText size={24} /> },
   { id: "Blogs", icon: <PenTool size={24} /> },
   { id: "Short Reads", icon: <Zap size={24} /> },
   { id: "Learning Series", icon: <GraduationCap size={24} /> },
-  { id: "Stories", icon: <Heart size={24} /> },
+  { id: "Personal Essays", icon: <Heart size={24} /> },
   { id: "Writing Tips", icon: <Edit3 size={24} /> },
   { id: "Book Recommendations", icon: <Star size={24} /> }
 ];
@@ -287,7 +287,7 @@ export default function OnboardingPage() {
               </div>
               <h1 className="text-5xl md:text-6xl font-heading font-black tracking-tight uppercase mb-6">Perfect! Your library is ready.</h1>
               <p className="text-zinc-500 text-lg font-medium italic mb-12 max-w-2xl">
-                We'll recommend books, blogs, articles, and writers based on your interests and goals. You can update these preferences anytime from your Profile Settings.
+                We'll recommend books, blogs, stories, and writers based on your interests and goals. You can update these preferences anytime from your Profile Settings.
               </p>
               
               <button

@@ -217,9 +217,9 @@ export default function ProfilePage() {
   const [hasSavesError, setHasSavesError] = useState(false);
   const [hasLikesError, setHasLikesError] = useState(false);
   const [libraryPerspective, setLibraryPerspective] = useState<"reader" | "author">("reader");
-  const [libraryFilter, setLibraryFilter] = useState<"all" | "book" | "article" | "blog">("all");
-  const [bookmarkFilter, setBookmarkFilter] = useState<"all" | "book" | "article" | "blog">("all");
-  const [likeFilter, setLikeFilter] = useState<"all" | "book" | "article" | "blog">("all");
+  const [libraryFilter, setLibraryFilter] = useState<"all" | "book" | "story" | "blog">("all");
+  const [bookmarkFilter, setBookmarkFilter] = useState<"all" | "book" | "story" | "blog">("all");
+  const [likeFilter, setLikeFilter] = useState<"all" | "book" | "story" | "blog">("all");
   const [readedItems, setReadedItems] = useState<any[]>([]);
   const [publishedItems, setPublishedItems] = useState<any[]>([]);
   const [hasImpressionsError, setHasImpressionsError] = useState(false);
@@ -238,29 +238,29 @@ export default function ProfilePage() {
     if (!items || !items.length) return [];
     
     const bookIds = items.filter(i => i.content_type === "book").map(i => i.content_id);
-    const articleIds = items.filter(i => i.content_type === "article").map(i => i.content_id);
+    const storyIds = items.filter(i => i.content_type === "story").map(i => i.content_id);
     const blogIds = items.filter(i => i.content_type === "blog").map(i => i.content_id);
     
-    const [booksRes, articlesRes, blogsRes] = await Promise.all([
+    const [booksRes, storiesRes, blogsRes] = await Promise.all([
       bookIds.length 
         ? supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").in("id", bookIds) 
         : Promise.resolve({ data: [] }),
-      articleIds.length 
-        ? supabase.from("articles").select("*, authors:author_id(*, users:user_id(name))").in("id", articleIds) 
+      storyIds.length 
+        ? supabase.from("stories").select("*, authors:author_id(*, users:user_id(name))").in("id", storyIds) 
         : Promise.resolve({ data: [] }),
       blogIds.length 
         ? supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").in("id", blogIds) 
         : Promise.resolve({ data: [] })
     ]);
     
-    const booksMap = new Map((booksRes.data || []).map(b => [b.id, { ...b, type: "book" }]));
-    const articlesMap = new Map((articlesRes.data || []).map(a => [a.id, { ...a, type: "article" }]));
-    const blogsMap = new Map((blogsRes.data || []).map(b => [b.id, { ...b, type: "blog" }]));
+    const booksMap = new Map((booksRes.data || []).map((b: any) => [b.id, { ...b, type: "book" }]));
+    const storiesMap = new Map((storiesRes.data || []).map((a: any) => [a.id, { ...a, type: "story" }]));
+    const blogsMap = new Map((blogsRes.data || []).map((b: any) => [b.id, { ...b, type: "blog" }]));
     
     return items.map(item => {
       let details = null;
       if (item.content_type === "book") details = booksMap.get(item.content_id);
-      else if (item.content_type === "article") details = articlesMap.get(item.content_id);
+      else if (item.content_type === "story") details = storiesMap.get(item.content_id);
       else if (item.content_type === "blog") details = blogsMap.get(item.content_id);
       
       return details ? { ...item, details } : null;
@@ -314,20 +314,22 @@ export default function ProfilePage() {
 
     try {
       // Fetch stats and library in parallel
-      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes] = await Promise.all([
+      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes] = await Promise.all([
         supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
         supabase.from("authors").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("books").select("*").eq("author_id", parsedUser.id),
         supabase.from("saves").select("*").eq("user_id", parsedUser.id),
         supabase.from("likes").select("*").eq("user_id", parsedUser.id),
-        supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false })
+        supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false }),
+        supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", parsedUser.id),
+        supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", parsedUser.id)
       ]);
 
       if (libRes.error) {
         console.warn("Library table error:", libRes.error.message);
         if (libRes.error.code === "PGRST205") setHasLibraryError(true);
       } else if (libRes.data) {
-        setPurchasedBooks(libRes.data.map(l => l.books).filter(Boolean));
+        setPurchasedBooks(libRes.data.map((l: any) => l.books).filter(Boolean));
       }
 
       if (manuscriptRes.data) {
@@ -396,17 +398,17 @@ export default function ProfilePage() {
           .maybeSingle();
 
         if (authorProfile) {
-          const [pubBooksRes, pubArticlesRes, pubBlogsRes] = await Promise.all([
+          const [pubBooksRes, pubStoriesRes, pubBlogsRes] = await Promise.all([
             supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", parsedUser.id),
-            supabase.from("articles").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id),
+            supabase.from("stories").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id),
             supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id)
           ]);
           
           const books = (pubBooksRes.data || []).map((b: any) => ({ ...b, type: "book", content_type: "book", details: b }));
-          const articles = (pubArticlesRes.data || []).map((a: any) => ({ ...a, type: "article", content_type: "article", details: a }));
+          const stories = (pubStoriesRes.data || []).map((a: any) => ({ ...a, type: "story", content_type: "story", details: a }));
           const blogs = (pubBlogsRes.data || []).map((b: any) => ({ ...b, type: "blog", content_type: "blog", details: b }));
           
-          setPublishedItems([...books, ...articles, ...blogs]);
+          setPublishedItems([...books, ...stories, ...blogs]);
         }
       }
 
@@ -417,8 +419,8 @@ export default function ProfilePage() {
         library: libraryCount,
         bookmarks: bookmarksCount,
         earnings: authorRes.data?.total_earnings || 0,
-        followers: authorRes.data?.followers_count || 0,
-        following: 0
+        followers: followersCountRes.count || 0,
+        following: followingCountRes.count || 0
       });
 
     } catch (err) {
@@ -495,7 +497,7 @@ export default function ProfilePage() {
           <header className="flex flex-col md:flex-row items-center gap-8 mb-8 pb-8 border-b border-zinc-100">
             <div className="relative" style={{ userSelect: 'none' }}>
               {/* Avatar circle */}
-              <div className="w-40 h-40 bg-zinc-50 border border-zinc-100 rounded-full flex items-center justify-center text-5xl font-black text-zinc-200 overflow-hidden shadow-2xl relative">
+              <div className="w-32 h-32 md:w-36 md:h-36 bg-zinc-50 border border-zinc-100 rounded-full flex items-center justify-center text-4xl font-bold text-zinc-300 overflow-hidden shadow-xl relative">
                 {user.user_metadata?.avatar_url || user.avatar_url ? (
                   <img src={user.user_metadata?.avatar_url || user.avatar_url} className="w-full h-full object-cover" />
                 ) : (
@@ -586,43 +588,43 @@ export default function ProfilePage() {
             
             <div className="flex-grow text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 select-none">
-                <h1 className="text-3xl md:text-5xl font-heading font-black uppercase tracking-tighter">{user.name}</h1>
+                <h1 className="text-2xl md:text-4xl font-heading font-bold tracking-tight text-zinc-900">{user.name}</h1>
                 
                 {reputation && (
-                  <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-zinc-50 border border-zinc-100 rounded-full w-fit mx-auto md:mx-0">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-full w-fit mx-auto md:mx-0">
                     <Sparkles size={11} className="text-zinc-600 animate-pulse" />
-                    <span className="text-[8px] font-black uppercase tracking-widest text-zinc-600">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-600">
                       {reputation.reputation_level} ({reputation.reputation_score} pts)
                     </span>
                   </div>
                 )}
 
                 {user.role === "Admin" && (
-                  <Link href="/admin" className="px-4 py-1.5 bg-black text-white rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2 w-fit mx-auto md:mx-0 hover:scale-105 transition-all">
+                  <Link href="/admin" className="px-3 py-1 bg-black text-white rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-2 w-fit mx-auto md:mx-0 hover:scale-105 transition-all">
                     <ShieldCheck size={10} /> Admin Access
                   </Link>
                 )}
               </div>
-              <p className="text-xl text-zinc-500 font-medium italic mb-6 max-w-xl">
-                "{user.bio || "Crafting stories, exploring digital horizons."}"
+              <p className="text-lg text-zinc-600 font-normal mb-6 max-w-xl">
+                {user.bio || "Crafting stories, exploring digital horizons."}
               </p>
               
               {/* Clickable Social Followers/Following Row */}
-              <div className="flex justify-center md:justify-start gap-8 mt-6 mb-8 text-sm select-none">
+              <div className="flex justify-center md:justify-start gap-8 mt-4 mb-8 text-sm select-none">
                 <button 
                   onClick={fetchFollowers} 
                   className="font-medium hover:text-black transition-colors flex items-center gap-2 group cursor-pointer border-0 bg-transparent p-0"
                 >
-                  <span className="font-heading font-black text-xl text-black group-hover:scale-105 transition-transform">{stats.followers}</span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Followers</span>
+                  <span className="font-heading font-semibold text-lg text-zinc-800 group-hover:text-black transition-colors">{stats.followers}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Followers</span>
                 </button>
-                <div className="w-px h-6 bg-zinc-100 my-auto" />
+                <div className="w-px h-5 bg-zinc-200 my-auto" />
                 <button 
                   onClick={fetchFollowing} 
                   className="font-medium hover:text-black transition-colors flex items-center gap-2 group cursor-pointer border-0 bg-transparent p-0"
                 >
-                  <span className="font-heading font-black text-xl text-black group-hover:scale-105 transition-transform">{stats.following}</span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Following</span>
+                  <span className="font-heading font-semibold text-lg text-zinc-800 group-hover:text-black transition-colors">{stats.following}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Following</span>
                 </button>
               </div>
 
@@ -644,12 +646,12 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-2 gap-12 border-l border-zinc-100 pl-12 hidden lg:grid">
               <div className="text-center">
-                <p className="text-5xl font-heading font-black tracking-tighter">{stats.library}</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Library</p>
+                <p className="text-4xl font-heading font-semibold text-zinc-900 tracking-tight">{stats.library}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-1">Library</p>
               </div>
               <div className="text-center">
-                <p className="text-5xl font-heading font-black tracking-tighter">₹{stats.earnings.toLocaleString()}</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Earnings</p>
+                <p className="text-4xl font-heading font-semibold text-zinc-900 tracking-tight">₹{stats.earnings.toLocaleString()}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-1">Earnings</p>
               </div>
             </div>
           </header>
@@ -726,7 +728,7 @@ export default function ProfilePage() {
                           {[
                             { value: "all", label: "All Content" },
                             { value: "book", label: "Books" },
-                            { value: "article", label: "Articles" },
+                            { value: "story", label: "Stories" },
                             { value: "blog", label: "Blogs" }
                           ].map((f) => (
                             <button
@@ -758,7 +760,7 @@ export default function ProfilePage() {
                                   const details = item.details;
                                   if (!details) return null;
                                   const isBook = item.content_type === "book" || details.cover_url !== undefined;
-                                  const isArticle = item.content_type === "article" || details.thumbnail_url !== undefined;
+                                  const isStory = item.content_type === "story" || details.thumbnail_url !== undefined;
                                   const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
                                   let badge = "CONTENT";
@@ -768,9 +770,9 @@ export default function ProfilePage() {
                                   if (isBook) {
                                     badge = "BOOK";
                                     link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
-                                  } else if (isArticle) {
-                                    badge = "ARTICLE";
-                                    link = `/articles/${details.id}`;
+                                  } else if (isStory) {
+                                    badge = "STORY";
+                                    link = `/stories/${details.id}`;
                                   } else if (isBlog) {
                                     badge = "BLOG";
                                     link = `/blogs/${details.id}`;
@@ -808,7 +810,7 @@ export default function ProfilePage() {
                                                   }
                                                 } else {
                                                   if (confirm("Are you sure you want to delete this content?")) {
-                                                    fetch(`/api/articles/${details.id}`, {
+                                                    fetch(`/api/stories/${details.id}`, {
                                                       method: "DELETE"
                                                     }).then(res => {
                                                       if (res.ok) {
@@ -853,8 +855,8 @@ export default function ProfilePage() {
                                     {(libraryFilter === "all" || libraryFilter === "book") && (
                                       <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Explore Marketplace</Link>
                                     )}
-                                    {(libraryFilter === "all" || libraryFilter === "article") && (
-                                      <Link href="/articles" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Articles</Link>
+                                    {(libraryFilter === "all" || libraryFilter === "story") && (
+                                      <Link href="/stories" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Stories</Link>
                                     )}
                                     {(libraryFilter === "all" || libraryFilter === "blog") && (
                                       <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
@@ -886,7 +888,7 @@ export default function ProfilePage() {
                           {[
                             { value: "all", label: "All Content" },
                             { value: "book", label: "Books" },
-                            { value: "article", label: "Articles" },
+                            { value: "story", label: "Stories" },
                             { value: "blog", label: "Blogs" }
                           ].map((f) => (
                             <button
@@ -917,7 +919,7 @@ export default function ProfilePage() {
                                   const details = item.details;
                                   if (!details) return null;
                                   const isBook = item.content_type === "book" || details.cover_url !== undefined;
-                                  const isArticle = item.content_type === "article" || details.thumbnail_url !== undefined;
+                                  const isStory = item.content_type === "story" || details.thumbnail_url !== undefined;
                                   const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
                                   let badge = "CONTENT";
@@ -927,9 +929,9 @@ export default function ProfilePage() {
                                   if (isBook) {
                                     badge = "BOOK";
                                     link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
-                                  } else if (isArticle) {
-                                    badge = "ARTICLE";
-                                    link = `/articles/${details.id}`;
+                                  } else if (isStory) {
+                                    badge = "STORY";
+                                    link = `/stories/${details.id}`;
                                   } else if (isBlog) {
                                     badge = "BLOG";
                                     link = `/blogs/${details.id}`;
@@ -974,8 +976,8 @@ export default function ProfilePage() {
                                   {(bookmarkFilter === "all" || bookmarkFilter === "book") && (
                                     <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Browse Books</Link>
                                   )}
-                                  {(bookmarkFilter === "all" || bookmarkFilter === "article") && (
-                                    <Link href="/articles" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Articles</Link>
+                                  {(bookmarkFilter === "all" || bookmarkFilter === "story") && (
+                                    <Link href="/stories" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Stories</Link>
                                   )}
                                   {(bookmarkFilter === "all" || bookmarkFilter === "blog") && (
                                     <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
@@ -1002,7 +1004,7 @@ export default function ProfilePage() {
                           {[
                             { value: "all", label: "All Content" },
                             { value: "book", label: "Books" },
-                            { value: "article", label: "Articles" },
+                            { value: "story", label: "Stories" },
                             { value: "blog", label: "Blogs" }
                           ].map((f) => (
                             <button
@@ -1033,7 +1035,7 @@ export default function ProfilePage() {
                                   const details = item.details;
                                   if (!details) return null;
                                   const isBook = item.content_type === "book" || details.cover_url !== undefined;
-                                  const isArticle = item.content_type === "article" || details.thumbnail_url !== undefined;
+                                  const isStory = item.content_type === "story" || details.thumbnail_url !== undefined;
                                   const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
                                   let badge = "CONTENT";
@@ -1043,9 +1045,9 @@ export default function ProfilePage() {
                                   if (isBook) {
                                     badge = "BOOK";
                                     link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
-                                  } else if (isArticle) {
-                                    badge = "ARTICLE";
-                                    link = `/articles/${details.id}`;
+                                  } else if (isStory) {
+                                    badge = "STORY";
+                                    link = `/stories/${details.id}`;
                                   } else if (isBlog) {
                                     badge = "BLOG";
                                     link = `/blogs/${details.id}`;
@@ -1090,8 +1092,8 @@ export default function ProfilePage() {
                                   {(likeFilter === "all" || likeFilter === "book") && (
                                     <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Browse Books</Link>
                                   )}
-                                  {(likeFilter === "all" || likeFilter === "article") && (
-                                    <Link href="/articles" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Articles</Link>
+                                  {(likeFilter === "all" || likeFilter === "story") && (
+                                    <Link href="/stories" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Stories</Link>
                                   )}
                                   {(likeFilter === "all" || likeFilter === "blog") && (
                                     <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
@@ -1610,7 +1612,7 @@ export function PreferencesSettings() {
   ];
 
   const CONTENT_TYPES_LIST = [
-    "Books", "Articles", "Blogs", "Short Reads", 
+    "Books", "Stories", "Blogs", "Short Reads", 
     "Learning Series", "Stories", "Writing Tips", "Book Recommendations"
   ];
 

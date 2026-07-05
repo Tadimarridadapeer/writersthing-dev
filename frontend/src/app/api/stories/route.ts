@@ -23,24 +23,24 @@ export async function GET(req: Request) {
   try {
     const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get("type") || "Article";
+    const type = searchParams.get("type") || "Story";
     const now = Date.now();
 
-    if (type === "Article") {
+    if (type === "Story") {
       const { data, error } = await supabase
-        .from("articles")
+        .from("stories")
         .select("*, authors:author_id(user_id, users:user_id(name))")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       // Filter out drafts
-      const publishedArticles = data ? data.filter((item: any) => 
+      const publishedStories = data ? data.filter((item: any) => 
         item.content && !item.content.startsWith("[DRAFT]")
       ) : [];
 
       // Map to frontend-friendly schema (flattening author name and using cover_url)
-      const mappedData = publishedArticles.map((item: any) => ({
+      const mappedData = publishedStories.map((item: any) => ({
         id: item.id,
         title: item.title,
         description: item.content ? item.content.substring(0, 160) + "..." : "No synopsis available.",
@@ -48,7 +48,8 @@ export async function GET(req: Request) {
         cover_url: item.thumbnail_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800",
         created_at: item.created_at,
         authors: {
-          name: item.authors?.users?.name || "Unknown Author"
+          name: item.authors?.users?.name || "Unknown Author",
+          user_id: item.authors?.user_id
         }
       }));
 
@@ -75,13 +76,14 @@ export async function GET(req: Request) {
         cover_url: item.banner_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?q=80&w=800",
         created_at: item.created_at,
         authors: {
-          name: item.authors?.users?.name || "Unknown Author"
+          name: item.authors?.users?.name || "Unknown Author",
+          user_id: item.authors?.user_id
         }
       }));
       return NextResponse.json(mappedData);
     }
   } catch (error: any) {
-    console.error("Fetch articles error:", error);
+    console.error("Fetch stories error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
@@ -100,9 +102,9 @@ export async function POST(req: Request) {
 
     const { title, description, category, type, coverUrl, tags } = await req.json();
 
-    if (type === "Article") {
+    if (type === "Story") {
       const { data, error } = await supabase
-        .from("articles")
+        .from("stories")
         .insert([
           {
             title,
@@ -118,8 +120,8 @@ export async function POST(req: Request) {
 
       if (error) throw error;
 
-      // Invalidate articles cache
-      ServerCache.clearArticles();
+      // Invalidate stories cache
+      ServerCache.clearStories();
 
       return NextResponse.json({ 
         message: `${type} published successfully!`, 
@@ -151,7 +153,7 @@ export async function POST(req: Request) {
       }, { status: 201 });
     }
   } catch (error: any) {
-    console.error("Post article error:", error);
+    console.error("Post story error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

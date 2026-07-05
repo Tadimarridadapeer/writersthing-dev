@@ -10,7 +10,7 @@ const TransactionSchema = new mongoose.Schema(
     book: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Book",
-      required: false, // Could be a subscription or article tip too
+      required: false, // Could be a subscription or story tip too
     },
     orderId: {
       type: String,

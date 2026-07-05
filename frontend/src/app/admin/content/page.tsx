@@ -21,7 +21,7 @@ export default function AdminContentPage() {
     { id: "1", title: "The Art of Prompt", author: "Tadimarri Dadapeer", type: "Book", status: "Active", sales: 1450, reports: 0 },
     { id: "2", title: "Quantum Dreams", author: "Elena Vance", type: "Book", status: "Active", sales: 820, reports: 2 },
     { id: "3", title: "The Dark Net", author: "Marcus Thorne", type: "Book", status: "Flagged", sales: 12, reports: 15 },
-    { id: "4", title: "Neo-Stoicism", author: "John Doe", type: "Article", status: "Active", sales: 0, reports: 0 },
+    { id: "4", title: "Neo-Stoicism", author: "John Doe", type: "Story", status: "Active", sales: 0, reports: 0 },
   ]);
 
   const handleToggleStatus = (id: string) => {
@@ -47,7 +47,7 @@ export default function AdminContentPage() {
           <h1 className="text-7xl font-heading font-black tracking-ultra-tight uppercase mb-6">Library Control</h1>
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <p className="text-zinc-500 text-xl font-medium leading-relaxed italic">
-              Review published manuscripts, articles, and monitor reports.
+              Review published manuscripts, storys, and monitor reports.
             </p>
             <div className="relative w-full md:w-96">
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-300" size={18} />

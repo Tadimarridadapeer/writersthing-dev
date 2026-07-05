@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const ArticleSchema = new mongoose.Schema(
+const StorySchema = new mongoose.Schema(
   {
     title: {
       type: String,
@@ -21,8 +21,8 @@ const ArticleSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["Article", "Blog"],
-      default: "Article",
+      enum: ["Story", "Blog"],
+      default: "Story",
     },
     coverImage: {
       type: String,
@@ -36,4 +36,4 @@ const ArticleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Article || mongoose.model("Article", ArticleSchema);
+export default mongoose.models.Story || mongoose.model("Story", StorySchema);

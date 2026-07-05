@@ -15,7 +15,7 @@ export default function BlogsPage() {
 
   const fetchBlogs = async () => {
     try {
-      const res = await fetch("/api/articles?type=Blog");
+      const res = await fetch("/api/stories?type=Blog");
       const data = await res.json();
       setBlogs(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -36,7 +36,7 @@ export default function BlogsPage() {
                 <div className="w-12 h-px bg-black" />
                 <span className="text-[10px] font-black uppercase tracking-[0.5em]">The Journal</span>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-end">
+              <div className="flex flex-col gap-6">
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-black tracking-tight uppercase leading-[0.9] mb-2">
                   Personal <br /> Blogs
                 </h1>

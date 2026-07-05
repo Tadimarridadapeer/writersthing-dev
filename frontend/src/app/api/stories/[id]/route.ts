@@ -14,7 +14,7 @@ export async function DELETE(
     // Note: The frontend is passing standard Supabase auth token via cookies/headers 
     // but here we just rely on RLS or simple delete since this is a prototype.
     const { error } = await supabase
-      .from("articles")
+      .from("stories")
       .delete()
       .eq("id", id);
 

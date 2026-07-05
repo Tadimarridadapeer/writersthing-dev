@@ -63,11 +63,11 @@ function renderMarkdown(content: string): string {
   return parsedHtml;
 }
 
-export default function ArticlePost() {
+export default function StoryPost() {
   const params = useParams();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [article, setArticle] = useState<any>(null);
+  const [story, setStory] = useState<any>(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -85,40 +85,40 @@ export default function ArticlePost() {
     const stored = localStorage.getItem("user");
     const userObj = stored ? JSON.parse(stored) : null;
     if (userObj) setCurrentUser(userObj);
-    fetchArticle(userObj);
+    fetchStory(userObj);
   }, [params.id]);
 
-  const fetchArticle = async (userObj: any) => {
+  const fetchStory = async (userObj: any) => {
     try {
       const res = await fetch(`/api/manuscripts/${params.id}`);
       if (!res.ok) {
-        throw new Error("Failed to fetch article");
+        throw new Error("Failed to fetch story");
       }
       const data = await res.json();
-      setArticle(data);
+      setStory(data);
       
       // Load engagement and follow data in parallel
       if (data.authorId) {
         fetchFollowData(data.authorId, userObj);
       }
       
-      const articleUuid = params.id as string;
-      fetchEngagementData(articleUuid, userObj);
+      const storyUuid = params.id as string;
+      fetchEngagementData(storyUuid, userObj);
 
     } catch (err) {
-      console.error("Fetch article error:", err);
-      setArticle(null);
+      console.error("Fetch story error:", err);
+      setStory(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchEngagementData = async (articleId: string, userObj: any) => {
+  const fetchEngagementData = async (storyId: string, userObj: any) => {
     try {
       // 1. Log view/impression
       await supabase.from("impressions").insert({
-        content_type: "article",
-        content_id: articleId,
+        content_type: "story",
+        content_id: storyId,
         viewer_id: userObj?.id || null
       });
 
@@ -126,7 +126,7 @@ export default function ArticlePost() {
       const { count: likes } = await supabase
         .from("likes")
         .select("*", { count: "exact", head: true })
-        .eq("content_id", articleId);
+        .eq("content_id", storyId);
       setLikesCount(likes || 0);
 
       if (userObj) {
@@ -134,7 +134,7 @@ export default function ArticlePost() {
         const { data: like } = await supabase
           .from("likes")
           .select("*")
-          .eq("content_id", articleId)
+          .eq("content_id", storyId)
           .eq("user_id", userObj.id)
           .maybeSingle();
         setIsLiked(!!like);
@@ -143,7 +143,7 @@ export default function ArticlePost() {
         const { data: save } = await supabase
           .from("saves")
           .select("*")
-          .eq("content_id", articleId)
+          .eq("content_id", storyId)
           .eq("user_id", userObj.id)
           .maybeSingle();
         setIsSaved(!!save);
@@ -153,7 +153,7 @@ export default function ArticlePost() {
       const { data: comms } = await supabase
         .from("comments")
         .select("*, users:user_id(name, avatar_url)")
-        .eq("content_id", articleId)
+        .eq("content_id", storyId)
         .order("created_at", { ascending: true });
       if (comms) setComments(comms);
 
@@ -189,20 +189,20 @@ export default function ArticlePost() {
       router.push("/login?redirect=" + window.location.pathname);
       return;
     }
-    if (!article?.authorId) return;
+    if (!story?.authorId) return;
     try {
       if (isFollowing) {
         await supabase
           .from("follows")
           .delete()
           .eq("follower_id", currentUser.id)
-          .eq("following_id", article.authorId);
+          .eq("following_id", story.authorId);
         setIsFollowing(false);
         setFollowersCount(prev => Math.max(0, prev - 1));
       } else {
         await supabase
           .from("follows")
-          .insert({ follower_id: currentUser.id, following_id: article.authorId });
+          .insert({ follower_id: currentUser.id, following_id: story.authorId });
         setIsFollowing(true);
         setFollowersCount(prev => prev + 1);
       }
@@ -216,13 +216,13 @@ export default function ArticlePost() {
       router.push("/login?redirect=" + window.location.pathname);
       return;
     }
-    const articleUuid = params.id as string;
+    const storyUuid = params.id as string;
     try {
       if (isLiked) {
         await supabase
           .from("likes")
           .delete()
-          .eq("content_id", articleUuid)
+          .eq("content_id", storyUuid)
           .eq("user_id", currentUser.id);
         setIsLiked(false);
         setLikesCount(prev => Math.max(0, prev - 1));
@@ -230,8 +230,8 @@ export default function ArticlePost() {
         await supabase
           .from("likes")
           .insert({
-            content_type: "article",
-            content_id: articleUuid,
+            content_type: "story",
+            content_id: storyUuid,
             user_id: currentUser.id
           });
         setIsLiked(true);
@@ -247,21 +247,21 @@ export default function ArticlePost() {
       router.push("/login?redirect=" + window.location.pathname);
       return;
     }
-    const articleUuid = params.id as string;
+    const storyUuid = params.id as string;
     try {
       if (isSaved) {
         await supabase
           .from("saves")
           .delete()
-          .eq("content_id", articleUuid)
+          .eq("content_id", storyUuid)
           .eq("user_id", currentUser.id);
         setIsSaved(false);
       } else {
         await supabase
           .from("saves")
           .insert({
-            content_type: "article",
-            content_id: articleUuid,
+            content_type: "story",
+            content_id: storyUuid,
             user_id: currentUser.id
           });
         setIsSaved(true);
@@ -279,13 +279,13 @@ export default function ArticlePost() {
     }
     if (!newComment.trim() && commentRating === 0) return;
     setSubmittingComment(true);
-    const articleUuid = params.id as string;
+    const storyUuid = params.id as string;
     try {
       const { data, error } = await supabase
         .from("comments")
         .insert({
-          content_type: "article",
-          content_id: articleUuid,
+          content_type: "story",
+          content_id: storyUuid,
           user_id: currentUser.id,
           comment_text: newComment.trim() || null,
           rating: commentRating > 0 ? commentRating : null
@@ -308,21 +308,21 @@ export default function ArticlePost() {
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-zinc-200" size={48} /></div>;
-  if (!article) return <div className="h-screen flex items-center justify-center italic text-zinc-400">Article not found</div>;
+  if (!story) return <div className="h-screen flex items-center justify-center italic text-zinc-400">Story not found</div>;
 
-  const isDraftPost = article.content && (article.content.startsWith("[DRAFT]\n") || article.content === "[DRAFT]");
+  const isDraftPost = story.content && (story.content.startsWith("[DRAFT]\n") || story.content === "[DRAFT]");
   const cleanContent = isDraftPost 
-    ? (article.content.startsWith("[DRAFT]\n") ? article.content.substring(8) : "") 
-    : (article.content || "");
-  const isAuthor = currentUser && currentUser.id === article.authorId;
+    ? (story.content.startsWith("[DRAFT]\n") ? story.content.substring(8) : "") 
+    : (story.content || "");
+  const isAuthor = currentUser && currentUser.id === story.authorId;
 
   if (isDraftPost && !isAuthor) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-white gap-6">
-        <h1 className="text-2xl font-heading font-bold uppercase tracking-tight text-amber-600">DRAFT ARTICLE</h1>
-        <p className="text-zinc-500 font-medium">This article is a draft and is not published yet.</p>
-        <Link href="/articles" className="px-8 py-3 bg-black text-white font-bold rounded-sm shadow-xl">
-          Return to Articles
+        <h1 className="text-2xl font-heading font-bold uppercase tracking-tight text-amber-600">DRAFT STORY</h1>
+        <p className="text-zinc-500 font-medium">This story is a draft and is not published yet.</p>
+        <Link href="/storys" className="px-8 py-3 bg-black text-white font-bold rounded-sm shadow-xl">
+          Return to Storys
         </Link>
       </div>
     );
@@ -347,18 +347,18 @@ export default function ArticlePost() {
             </div>
           )}
 
-          <Link href="/articles" className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-16">
+          <Link href="/storys" className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-16">
             <ArrowLeft size={14} />
-            Back to Articles
+            Back to Storys
           </Link>
 
           <header className="mb-20">
             <div className="flex items-center gap-4 mb-10">
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Article / {article.category}</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Story / {story.category}</span>
               <div className="h-px w-8 bg-zinc-200" />
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-7xl font-heading font-black tracking-tighter uppercase mb-6 md:mb-12 leading-[0.95]">
-              {article.title}
+              {story.title}
             </h1>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-10 border-y border-zinc-100">
               <div className="flex items-center gap-4">
@@ -367,23 +367,23 @@ export default function ArticlePost() {
                 </div>
                 <div>
                   <p className="text-sm font-black uppercase tracking-widest">
-                    {article.authorId ? (
-                      <Link href={`/authors/${article.authorId}`} className="hover:underline hover:text-zinc-600 transition-colors">
-                        {article.author || "Writersthing Author"}
+                    {story.authorId ? (
+                      <Link href={`/authors/${story.authorId}`} className="hover:underline hover:text-zinc-600 transition-colors">
+                        {story.author || "Writersthing Author"}
                       </Link>
                     ) : (
-                      article.author || "Writersthing Author"
+                      story.author || "Writersthing Author"
                     )}
                   </p>
                   <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
-                    {article.updatedAt ? new Date(article.updatedAt).toLocaleDateString() : "Draft"}
-                    {article.authorId && ` • ${followersCount} Followers`}
+                    {story.updatedAt ? new Date(story.updatedAt).toLocaleDateString() : "Draft"}
+                    {story.authorId && ` • ${followersCount} Followers`}
                   </p>
                 </div>
               </div>
               
               <div className="flex items-center gap-4">
-                {article.authorId && (
+                {story.authorId && (
                   isAuthor ? (
                     <Link
                       href={`/write/${params.id}`}
@@ -413,7 +413,7 @@ export default function ArticlePost() {
                       ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100" 
                       : "border-zinc-100 hover:bg-zinc-50 text-zinc-500 hover:text-black"
                   }`}
-                  title="Like article"
+                  title="Like story"
                 >
                   <Heart size={16} className={isLiked ? "fill-rose-500 text-rose-500" : ""} />
                 </button>
@@ -434,11 +434,11 @@ export default function ArticlePost() {
             </div>
           </header>
 
-          {article.cover_url && (
+          {story.cover_url && (
             <div className="w-full aspect-[21/9] md:aspect-[16/6] overflow-hidden my-12 bg-zinc-50 border border-zinc-100 rounded-sm">
               <img 
-                src={article.cover_url} 
-                alt={article.title} 
+                src={story.cover_url} 
+                alt={story.title} 
                 className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000"
               />
             </div>
@@ -516,7 +516,7 @@ export default function ArticlePost() {
                     <textarea
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Share your insights on this article..."
+                      placeholder="Share your insights on this story..."
                       className="w-full px-5 py-4 bg-zinc-50 border border-zinc-200 focus:border-black rounded-2xl text-sm focus:outline-none min-h-[100px] resize-none transition-colors"
                       required={commentRating === 0}
                     />
