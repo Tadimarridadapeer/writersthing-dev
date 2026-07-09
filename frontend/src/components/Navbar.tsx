@@ -30,18 +30,12 @@ export default function Navbar() {
 
   const navLinks = user
     ? [
-        { name: "Explore", href: "/marketplace" },
-        { name: "Books", href: "/books" },
-        { name: "Stories", href: "/stories" },
-        { name: "Blogs", href: "/blogs" },
+        { name: "About", href: "/about" },
+        { name: "For Writers", href: "/for-writers" },
       ]
     : [
-        { name: "Explore", href: "/marketplace" },
-        { name: "Books", href: "/books" },
-        { name: "Stories", href: "/stories" },
-        { name: "Blogs", href: "/blogs" },
         { name: "About", href: "/about" },
-        { name: "Categories", href: "/#categories" },
+        { name: "For Writers", href: "/for-writers" },
       ];
 
   return (
@@ -68,7 +62,9 @@ export default function Navbar() {
                   <Menu size={24} />
                 </button>
                 <Link href={user ? "/marketplace" : "/"} className="flex items-center group">
-                  <img src="/logo.png" alt="Writersthing Logo" className="h-10 md:h-14 w-auto max-w-[200px] md:max-w-[280px] object-contain transition-transform group-hover:scale-105" style={{ filter: 'grayscale(100%)' }} />
+                  <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black group-hover:opacity-80 transition-opacity">
+                    Writer's Thing
+                  </span>
                 </Link>
               </div>
 
@@ -90,17 +86,10 @@ export default function Navbar() {
               <div className="flex items-center gap-4 md:gap-8">
                 {!user ? (
                   <>
-                    <Link
-                      href="/write"
-                      className="hidden md:flex items-center gap-2 px-5 py-2 border border-black rounded-full hover:bg-zinc-50 transition-all text-[11px] font-black uppercase tracking-widest text-black"
-                    >
-                      <div className="w-5 h-5 rounded-full bg-zinc-800 text-white flex items-center justify-center text-[10px]">N</div>
-                      NEW
-                    </Link>
-                    
+
                     <Link
                       href="/signup"
-                      className="hidden md:block px-6 lg:px-8 py-2.5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-full"
+                      className="hidden md:block px-6 lg:px-8 py-2.5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-sm rounded-none"
                     >
                       Get Started
                     </Link>
@@ -183,8 +172,8 @@ export default function Navbar() {
 
                   {!user && (
                     <div className="mt-auto p-6 flex flex-col gap-4 border-t border-zinc-100">
-                      <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-3 text-center border border-black text-xs font-black uppercase tracking-widest rounded-sm">Log In</Link>
-                      <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-3 text-center bg-black text-white text-xs font-black uppercase tracking-widest rounded-sm">Get Started</Link>
+                      <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-3 text-center border border-black text-xs font-black uppercase tracking-widest rounded-none">Log In</Link>
+                      <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-3 text-center bg-black text-white text-xs font-black uppercase tracking-widest rounded-none hover:bg-zinc-800 transition-colors">Get Started</Link>
                     </div>
                   )}
                 </motion.div>

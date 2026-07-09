@@ -47,8 +47,8 @@ export async function GET(
     // Run lookups in parallel to minimize database connection overhead and roundtrips
     const [bookRes, storyRes, blogRes] = await Promise.all([
       supabase.from("books").select("*").eq("id", id).maybeSingle(),
-      supabase.from("stories").select("*, users:author_id(*)").eq("id", id).maybeSingle(),
-      supabase.from("blogs").select("*, users:author_id(*)").eq("id", id).maybeSingle()
+      supabase.from("stories").select("*, authors:author_id(user_id, users:user_id(name))").eq("id", id).maybeSingle(),
+      supabase.from("blogs").select("*, authors:author_id(user_id, users:user_id(name))").eq("id", id).maybeSingle()
     ]);
 
     // Check books first (requires the viewer to be the author)
@@ -86,7 +86,7 @@ export async function GET(
         content: story.content || "",
         updatedAt: story.created_at,
         category: story.category || "General",
-        author: story.users?.name || "Writersthing Author",
+        author: story.authors?.users?.name || story.authors?.name || "Writersthing Author",
         authorId: story.author_id,
         type: "story",
         cover_url: story.thumbnail_url
@@ -101,7 +101,7 @@ export async function GET(
         content: blog.content || "",
         updatedAt: blog.created_at,
         category: blog.category || "General",
-        author: blog.users?.name || "Writersthing Author",
+        author: blog.authors?.users?.name || blog.authors?.name || "Writersthing Author",
         authorId: blog.author_id,
         type: "blog",
         cover_url: blog.banner_url
@@ -287,5 +287,75 @@ export async function PATCH(
       { message: error.message || "Failed to update manuscript" },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { id } = await params;
+
+    // Determine which table this manuscript belongs to
+    const [bookRes, storyRes, blogRes] = await Promise.all([
+      supabaseAdmin.from("books").select("id, author_id, pdf_path").eq("id", id).maybeSingle(),
+      supabaseAdmin.from("stories").select("id, author_id").eq("id", id).maybeSingle(),
+      supabaseAdmin.from("blogs").select("id, author_id").eq("id", id).maybeSingle()
+    ]);
+
+    // Handle Books
+    if (bookRes.data) {
+      if (bookRes.data.author_id !== user.id) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      }
+      
+      const { error } = await supabaseAdmin.from("books").delete().eq("id", id);
+      if (error) throw error;
+      
+      if (bookRes.data.pdf_path) {
+        await supabaseAdmin.storage.from("books").remove([bookRes.data.pdf_path]);
+      }
+      return NextResponse.json({ message: "Book deleted successfully" });
+    }
+
+    // Handle Stories
+    if (storyRes.data) {
+      const { data: authorData } = await supabaseAdmin.from("authors").select("id").eq("user_id", user.id).maybeSingle();
+      if (!authorData || storyRes.data.author_id !== authorData.id) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      }
+      
+      const { error } = await supabaseAdmin.from("stories").delete().eq("id", id);
+      if (error) throw error;
+      ServerCache.clearStories();
+      return NextResponse.json({ message: "Story deleted successfully" });
+    }
+
+    // Handle Blogs
+    if (blogRes.data) {
+      const { data: authorData } = await supabaseAdmin.from("authors").select("id").eq("user_id", user.id).maybeSingle();
+      if (!authorData || blogRes.data.author_id !== authorData.id) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      }
+      
+      const { error } = await supabaseAdmin.from("blogs").delete().eq("id", id);
+      if (error) throw error;
+      ServerCache.clearBlogs();
+      return NextResponse.json({ message: "Blog deleted successfully" });
+    }
+
+    return NextResponse.json({ message: "Manuscript not found" }, { status: 404 });
+  } catch (error: any) {
+    console.error("Manuscript delete error:", error);
+    return NextResponse.json({ message: error.message || "Failed to delete manuscript" }, { status: 500 });
   }
 }

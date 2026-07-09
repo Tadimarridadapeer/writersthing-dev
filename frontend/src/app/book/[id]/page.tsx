@@ -10,7 +10,8 @@ import {
   Star,
   Zap,
   Info,
-  BookOpen
+  BookOpen,
+  Share2
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
@@ -195,6 +196,39 @@ export default function BookDetailPage() {
     setReviewText("");
   };
 
+  const handleDeleteBook = async () => {
+    if (!window.confirm("Are you sure you want to delete this manuscript? This action cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/manuscripts/${params.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/marketplace");
+      } else {
+        alert("Failed to delete manuscript.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
+
+  const handleShareBook = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: book?.title || "Writersthing Book",
+      text: "Check out this manuscript on Writersthing!",
+      url: url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link copied to clipboard!");
+    }
+  };
+
   if (loading) return <div className="min-h-screen bg-white flex items-center justify-center font-outfit text-zinc-400">Loading Manuscript...</div>;
   if (!book) return <div className="min-h-screen bg-white flex items-center justify-center font-outfit text-zinc-400">Manuscript Not Found</div>;
 
@@ -230,13 +264,13 @@ export default function BookDetailPage() {
 
           {/* Breadcrumb Header */}
           <div className="relative z-10">
-            <Link 
-              href="/marketplace" 
+            <button 
+              onClick={() => router.back()} 
               className="inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all group"
             >
               <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-              Back to Collection
-            </Link>
+              Back
+            </button>
           </div>
 
           {/* Cover Container */}
@@ -295,6 +329,14 @@ export default function BookDetailPage() {
                   />
                 ))}
               </div>
+              <div className="h-3 w-px bg-zinc-200" />
+              <button onClick={handleShareBook} className="text-zinc-400 hover:text-black transition-colors" title="Share Book"><Share2 size={14} /></button>
+              {user && user.id === book.authors?.user_id && (
+                <>
+                  <div className="h-3 w-px bg-zinc-200" />
+                  <button onClick={handleDeleteBook} className="text-rose-400 hover:text-rose-600 transition-colors text-[9px] font-black uppercase tracking-widest" title="Delete Book">Delete</button>
+                </>
+              )}
             </div>
           </div>
 

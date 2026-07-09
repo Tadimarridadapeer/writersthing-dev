@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Outfit, Playfair_Display, Questrial } from "next/font/google";
+import { Inter, Outfit, Playfair_Display, Questrial, Bodoni_Moda, Libre_Baskerville, EB_Garamond } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
@@ -24,6 +24,23 @@ const playfair = Playfair_Display({
 const questrial = Questrial({
   variable: "--font-questrial",
   weight: "400",
+  subsets: ["latin"],
+});
+
+const bodoniModa = Bodoni_Moda({
+  variable: "--font-bodoni-moda",
+  subsets: ["latin"],
+});
+
+const libreBaskerville = Libre_Baskerville({
+  variable: "--font-libre-baskerville",
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+});
+
+const ebGaramond = EB_Garamond({
+  variable: "--font-eb-garamond",
   subsets: ["latin"],
 });
 
@@ -55,7 +72,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body 
-        className={`${inter.variable} ${outfit.variable} ${playfair.variable} ${questrial.variable} min-h-full flex flex-col bg-white dark:bg-black text-black dark:text-white antialiased`}
+        className={`${inter.variable} ${outfit.variable} ${playfair.variable} ${questrial.variable} ${bodoniModa.variable} ${libreBaskerville.variable} ${ebGaramond.variable} min-h-full flex flex-col bg-white dark:bg-black text-black dark:text-white antialiased`}
         suppressHydrationWarning
       >
         <AuthProvider>

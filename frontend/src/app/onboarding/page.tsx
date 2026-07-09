@@ -121,10 +121,11 @@ export default function OnboardingPage() {
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-[#FDFDFD] flex flex-col items-center pt-8 md:pt-16 px-6 pb-6 md:pb-12">
-      {/* Brand Header */}
       <div className="absolute top-6 left-6 md:top-8 md:left-8 z-10">
         <Link href="/">
-          <img src="/logo.png" alt="Writersthing" className="h-8 md:h-12 w-auto object-contain transition-transform hover:scale-105" style={{ filter: 'grayscale(100%)' }} />
+          <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black hover:opacity-80 transition-opacity">
+            Writer's Thing
+          </span>
         </Link>
       </div>
 

@@ -765,7 +765,7 @@ function TextAreaField({ label, placeholder, value, onChange }: any) {
   );
 }
 
-function FileUploadField({ label, description, accept, icon, onChange }: any) {
+function FileUploadField({ label, description, accept, icon, onChange, compact }: any) {
   const [fileName, setFileName] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -782,7 +782,7 @@ function FileUploadField({ label, description, accept, icon, onChange }: any) {
     <div className="space-y-4">
       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>
       <div 
-        className="relative aspect-video bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-sm flex flex-col items-center justify-center p-8 cursor-pointer transition-all group overflow-hidden hover:border-zinc-950 hover:bg-zinc-100 outline-none"
+        className={`relative ${compact ? 'h-32' : 'aspect-video'} bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-sm flex flex-col items-center justify-center p-8 cursor-pointer transition-all group overflow-hidden hover:border-zinc-950 hover:bg-zinc-100 outline-none`}
       >
         <input 
           type="file" 
@@ -1004,7 +1004,7 @@ function BlogEditorUI({
                 placeholder="Blog Title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-3xl md:text-4xl lg:text-5xl font-heading font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-b border-zinc-200 focus:border-zinc-950 pb-4"
+                className="w-full text-2xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-b border-zinc-200 focus:border-zinc-950 pb-4"
                 required
               />
             </div>
@@ -1015,6 +1015,7 @@ function BlogEditorUI({
               accept="image/*"
               icon={<ImageIcon size={24} />}
               onChange={onBannerChange}
+              compact={true}
             />
 
             <div className="space-y-4 pt-8">

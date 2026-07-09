@@ -73,10 +73,28 @@ function MarketplaceContent() {
     fetchFeed();
   }, []);
 
+  const handleDelete = async (id: string, type: string) => {
+    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/manuscripts/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setToast({ message: `${type} deleted successfully!`, type: "success" });
+        if (type === "Book") setBooks(books.filter(b => b.id !== id));
+        if (type === "Story") setStories(stories.filter(s => s.id !== id));
+        if (type === "Blog") setBlogs(blogs.filter(b => b.id !== id));
+      } else {
+        setToast({ message: `Failed to delete ${type}.`, type: "error" });
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
+
+
   const mergedFeed = [
-    ...books.map(b => ({ id: b.id, title: b.title, type: "Book", description: b.description || "An immersive book exploring captivating themes and rich narratives.", category: b.category || "Novel", cover: b.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800", author: b.authors?.users?.name || b.authors?.name || b.author?.name || (user && user.id === b.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/book/${b.id}`, date: b.created_at, price: b.price || 99 })),
-    ...stories.map(a => ({ id: a.id, title: a.title, type: "Story", description: a.description || "A captivating story sharing personal experiences and inspirations.", category: a.category || "Story", cover: a.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800", author: a.authors?.users?.name || a.authors?.name || (user && user.id === a.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/stories/${a.id}`, date: a.created_at, price: a.price || 0 })),
-    ...blogs.map(bl => ({ id: bl.id, title: bl.title, type: "Blog", description: bl.description || "A personal take and casual exploration of interesting concepts.", category: "Personal", cover: bl.cover_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800", author: bl.authors?.users?.name || bl.authors?.name || (user && user.id === bl.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/blogs/${bl.id}`, date: bl.created_at, price: bl.price || 0 }))
+    ...books.map(b => ({ id: b.id, title: b.title, type: "Book", description: b.description || "An immersive book exploring captivating themes and rich narratives.", category: b.category || "Novel", cover: b.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800", author: b.authors?.users?.name || b.authors?.name || b.author?.name || (user && user.id === b.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/book/${b.id}`, date: b.created_at, price: b.price || 99, isAuthor: user && (user.id === b.author_id || user.id === b.authors?.user_id) })),
+    ...stories.map(a => ({ id: a.id, title: a.title, type: "Story", description: a.description || "A captivating story sharing personal experiences and inspirations.", category: a.category || "Story", cover: a.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800", author: a.authors?.users?.name || a.authors?.name || (user && user.id === a.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/stories/${a.id}`, date: a.created_at, price: a.price || 0, isAuthor: user && (user.id === a.author_id || user.id === a.authors?.user_id) })),
+    ...blogs.map(bl => ({ id: bl.id, title: bl.title, type: "Blog", description: bl.description || "A personal take and casual exploration of interesting concepts.", category: "Personal", cover: bl.cover_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800", author: bl.authors?.users?.name || bl.authors?.name || (user && user.id === bl.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/blogs/${bl.id}`, date: bl.created_at, price: bl.price || 0, isAuthor: user && (user.id === bl.author_id || user.id === bl.authors?.user_id) }))
   ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
   const filteredFeed = mergedFeed.filter(item => {
@@ -215,6 +233,22 @@ function MarketplaceContent() {
                               >
                                 Follow author
                               </button>
+                              {item.isAuthor && (
+                                <>
+                                  <div className="h-px bg-zinc-100 my-1" />
+                                  <button 
+                                    onClick={(e) => { 
+                                      e.preventDefault(); 
+                                      e.stopPropagation(); 
+                                      handleDelete(item.id, item.type);
+                                      setActiveMenu(null); 
+                                    }} 
+                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 transition-colors"
+                                  >
+                                    Delete {item.type}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

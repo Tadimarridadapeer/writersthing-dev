@@ -37,14 +37,12 @@ export default function LoadingScreen() {
           <div className="flex flex-col items-center gap-12">
             
             <div className="relative inline-flex items-center">
-              {/* The underlying logo image */}
-              <img 
-                src="/logo.png" 
-                alt="Writersthing Logo" 
-                className="h-16 md:h-24 w-auto object-contain grayscale" 
-              />
+              {/* Text replacing the logo image */}
+              <div className="text-4xl md:text-6xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black">
+                Writer's Thing
+              </div>
               
-              {/* Cover mask that shrinks to reveal the image from left to right */}
+              {/* Cover mask that shrinks to reveal the text from left to right */}
               <div 
                 className="absolute top-0 right-0 bottom-0 bg-white z-10 flex items-center"
                 style={{ width: `${100 - progress}%` }}
@@ -53,7 +51,7 @@ export default function LoadingScreen() {
                 <motion.div
                   animate={{ opacity: [1, 0] }}
                   transition={{ repeat: Infinity, duration: 0.4 }}
-                  className="w-1.5 md:w-2 h-12 md:h-16 bg-black -ml-1"
+                  className="w-[2px] md:w-[3px] h-10 md:h-16 bg-black -ml-[1px]"
                 />
               </div>
             </div>

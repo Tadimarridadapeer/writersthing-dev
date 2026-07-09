@@ -4,6 +4,18 @@ import { cookies } from "next/headers";
 import { ensureAuthorProfile } from "@/lib/author";
 import ServerCache from "@/lib/cache";
 
+function extractDescription(content: string) {
+  if (!content) return "No synopsis available.";
+  const plainText = content.replace(/<[^>]*>?/gm, '').trim();
+  return plainText.length > 0 ? plainText.substring(0, 160) + "..." : "No synopsis available.";
+}
+
+function extractFirstImage(content: string, defaultImage: string) {
+  if (!content) return defaultImage;
+  const match = content.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : defaultImage;
+}
+
 function getSupabase() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,9 +55,9 @@ export async function GET(req: Request) {
       const mappedData = publishedStories.map((item: any) => ({
         id: item.id,
         title: item.title,
-        description: item.content ? item.content.substring(0, 160) + "..." : "No synopsis available.",
+        description: extractDescription(item.content),
         category: item.category || "General",
-        cover_url: item.thumbnail_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800",
+        cover_url: item.thumbnail_url || extractFirstImage(item.content, "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800"),
         created_at: item.created_at,
         authors: {
           name: item.authors?.users?.name || "Unknown Author",
@@ -71,9 +83,9 @@ export async function GET(req: Request) {
       const mappedData = publishedBlogs.map((item: any) => ({
         id: item.id,
         title: item.title,
-        description: item.content ? item.content.substring(0, 160) + "..." : "No synopsis available.",
+        description: extractDescription(item.content),
         category: "Blog",
-        cover_url: item.banner_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?q=80&w=800",
+        cover_url: item.banner_url || extractFirstImage(item.content, "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?q=80&w=800"),
         created_at: item.created_at,
         authors: {
           name: item.authors?.users?.name || "Unknown Author",
@@ -100,7 +112,7 @@ export async function POST(req: Request) {
     // Ensure author profile exists
     const authorProfile = await ensureAuthorProfile(supabase, user.id);
 
-    const { title, description, category, type, coverUrl, tags } = await req.json();
+    const { title, description, content, category, type, coverUrl, tags } = await req.json();
 
     if (type === "Story") {
       const { data, error } = await supabase
@@ -108,7 +120,7 @@ export async function POST(req: Request) {
         .insert([
           {
             title,
-            content: description || "", // Initially use description as content or keep empty
+            content: content || description || "", // Initially use content
             category: category || "General",
             thumbnail_url: coverUrl || "",
             tags: tags || [],
@@ -134,7 +146,7 @@ export async function POST(req: Request) {
         .insert([
           {
             title,
-            content: description || "", // Initially use description as content or keep empty
+            content: content || description || "", // Initially use content
             banner_url: coverUrl || "",
             author_id: authorProfile.id
           }

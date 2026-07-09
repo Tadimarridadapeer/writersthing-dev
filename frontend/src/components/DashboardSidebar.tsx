@@ -64,11 +64,13 @@ export default function DashboardSidebar() {
 
   return (
     <aside className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-zinc-100 flex flex-col p-6 z-50">
-      <div className="flex items-center gap-3 mb-12">
-        <img src="/logo.png" alt="Writersthing Logo" className="w-12 h-12 object-contain" style={{ filter: 'grayscale(100%)' }} />
+      <div className="flex flex-col gap-1 mb-12">
+        <span className="text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black">
+          Writer's Thing
+        </span>
         <div>
-          <h1 className="text-sm font-black uppercase tracking-tighter leading-none">Writer Studio</h1>
-          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Creator Pro</p>
+          <h1 className="text-sm font-black uppercase tracking-tighter leading-none mt-2">Writer Studio</h1>
+          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Creator Pro</p>
         </div>
       </div>
 

@@ -4,11 +4,19 @@ import { motion } from "framer-motion";
 import { Feather, Users, Zap, BarChart3, Globe, ShieldCheck } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
+import Breadcrumbs from "@/components/Breadcrumbs";
 
 export default function AboutPage() {
   return (
-    <div className="bg-white min-h-screen">
-      <div className="pt-10 pb-20">
+    <div className="bg-white min-h-screen pt-24 pb-20">
+      <div className="max-w-7xl mx-auto px-6 mb-12">
+        <Breadcrumbs />
+        <div className="mt-6">
+          <BackButton />
+        </div>
+      </div>
+      <div className="pb-20">
         {/* Hero Section */}
         <section className="unified-axis mb-32">
           <div className="max-w-4xl">
@@ -130,14 +138,8 @@ export default function AboutPage() {
           <h2 className="text-6xl font-heading font-black tracking-ultra-tight uppercase mb-12">Ready to become known?</h2>
           <div className="flex flex-col md:flex-row items-center justify-center gap-8">
             <Link 
-              href="/marketplace" 
-              className="px-12 py-5 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all rounded-sm w-full md:w-auto"
-            >
-              Explore Works
-            </Link>
-            <Link 
               href="/signup" 
-              className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-sm w-full md:w-auto"
+              className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors shadow-sm rounded-none w-full md:w-auto"
             >
               Create Account
             </Link>

@@ -1,30 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getApiUrl } from "@/lib/config";
 import { motion } from "framer-motion";
-import { 
-  ArrowRight, 
-  Sparkles,
-  Feather, 
-  Upload, 
-  TrendingUp,
-  Zap,
-  ShieldCheck,
-  Users,
-  BookOpen,
-  Loader2
-} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
-  
-  // Landing page exclusively
-  const [books, setBooks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,333 +16,322 @@ export default function Home() {
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    const fetchTrending = async () => {
-      setLoading(true);
-      try {
-        const booksRes = await fetch(getApiUrl("/api/books"));
-        const booksData = await booksRes.json();
-        // Just take top 4 for the landing page
-        setBooks((booksData || []).slice(0, 4));
-      } catch (err) {
-        console.error("Landing feed fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTrending();
-  }, []);
-
   return (
-    <div className="flex flex-col bg-white">
-      {/* Dynamic Keyframes for seamless infinite marquee scrolling */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes marquee {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-33.33%); }
-        }
-        .animate-marquee {
-          animation: marquee 30s linear infinite;
-        }
-      `}} />
-
-      {/* Hero Section styled as a perfect typographic blueprint sheet fitting exactly one viewport */}
-      <section 
-        className="relative w-full min-h-[calc(100vh-96px)] flex flex-col justify-between overflow-hidden bg-white select-none border-b border-zinc-100"
-        style={{
-          backgroundImage: "radial-gradient(circle, #f3f3f3 1px, transparent 1px)",
-          backgroundSize: "24px 24px"
-        }}
-      >
-        {/* Massive Typographic Watermark Behind Heading */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden -z-10">
-          <span className="text-[25vw] font-heading font-black text-zinc-50/70 leading-none tracking-tighter uppercase select-none pr-12">
-            WRITERS
-          </span>
+    <div className="flex flex-col w-full selection:bg-zinc-900 selection:text-white font-sans overflow-hidden">
+      
+      {/* =========================================
+          CHAPTER 1: THE SPARK (Hero)
+          ========================================= */}
+      <section className="relative w-full h-[calc(100vh-80px)] flex flex-col justify-center items-center bg-white text-black px-6 overflow-hidden">
+        {/* Dot Grid Background */}
+        <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-70" />
+        
+        {/* Corner Accents */}
+        <div className="absolute top-6 left-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+          <span>+</span>
+          <span>[WT_SYS_01]</span>
+        </div>
+        <div className="absolute top-6 right-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+          <span>[SHEET_01/01]</span>
+          <span>+</span>
+        </div>
+        <div className="absolute bottom-6 left-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+          <span>+</span>
+          <span>[STATUS: ACTIVE]</span>
+        </div>
+        <div className="absolute bottom-6 right-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+          <span>[COMMISSION: 10%]</span>
+          <span>+</span>
         </div>
 
-        {/* Corner Crop Marks for Premium Technical Blueprint feel */}
-        <div className="absolute top-6 left-6 text-zinc-300 font-mono text-[9px] select-none tracking-widest pointer-events-none flex items-center gap-2">
-          <span>+</span> <span>[WT_SYS_01]</span>
-        </div>
-        <div className="absolute top-6 right-6 text-zinc-300 font-mono text-[9px] select-none tracking-widest pointer-events-none text-right flex items-center gap-2 justify-end">
-          <span>[SHEET_01/01]</span> <span>+</span>
-        </div>
-        <div className="absolute bottom-20 left-6 text-zinc-300 font-mono text-[9px] select-none tracking-widest pointer-events-none flex items-center gap-2">
-          <span>+</span> <span>[STATUS: ACTIVE]</span>
-        </div>
-        <div className="absolute bottom-20 right-6 text-zinc-300 font-mono text-[9px] select-none tracking-widest pointer-events-none text-right flex items-center gap-2 justify-end">
-          <span>[COMMISSION: 10%]</span> <span>+</span>
-        </div>
-
-        {/* Main Centered Typographic Hero Area */}
-        <div className="flex-grow flex flex-col items-center justify-center px-4 relative z-10 py-12">
-          <div className="max-w-5xl mx-auto text-center space-y-6 md:space-y-8 flex flex-col items-center">
-            
-            {/* Animated Header Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: -15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-3 px-4 py-1.5 bg-zinc-50 border border-zinc-100 rounded-full select-none"
-            >
-              <Sparkles size={12} className="text-zinc-500 animate-pulse" />
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-600">Unleash the Narrative</span>
-            </motion.div>
-
-            {/* Huge Typographic Heading */}
-            <motion.h1
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[10vw] sm:text-[8vw] md:text-[6.5vw] lg:text-[5.5vw] xl:text-[5.2vw] font-heading font-black tracking-ultra-tight uppercase leading-[0.88] text-center select-none text-zinc-950"
-            >
-              Where <span className="serif italic font-normal text-primary/70 normal-case pr-2 grayscale hover:grayscale-0 transition-all duration-300 cursor-default">unknown</span> <br />
-              writers become <br />
-              <span className="bg-gradient-to-r from-primary to-secondary text-white px-6 md:px-10 py-1.5 md:py-3 inline-block rotate-[-1.5deg] transform shadow-xl shadow-indigo-500/20 mt-4 md:mt-2 font-black select-none leading-none rounded-2xl grayscale hover:grayscale-0 hover:rotate-0 transition-all duration-500 cursor-default">KNOWN.</span>
-            </motion.h1>
-
-            {/* Descriptive Subtext */}
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-              className="text-sm md:text-base lg:text-lg text-zinc-500 font-medium leading-relaxed max-w-2xl mx-auto text-balance"
-            >
-              Pour your thoughts into a distraction-free manuscript editor, publish with a single click, and unlock books globally for a flat, honest rate of <strong className="text-primary font-extrabold">₹99</strong>. No subscriptions, just pure storytelling.
-            </motion.p>
-
-            {/* Core Interactive Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4 w-full max-w-md sm:max-w-none"
-            >
-              <Link 
-                href="/signup?role=Author" 
-                className="w-full sm:w-auto px-10 md:px-14 py-4 md:py-5 button-premium text-white rounded-full font-bold text-[10px] md:text-[11px] uppercase tracking-[0.3em] shadow-[0_8px_24px_rgba(99,102,241,0.25)] flex items-center justify-center gap-4 group grayscale hover:grayscale-0 transition-all duration-500"
-              >
-                Start Writing <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </Link>
-              <Link 
-                href="/signup?redirect=/explore" 
-                className="w-full sm:w-auto px-10 md:px-14 py-4 md:py-5 bg-white text-zinc-700 border border-zinc-200 hover:border-primary/50 rounded-full font-bold text-[10px] md:text-[11px] uppercase tracking-[0.3em] hover:scale-[1.03] active:scale-[0.97] transition-all shadow-sm flex items-center justify-center"
-              >
-                Next
-              </Link>
-            </motion.div>
-
+        {/* Top Pill Badge */}
+        <div className="absolute top-12 left-12 md:left-24 z-10 hidden md:block">
+          <div className="px-5 py-2 rounded-full border border-zinc-200 bg-white shadow-sm flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] text-zinc-500 uppercase">
+            <span className="text-zinc-400">✨</span> PROLOGUE
           </div>
-        </div>
-
-        {/* Scrolling Ticker Marquee of Live Books Archive at page bottom */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
-          className="w-full border-t border-zinc-100 bg-zinc-50/50 py-4 overflow-hidden relative select-none"
-        >
-          <div className="whitespace-nowrap flex gap-12 animate-marquee font-mono text-[9px] md:text-[10px] text-zinc-400 font-black uppercase tracking-widest">
-            {[...Array(3)].map((_, groupIdx) => (
-              <div key={groupIdx} className="flex gap-16 shrink-0">
-                {books.length > 0 ? (
-                  books.map((book) => (
-                    <span key={`${groupIdx}-${book.id}`} className="flex items-center gap-2">
-                      <span className="text-black font-black">◆</span>
-                      <span>{book.title}</span>
-                      <span className="text-zinc-300">BY</span>
-                      <span className="text-zinc-800">{book.authors?.name || book.author?.name || "Dadapeer"}</span>
-                      <span className="bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded-sm">₹99</span>
-                    </span>
-                  ))
-                ) : (
-                  <>
-                    <span className="flex items-center gap-2">
-                      <span className="text-black font-black">◆</span>
-                      <span>The Art of Prompt</span>
-                      <span className="text-zinc-300">BY</span>
-                      <span className="text-zinc-800">Tadimarri Dadapeer</span>
-                      <span className="bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded-sm">₹99</span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-black font-black">◆</span>
-                      <span>Unleash the Narrative</span>
-                      <span className="text-zinc-300">BY</span>
-                      <span className="text-zinc-800">Unknown Writer</span>
-                      <span className="bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded-sm">₹99</span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-black font-black">◆</span>
-                      <span>The Digital Manuscript</span>
-                      <span className="text-zinc-300">BY</span>
-                      <span className="text-zinc-800">Antigravity AI</span>
-                      <span className="bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded-sm">₹99</span>
-                    </span>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Trending Manuscripts */}
-      <section id="explore" className="section-padding bg-zinc-50 border-b border-zinc-100">
-        <div className="unified-axis text-center mb-24">
-          <h2 className="text-h1 tracking-ultra-tight uppercase mb-6">Trending Manuscripts</h2>
-          <p className="text-zinc-500 font-medium text-lg italic max-w-2xl mx-auto">The most read digital manuscripts this week. Pure content, zero distractions. All available for ₹99.</p>
         </div>
         
-        <div className="unified-axis">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
-            {loading ? (
-              <div className="col-span-full text-center py-12 text-xs font-black uppercase tracking-widest text-zinc-350">
-                Synchronizing Archive...
+        <div className="relative z-10 max-w-5xl mx-auto text-center mt-4">
+          
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="flex flex-col items-center justify-center space-y-0 md:space-y-1"
+          >
+            {/* Line 1 */}
+            <div className="flex flex-wrap justify-center items-baseline gap-3 md:gap-4 text-[2rem] sm:text-[2.5rem] md:text-[3.5rem] lg:text-[4.5rem] leading-[1.1] text-[#0f172a]">
+              <span className="font-black tracking-tight" style={{ fontFamily: 'var(--font-outfit)' }}>WHERE</span>
+              <span className="italic font-normal text-zinc-400 lowercase text-[2.5rem] sm:text-[3rem] md:text-[4rem] lg:text-[5rem]" style={{ fontFamily: 'var(--font-eb-garamond)' }}>unknown</span>
+            </div>
+            
+            {/* Line 2 */}
+            <div className="text-[2rem] sm:text-[2.5rem] md:text-[3.5rem] lg:text-[4.5rem] leading-[1.1] text-[#0f172a] font-black tracking-tight uppercase" style={{ fontFamily: 'var(--font-outfit)' }}>
+              WRITERS BECOME
+            </div>
+
+            {/* Line 3 (Rotated Badge) */}
+            <div className="mt-3 md:mt-5 transform -rotate-2 hover:-rotate-1 transition-transform duration-500">
+              <div className="bg-[#111111] text-white px-6 py-2 md:px-10 md:py-3 rounded-xl md:rounded-3xl shadow-xl border-b-4 border-black/20">
+                <span className="text-[1.5rem] sm:text-[2rem] md:text-[3rem] lg:text-[3.5rem] leading-none font-black tracking-tight uppercase block pt-1 md:pt-2" style={{ fontFamily: 'var(--font-outfit)' }}>
+                  KNOWN.
+                </span>
               </div>
-            ) : books.length > 0 ? (
-              books.map((book) => (
-                <Link key={book.id} href={`/book/${book.id}`} className="group">
-                  <div className="aspect-[2/3] bg-white rounded-3xl overflow-hidden relative mb-6 shadow-md border border-zinc-150/80 group-hover:translate-y-[-8px] group-hover:shadow-2xl group-hover:border-primary/20 transition-all duration-500">
-                    <img src={book.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=800"} alt={book.title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-5 py-2.5 rounded-full">View Details</span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">{book.category || book.genre || "Fiction"}</p>
-                  <h3 className="text-xl font-heading font-black tracking-tight uppercase mb-1">{book.title}</h3>
-                  <p className="text-sm font-medium text-zinc-400 italic">by {book.authors?.name || book.author?.name || "Unknown"}</p>
-                </Link>
-              ))
-            ) : (
-              <Link href="/marketplace" className="group">
-                <div className="aspect-[2/3] bg-white rounded-3xl overflow-hidden relative mb-6 shadow-md border border-zinc-150/80 group-hover:translate-y-[-8px] group-hover:shadow-2xl group-hover:border-primary/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=800" alt="The Art of Prompt" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-[10px] font-black text-white uppercase tracking-widest border border-white/20 px-5 py-2.5 rounded-full">View Details</span>
-                  </div>
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Education Sector</p>
-                <h3 className="text-xl font-heading font-black tracking-tight uppercase mb-1">The Art of Prompt</h3>
-                <p className="text-sm font-medium text-zinc-400 italic">by Tadimarri Dadapeer</p>
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
+            </div>
+          </motion.h1>
 
-      {/* Process Section */}
-      <section className="section-padding bg-gradient-to-br from-zinc-950 via-zinc-900 to-indigo-950 text-white">
-        <div className="unified-axis">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-32">
-            <ProcessItem 
-              number="01" 
-              title="Write" 
-              icon={<Feather size={24} />}
-              description="Pour your thoughts into our distraction-free manuscript editor. Focus only on the words that matter."
-            />
-            <ProcessItem 
-              number="02" 
-              title="Publish" 
-              icon={<Upload size={24} />}
-              description="One-click publishing to our global audience. Every ebook sold at a flat ₹99 rate."
-            />
-            <ProcessItem 
-              number="03" 
-              title="Earn" 
-              icon={<TrendingUp size={24} />}
-              description="Get paid directly by your fans. Minimal commissions, maximum creative freedom."
-            />
-          </div>
-        </div>
-      </section>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
+            className="text-[15px] md:text-[16px] text-slate-600 font-normal leading-relaxed max-w-2xl mx-auto mt-6 md:mt-8 px-4"
+            style={{ fontFamily: 'var(--font-libre-baskerville)' }}
+          >
+            A publishing platform for storytellers, authors, and writers who believe every great story deserves to be read.
+          </motion.p>
 
-      {/* Pricing / Join Section */}
-      <section id="pricing" className="py-12 md:py-20 bg-white overflow-hidden relative flex flex-col justify-center min-h-[90vh]">
-        <div className="absolute inset-0 bg-zinc-50/50 -z-10" />
-        <div className="unified-axis relative w-full">
-          <div className="max-w-5xl mx-auto text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1 }}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.8 }}
+            className="pt-6 md:pt-8 flex flex-col sm:flex-row justify-center items-center gap-4 px-6"
+          >
+            <Link 
+              href="/login" 
+              className="px-10 py-4 bg-black text-white hover:bg-zinc-900 transition-colors duration-300 uppercase tracking-[0.2em] text-xs font-semibold rounded-none w-full sm:w-auto text-center"
             >
-              <div className="inline-flex items-center gap-3 px-6 py-2 bg-black text-white rounded-full mb-6">
-                <Sparkles size={14} className="text-zinc-400" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Premium Membership</span>
+              Start Writing
+            </Link>
+            <Link 
+              href="/marketplace" 
+              className="px-10 py-4 bg-white text-black border border-zinc-200 hover:border-black transition-colors duration-300 uppercase tracking-[0.2em] text-xs font-semibold rounded-none w-full sm:w-auto text-center"
+            >
+              Explore Stories
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* =========================================
+          CHAPTER 2: THE QUIET ROOM
+          ========================================= */}
+      <section className="relative w-full min-h-screen flex flex-col justify-center items-center bg-white text-black px-6 py-32 border-b border-black">
+        <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase">
+          Chapter One
+        </div>
+
+        <div className="max-w-5xl w-full mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="space-y-8"
+          >
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif italic font-light tracking-tight leading-tight">
+              We built a quiet room <br /> for your mind.
+            </h2>
+            <p className="text-lg md:text-xl text-zinc-500 font-light leading-relaxed max-w-md">
+              No complex formatting menus. No distracting pop-ups. No noise. Just you, the blank page, and the purity of your words. 
+            </p>
+          </motion.div>
+
+          {/* Minimalist Editor Visual */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            className="w-full aspect-[3/4] md:aspect-square bg-zinc-50 border border-zinc-200 shadow-2xl p-10 md:p-16 flex flex-col relative"
+          >
+            <div className="w-full flex justify-between items-center mb-16 border-b border-zinc-200 pb-4">
+              <span className="text-xs font-serif italic text-zinc-400">Writersthing</span>
+              <span className="text-xs font-mono text-zinc-300 uppercase tracking-widest">Draft 01</span>
+            </div>
+            
+            <h3 className="text-2xl md:text-4xl font-serif mb-8 text-black">The First Draft</h3>
+            
+            <div className="space-y-5 w-full max-w-sm">
+              <div className="w-full h-[1px] bg-zinc-300" />
+              <div className="w-[90%] h-[1px] bg-zinc-300" />
+              <div className="w-[95%] h-[1px] bg-zinc-300" />
+              <div className="w-[60%] h-[1px] bg-zinc-300" />
+            </div>
+
+            <div className="absolute bottom-10 right-12 opacity-10 font-serif italic text-8xl">W</div>
+          </motion.div>
+
+        </div>
+      </section>
+
+      {/* =========================================
+          CHAPTER 3: THE STAGE
+          ========================================= */}
+      <section className="relative w-full min-h-screen flex flex-col justify-center items-center bg-white text-black px-6 py-32 border-b border-black">
+        <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase">
+          Chapter Two
+        </div>
+
+        <div className="max-w-6xl w-full mx-auto">
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1 }}
+            className="text-center mb-24"
+          >
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif italic font-light tracking-tight leading-tight mb-6">
+              And a global stage <br /> for your voice.
+            </h2>
+            <p className="text-lg text-zinc-500 font-light max-w-xl mx-auto">
+              Stories demand to be heard. We provide the vessel to carry your narrative to readers worldwide.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-y border-black">
+            
+            {/* Books */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.1 }}
+              className="border-b md:border-b-0 md:border-r border-black p-12 md:p-16 flex flex-col justify-between group hover:bg-black hover:text-white transition-colors duration-700 min-h-[400px]"
+            >
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-12 opacity-50">01 / The Epic</div>
+              <div>
+                <h3 className="text-3xl font-serif italic mb-6">Books</h3>
+                <p className="font-light text-sm leading-relaxed opacity-70">
+                  Upload your completed manuscript. We format, distribute, and sell it globally for a flat, accessible rate. Your opus, preserved.
+                </p>
               </div>
-              
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-heading font-black tracking-ultra-tight text-black mb-10 uppercase leading-none">
-                Ready to turn your <br /> manuscript into a legacy?
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12 max-w-4xl mx-auto text-left">
-                <div className="p-6 md:p-8 border border-zinc-200 bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all">
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4 md:mb-6 text-primary">
-                    <Zap size={20} />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-heading font-bold uppercase mb-3 tracking-tighter text-zinc-900">Flat Pricing</h3>
-                  <p className="text-xs md:text-sm text-zinc-500 font-medium leading-relaxed">Every manuscript on the platform is priced at a fixed ₹99. No subscriptions, no hidden fees.</p>
-                </div>
-
-                <div className="p-6 md:p-8 border border-zinc-200 bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all">
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-violet-50 flex items-center justify-center mb-4 md:mb-6 text-secondary">
-                    <ShieldCheck size={20} />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-heading font-bold uppercase mb-3 tracking-tighter text-zinc-900">Total Ownership</h3>
-                  <p className="text-xs md:text-sm text-zinc-500 font-medium leading-relaxed">Buy once, own forever. Access your library from any device, anytime, with our distraction-free reader.</p>
-                </div>
-
-                <div className="p-6 md:p-8 border border-zinc-200 bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all">
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4 md:mb-6 text-accent">
-                    <Users size={20} />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-heading font-bold uppercase mb-3 tracking-tighter text-zinc-900">Author Direct</h3>
-                  <p className="text-xs md:text-sm text-zinc-500 font-medium leading-relaxed">We take a minimal commission. Most of your ₹99 goes directly into the author's pocket.</p>
-                </div>
-              </div>
-
-              <Link 
-                href="/signup" 
-                className="inline-block px-16 py-6 button-premium text-white font-black text-[11px] uppercase tracking-[0.4em] rounded-full shadow-[0_12px_40px_rgba(99,102,241,0.3)]"
-              >
-                Join Writersthing Pro
-              </Link>
             </motion.div>
+
+            {/* Stories */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.3 }}
+              className="border-b md:border-b-0 md:border-r border-black p-12 md:p-16 flex flex-col justify-between group hover:bg-black hover:text-white transition-colors duration-700 min-h-[400px]"
+            >
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-12 opacity-50">02 / The Serial</div>
+              <div>
+                <h3 className="text-3xl font-serif italic mb-6">Stories</h3>
+                <p className="font-light text-sm leading-relaxed opacity-70">
+                  Write serialized fiction or poetry natively. Release chapter by chapter. Keep your audience captivated week after week.
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Blogs */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.5 }}
+              className="p-12 md:p-16 flex flex-col justify-between group hover:bg-black hover:text-white transition-colors duration-700 min-h-[400px]"
+            >
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-12 opacity-50">03 / The Insight</div>
+              <div>
+                <h3 className="text-3xl font-serif italic mb-6">Blogs</h3>
+                <p className="font-light text-sm leading-relaxed opacity-70">
+                  Share your daily musings, essays, and insights. Build a loyal following through raw, unfiltered, consistent thought.
+                </p>
+              </div>
+            </motion.div>
+
           </div>
         </div>
       </section>
-    </div>
-  );
-}
 
-function CategoryRow({ label }: { label: string }) {
-  return (
-    <Link href={`/marketplace?category=${label}`} className="flex justify-between items-center py-8 md:py-10 border-b border-zinc-100 group cursor-pointer">
-      <span className="text-3xl sm:text-4xl md:text-5xl font-heading font-black tracking-tighter text-zinc-200 group-hover:text-black transition-all duration-500 uppercase">
-        {label}
-      </span>
-      <ArrowRight size={24} className="md:w-8 md:h-8 text-zinc-100 transition-all duration-500 group-hover:translate-x-2 group-hover:text-black" />
-    </Link>
-  );
-}
-
-function ProcessItem({ number, title, icon, description }: any) {
-  return (
-    <div className="flex flex-col gap-6 md:gap-10 group cursor-default grayscale hover:grayscale-0 transition-all duration-500">
-      <div className="flex items-center gap-6">
-        <span className="text-6xl font-heading font-black tracking-tighter text-zinc-800 group-hover:text-primary transition-all duration-500">
-          {number}
-        </span>
-        <div className="p-4 border border-zinc-800 rounded-2xl bg-zinc-900/50 group-hover:border-primary group-hover:bg-primary/10 transition-all duration-500">
-          {icon}
+      {/* =========================================
+          CHAPTER 4: THE PLEDGE (Pricing)
+          ========================================= */}
+      <section id="pricing" className="relative w-full min-h-screen flex flex-col justify-center items-center bg-white text-black px-6 py-32">
+        <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase">
+          Epilogue
         </div>
-      </div>
-      <div>
-        <h3 className="text-3xl font-heading font-black tracking-tight uppercase mb-6">{title}</h3>
-        <p className="text-zinc-400 font-medium leading-relaxed text-lg">{description}</p>
-      </div>
+
+        <div className="max-w-4xl w-full mx-auto text-center">
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            viewport={{ once: true, margin: "-100px" }}
+          >
+            <div className="w-16 h-[1px] bg-black mx-auto mb-16" />
+            
+            <h2 className="text-4xl md:text-6xl font-serif italic font-light tracking-tight leading-tight mb-16">
+              Keep your copyright. <br />
+              Keep your royalties. <br />
+              Keep writing.
+            </h2>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8 mb-20 text-left">
+            
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.2 }}
+              viewport={{ once: true }}
+              className="space-y-4"
+            >
+              <h3 className="text-sm font-bold uppercase tracking-[0.2em] border-b border-black pb-4">Flat Pricing</h3>
+              <p className="text-zinc-600 font-light text-sm leading-relaxed pt-2">
+                Every manuscript on the platform is priced at a fixed ₹99. No subscriptions, no hidden fees. Just honest economics between you and your reader.
+              </p>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.4 }}
+              viewport={{ once: true }}
+              className="space-y-4"
+            >
+              <h3 className="text-sm font-bold uppercase tracking-[0.2em] border-b border-black pb-4">Total Ownership</h3>
+              <p className="text-zinc-600 font-light text-sm leading-relaxed pt-2">
+                Buy once, own forever. Readers access their library from any device, anytime, through our beautifully distraction-free reader interface.
+              </p>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.6 }}
+              viewport={{ once: true }}
+              className="space-y-4"
+            >
+              <h3 className="text-sm font-bold uppercase tracking-[0.2em] border-b border-black pb-4">Author Direct</h3>
+              <p className="text-zinc-600 font-light text-sm leading-relaxed pt-2">
+                We take a minimal commission. The vast majority of your ₹99 goes directly into your pocket, exactly where it belongs.
+              </p>
+            </motion.div>
+
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 1.5, delay: 0.8 }}
+            viewport={{ once: true }}
+          >
+            <Link 
+              href="/signup" 
+              className="inline-block px-12 py-5 bg-black text-white hover:bg-zinc-800 transition-colors duration-500 uppercase tracking-[0.3em] text-xs font-semibold rounded-none"
+            >
+              Join Writersthing Pro
+            </Link>
+          </motion.div>
+
+        </div>
+      </section>
+
     </div>
   );
 }

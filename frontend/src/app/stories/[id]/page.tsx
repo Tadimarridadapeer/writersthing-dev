@@ -8,7 +8,12 @@ import { supabase } from "@/lib/supabase";
 function renderMarkdown(content: string): string {
   if (!content) return "";
   
-  // Escape HTML tags to prevent arbitrary code execution
+  // If content is already HTML (from Rich Text Editor), do not escape or process as markdown
+  if (/<[a-z][\s\S]*>/i.test(content)) {
+    return content;
+  }
+
+  // Escape HTML tags for standard markdown to prevent arbitrary code execution
   let html = content
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -17,11 +22,20 @@ function renderMarkdown(content: string): string {
   const lines = html.split("\n");
   let result = [];
   let inList = false;
+  let currentParagraph: string[] = [];
+
+  const closeParagraph = () => {
+    if (currentParagraph.length > 0) {
+      result.push(`<p>${currentParagraph.join(" ")}</p>`);
+      currentParagraph = [];
+    }
+  };
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
 
     if (line === "") {
+      closeParagraph();
       if (inList) {
         result.push("</ul>");
         inList = false;
@@ -30,35 +44,40 @@ function renderMarkdown(content: string): string {
     }
 
     if (line.startsWith("### ")) {
+      closeParagraph();
       if (inList) { result.push("</ul>"); inList = false; }
-      result.push(`<h3 class="text-xl font-bold font-heading mt-8 mb-4 text-zinc-900">${line.substring(4)}</h3>`);
+      result.push(`<h3>${line.substring(4)}</h3>`);
     } else if (line.startsWith("## ")) {
+      closeParagraph();
       if (inList) { result.push("</ul>"); inList = false; }
-      result.push(`<h2 class="text-2xl font-black font-heading mt-10 mb-5 text-zinc-900">${line.substring(3)}</h2>`);
+      result.push(`<h2>${line.substring(3)}</h2>`);
     } else if (line.startsWith("# ")) {
+      closeParagraph();
       if (inList) { result.push("</ul>"); inList = false; }
-      result.push(`<h1 class="text-3xl font-black font-heading mt-12 mb-6 text-zinc-900">${line.substring(2)}</h1>`);
+      result.push(`<h1>${line.substring(2)}</h1>`);
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
+      closeParagraph();
       if (!inList) {
-        result.push('<ul class="list-disc pl-6 my-4 space-y-2 text-zinc-700">');
+        result.push('<ul>');
         inList = true;
       }
       result.push(`<li>${line.substring(2)}</li>`);
     } else {
       if (inList) { result.push("</ul>"); inList = false; }
-      result.push(`<p class="text-lg md:text-xl font-medium leading-relaxed text-zinc-650 mb-6">${line}</p>`);
+      currentParagraph.push(line);
     }
   }
 
+  closeParagraph();
   if (inList) result.push("</ul>");
 
   let parsedHtml = result.join("\n");
 
   // Inline styling: images, links, bold, italics
-  parsedHtml = parsedHtml.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="w-full my-8 rounded-lg shadow-md border border-zinc-100 max-h-[500px] object-cover" />');
-  parsedHtml = parsedHtml.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-black underline font-bold hover:text-zinc-600">$1</a>');
-  parsedHtml = parsedHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-zinc-900">$1</strong>');
-  parsedHtml = parsedHtml.replace(/\*(.*?)\*/g, '<em class="italic text-zinc-800">$1</em>');
+  parsedHtml = parsedHtml.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />');
+  parsedHtml = parsedHtml.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  parsedHtml = parsedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  parsedHtml = parsedHtml.replace(/\*(.*?)\*/g, '<em>$1</em>');
 
   return parsedHtml;
 }
@@ -307,6 +326,39 @@ export default function StoryPost() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this story? This action cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/manuscripts/${params.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/stories");
+      } else {
+        alert("Failed to delete story.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: story?.title || "Writersthing Story",
+      text: "Check out this story on Writersthing!",
+      url: url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link copied to clipboard!");
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-zinc-200" size={48} /></div>;
   if (!story) return <div className="h-screen flex items-center justify-center italic text-zinc-400">Story not found</div>;
 
@@ -347,17 +399,16 @@ export default function StoryPost() {
             </div>
           )}
 
-          <Link href="/storys" className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-16">
+          <button onClick={() => router.back()} className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-16">
             <ArrowLeft size={14} />
-            Back to Storys
-          </Link>
+            Back
+          </button>
 
-          <header className="mb-20">
-            <div className="flex items-center gap-4 mb-10">
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Story / {story.category}</span>
+          <header className="mb-4">
+            <span className="inline-block px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mb-6">{story.category}</span>
               <div className="h-px w-8 bg-zinc-200" />
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-7xl font-heading font-black tracking-tighter uppercase mb-6 md:mb-12 leading-[0.95]">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-10 md:mb-20 leading-[1.1]">
               {story.title}
             </h1>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-10 border-y border-zinc-100">
@@ -369,7 +420,11 @@ export default function StoryPost() {
                   <p className="text-sm font-black uppercase tracking-widest">
                     {story.authorId ? (
                       <Link href={`/authors/${story.authorId}`} className="hover:underline hover:text-zinc-600 transition-colors">
-                        {story.author || "Writersthing Author"}
+                        {story.author && story.author !== "Writersthing Author" 
+                          ? story.author 
+                          : (currentUser?.id === story.authorId && (currentUser?.user_metadata?.name || currentUser?.user_metadata?.full_name) 
+                              ? (currentUser.user_metadata.name || currentUser.user_metadata.full_name) 
+                              : "Writersthing Author")}
                       </Link>
                     ) : (
                       story.author || "Writersthing Author"
@@ -385,12 +440,20 @@ export default function StoryPost() {
               <div className="flex items-center gap-4">
                 {story.authorId && (
                   isAuthor ? (
-                    <Link
-                      href={`/write/${params.id}`}
-                      className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-black bg-black text-white hover:bg-zinc-800 transition-all flex items-center justify-center"
-                    >
-                      Edit Story
-                    </Link>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/write/${params.id}`}
+                        className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-black bg-black text-white hover:bg-zinc-800 transition-all flex items-center justify-center"
+                      >
+                        Edit Story
+                      </Link>
+                      <button
+                        onClick={handleDelete}
+                        className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-600 text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   ) : (
                     <button 
                       onClick={handleFollow}
@@ -430,6 +493,10 @@ export default function StoryPost() {
                   <Bookmark size={14} className={isSaved ? "fill-amber-500 text-amber-500" : ""} />
                   {isSaved ? "Saved Reference" : "Save Reference"}
                 </button>
+
+                <button onClick={handleShare} className="p-3.5 border border-zinc-100 hover:bg-black hover:text-white transition-all rounded-xl">
+                  <Share2 size={16} />
+                </button>
               </div>
             </div>
           </header>
@@ -444,7 +511,7 @@ export default function StoryPost() {
             </div>
           )}
 
-          <div className="prose prose-zinc max-w-none mb-16" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanContent) }} />
+          <div className="prose prose-lg md:prose-xl max-w-none mb-24 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanContent) }} />
 
           {/* Calculate Average Rating */}
           {(() => {
