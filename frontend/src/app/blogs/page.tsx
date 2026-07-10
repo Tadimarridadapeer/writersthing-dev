@@ -51,7 +51,7 @@ export default function BlogsPage() {
                 <span className="text-sm font-black uppercase tracking-widest border-b-4 border-black pb-1">Spring 2026</span>
               </div>
               <Link 
-                href="/write?type=blog"
+                href="/editor?type=blog"
                 className="px-8 py-4 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all rounded-sm flex items-center gap-3"
               >
                 <Feather size={14} /> Write Your Story
@@ -133,7 +133,7 @@ export default function BlogsPage() {
               </p>
             </div>
             <Link 
-              href="/write"
+              href="/editor"
               className="px-16 py-6 bg-black text-white text-[10px] font-black uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-2xl flex items-center gap-6"
             >
               Start Writing <Feather size={16} />

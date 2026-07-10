@@ -251,7 +251,7 @@ export default function Footer() {
           
           <div className="flex-shrink-0">
             <Link 
-              href="/write" 
+              href="/editor" 
               className="px-8 py-4 bg-black text-white text-sm font-semibold rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2 group"
             >
               Start Writing

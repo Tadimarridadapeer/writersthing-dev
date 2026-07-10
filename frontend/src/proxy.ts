@@ -77,7 +77,7 @@ export default async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Protected routes list (Any logged-in user can access)
-  const protectedRoutes = ['/profile', '/dashboard', '/write', '/admin', '/read/pdf']
+  const protectedRoutes = ['/profile', '/dashboard', '/write', '/editor', '/admin', '/read/pdf']
   const isProtectedRoute = protectedRoutes.some(path => request.nextUrl.pathname.startsWith(path))
 
   if (isProtectedRoute && !user) {

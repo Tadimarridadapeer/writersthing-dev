@@ -83,13 +83,13 @@ export async function GET(
       const story = storyRes.data;
       return NextResponse.json({
         title: story.title,
-        content: story.content || "",
+        content: story.body || "",
         updatedAt: story.created_at,
         category: story.category || "General",
         author: story.authors?.users?.name || story.authors?.name || "Writersthing Author",
         authorId: story.author_id,
         type: "story",
-        cover_url: story.thumbnail_url
+        cover_url: story.cover_image
       });
     }
 
@@ -217,7 +217,7 @@ export async function PATCH(
 
       const updateData: Record<string, any> = {};
       if (title !== undefined) updateData.title = title;
-      if (content !== undefined) updateData.content = content;
+      if (content !== undefined) updateData.body = content;
 
       if (Object.keys(updateData).length === 0) {
         return NextResponse.json({ message: "No fields to update" }, { status: 400 });

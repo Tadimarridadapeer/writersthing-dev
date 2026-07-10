@@ -1,6 +1,25 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from 'next/link';
+import { useAuth } from "@/context/AuthContext";
 
 export default function ForWritersPage() {
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUserRole(parsed.role || "Author");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-white text-black overflow-hidden relative">
       {/* Dot Grid Background */}
@@ -99,7 +118,7 @@ export default function ForWritersPage() {
 
             <div className="flex justify-center mt-8">
               <Link 
-                href="/login" 
+                href={!user ? "/login" : (userRole === "Reader" ? "/profile" : "/editor")} 
                 className="px-12 py-5 bg-black text-white hover:bg-zinc-900 transition-colors duration-300 uppercase tracking-[0.2em] text-sm font-semibold rounded-none text-center inline-block shadow-xl hover:shadow-2xl"
                 style={{ fontFamily: 'var(--font-outfit)' }}
               >

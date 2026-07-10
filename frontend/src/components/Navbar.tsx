@@ -14,6 +14,23 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setUserRole(null);
+      return;
+    }
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUserRole(parsed.role || "Author");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -24,7 +41,8 @@ export default function Navbar() {
   }, []);
 
   const shouldHide = pathname?.startsWith("/read") || 
-                     pathname === "/write" ||
+                     pathname?.startsWith("/write") ||
+                     pathname === "/editor" ||
                      pathname === "/login" ||
                      pathname === "/signup";
 
@@ -98,6 +116,15 @@ export default function Navbar() {
                   <div className="flex items-center gap-3 md:gap-6">
                     <NotificationsDropdown />
                     
+                    {userRole && (userRole === "Author" || userRole === "Admin") && (
+                      <Link
+                        href="/editor"
+                        className="hidden md:flex items-center gap-1.5 px-4 py-2 border border-black font-bold text-[10px] uppercase tracking-widest hover:bg-black hover:text-white transition-all text-black bg-white"
+                      >
+                        <Plus size={12} /> Write
+                      </Link>
+                    )}
+                    
                     <Link
                       href="/profile"
                       className="group p-1.5 border border-zinc-250 rounded-full hover:bg-zinc-50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2.5 sm:pr-4 shadow-sm"
@@ -163,10 +190,15 @@ export default function Navbar() {
                       <User size={20} strokeWidth={1.5} />
                       <span className="text-sm font-medium">Profile</span>
                     </Link>
-                    <Link href="/profile?tab=Analytics" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black">
-                      <BarChart2 size={20} strokeWidth={1.5} />
-                      <span className="text-sm font-medium">Stats</span>
-                    </Link>
+                    
+                    {userRole && (userRole === "Author" || userRole === "Admin") && (
+                      <>
+                        <Link href="/editor" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black">
+                          <Feather size={20} strokeWidth={1.5} />
+                          <span className="text-sm font-medium">Write</span>
+                        </Link>
+                      </>
+                    )}
                   </div>
 
 

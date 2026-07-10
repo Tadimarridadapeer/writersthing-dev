@@ -35,24 +35,22 @@ export default function LoadingScreen() {
           className="fixed inset-0 z-[1000] bg-white flex items-center justify-center overflow-hidden"
         >
           <div className="flex flex-col items-center gap-12">
-            
-            <div className="relative inline-flex items-center">
-              {/* Text replacing the logo image */}
-              <div className="text-4xl md:text-6xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black">
+            <div className="relative inline-block">
+              {/* Invisible placeholder to reserve the layout space and prevent shifting */}
+              <div className="text-4xl md:text-6xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black invisible select-none pb-4">
                 Writer's Thing
               </div>
               
-              {/* Cover mask that shrinks to reveal the text from left to right */}
+              {/* Visible animated container */}
               <div 
-                className="absolute top-0 right-0 bottom-0 bg-white z-10 flex items-center"
-                style={{ width: `${100 - progress}%` }}
+                className="absolute top-0 left-0 bottom-0 overflow-hidden whitespace-nowrap border-r-2 md:border-r-[3px] border-black text-4xl md:text-6xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black pb-4"
+                style={{ width: `${progress}%` }}
+              />
+              <div 
+                className="absolute top-0 left-0 bottom-0 overflow-hidden whitespace-nowrap text-4xl md:text-6xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black pb-4"
+                style={{ width: `${progress}%` }}
               >
-                {/* The cursor is attached to the left edge of the cover mask */}
-                <motion.div
-                  animate={{ opacity: [1, 0] }}
-                  transition={{ repeat: Infinity, duration: 0.4 }}
-                  className="w-[2px] md:w-[3px] h-10 md:h-16 bg-black -ml-[1px]"
-                />
+                Writer's Thing
               </div>
             </div>
             

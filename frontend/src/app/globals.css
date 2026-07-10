@@ -169,3 +169,22 @@ h1, h2, h3, h4, h5, h6 {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #cbd5e1;
 }
+
+/* Custom RichTextEditor Font Mappings */
+font[face="inter"] { font-family: var(--font-inter), sans-serif; }
+font[face="outfit"] { font-family: var(--font-outfit), sans-serif; }
+font[face="arial"] { font-family: Arial, sans-serif; }
+font[face="calibri"] { font-family: Calibri, Candara, Segoe, sans-serif; }
+font[face="helvetica"] { font-family: Helvetica Neue, Helvetica, Arial, sans-serif; }
+font[face="montserrat"] { font-family: Montserrat, sans-serif; }
+font[face="questrial"] { font-family: var(--font-questrial), sans-serif; }
+font[face="playfair"] { font-family: var(--font-playfair), serif; }
+font[face="eb-garamond"] { font-family: var(--font-eb-garamond), serif; }
+font[face="libre-baskerville"] { font-family: var(--font-libre-baskerville), serif; }
+font[face="bodoni-moda"] { font-family: var(--font-bodoni-moda), serif; }
+font[face="times-new-roman"] { font-family: Times New Roman, Times, serif; }
+font[face="georgia"] { font-family: Georgia, serif; }
+font[face="merriweather"] { font-family: Merriweather, serif; }
+font[face="courier-new"] { font-family: Courier New, Courier, monospace; }
+font[face="lucida-console"] { font-family: Lucida Console, Monaco, monospace; }
+font[face="impact"] { font-family: Impact, Haettenschweiler, Arial Narrow Bold, sans-serif; }

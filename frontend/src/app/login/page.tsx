@@ -65,6 +65,7 @@ export default function LoginPage() {
           id: data.user.id,
           email: data.user.email,
           name: profile?.name || data.user.user_metadata.name || "User",
+          role: data.user.user_metadata?.role || "Author",
         };
         
         localStorage.setItem("user", JSON.stringify(userData));

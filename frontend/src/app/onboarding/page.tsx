@@ -51,12 +51,34 @@ export default function OnboardingPage() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedContentTypes, setSelectedContentTypes] = useState<string[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUserRole(parsed.role || "Author");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const filteredGoals = GOALS.filter(goal => {
+    if (userRole === "Reader") {
+      return goal !== "Publish my own books" && 
+             goal !== "Write blogs" && 
+             goal !== "Become an author";
+    }
+    return true;
+  });
 
   const handleInterestToggle = (interest: string) => {
     setSelectedInterests(prev => 
@@ -242,7 +264,7 @@ export default function OnboardingPage() {
               
               <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-4 custom-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                  {GOALS.map(goal => {
+                  {filteredGoals.map(goal => {
                     const isSelected = selectedGoals.includes(goal);
                     return (
                       <button

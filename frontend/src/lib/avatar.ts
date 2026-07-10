@@ -38,26 +38,31 @@ export const uploadAvatar = async (file: File, userId: string): Promise<string |
     console.log("Supabase Storage - Generated Public URL:", publicUrl);
 
     // 6. Update public.users.avatar_url inside PostgreSQL (Non-blocking)
-    const { data: dbData, error: dbError } = await supabase
-      .from("users")
-      .update({ avatar_url: publicUrl })
-      .eq("id", userId)
-      .select();
+    const isUuid = userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    if (isUuid) {
+      const { data: dbData, error: dbError } = await supabase
+        .from("users")
+        .update({ avatar_url: publicUrl })
+        .eq("id", userId)
+        .select();
 
-    if (dbError) {
-      console.error("Supabase DB - Update avatar_url error (ignored):", dbError.message);
+      if (dbError) {
+        console.error("Supabase DB - Update avatar_url error (ignored):", dbError.message);
+      } else {
+        console.log("Supabase DB - Updated avatar_url success:", dbData);
+      }
+
+      // Update authors table profile_image (Non-blocking)
+      const { error: authorDbError } = await supabase
+        .from("authors")
+        .update({ profile_image: publicUrl })
+        .eq("user_id", userId);
+
+      if (authorDbError) {
+        console.error("Supabase DB - Update authors profile_image error (ignored):", authorDbError.message);
+      }
     } else {
-      console.log("Supabase DB - Updated avatar_url success:", dbData);
-    }
-
-    // Update authors table profile_image (Non-blocking)
-    const { error: authorDbError } = await supabase
-      .from("authors")
-      .update({ profile_image: publicUrl })
-      .eq("user_id", userId);
-
-    if (authorDbError) {
-      console.error("Supabase DB - Update authors profile_image error (ignored):", authorDbError.message);
+      console.log("Supabase DB - Skipping user/author table updates (userId is not a valid UUID format, likely a mock user).");
     }
 
     // 7. Update Session User Metadata to trigger instant Navbar/Context updates

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Bookmark, MoreHorizontal } from "lucide-react";
+import { Loader2, Bookmark, MoreHorizontal, Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { getApiUrl } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
@@ -24,6 +24,7 @@ function MarketplaceContent() {
   const [feedType, setFeedType] = useState<"all" | "books" | "stories" | "blogs">(initialFeedType);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (toast) {
@@ -97,13 +98,89 @@ function MarketplaceContent() {
     ...blogs.map(bl => ({ id: bl.id, title: bl.title, type: "Blog", description: bl.description || "A personal take and casual exploration of interesting concepts.", category: "Personal", cover: bl.cover_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800", author: bl.authors?.users?.name || bl.authors?.name || (user && user.id === bl.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/blogs/${bl.id}`, date: bl.created_at, price: bl.price || 0, isAuthor: user && (user.id === bl.author_id || user.id === bl.authors?.user_id) }))
   ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
-  const filteredFeed = mergedFeed.filter(item => {
-    if (feedType === "all") return true;
-    if (feedType === "books") return item.type === "Book";
-    if (feedType === "stories") return item.type === "Story";
-    if (feedType === "blogs") return item.type === "Blog";
-    return true;
-  });
+  const getSemanticScore = (item: any, query: string): number => {
+    const q = query.toLowerCase().trim();
+    if (!q) return 1;
+
+    let score = 0;
+
+    const title = (item.title || "").toLowerCase();
+    const desc = (item.description || "").toLowerCase();
+    const category = (item.category || "").toLowerCase();
+    const author = (item.author || "").toLowerCase();
+
+    // 1. Exact phrase matches (High weights)
+    if (title.includes(q)) score += 100;
+    if (category.includes(q)) score += 80;
+    if (desc.includes(q)) score += 40;
+    if (author.includes(q)) score += 50;
+
+    // 2. Acronym / Synonym mappings (Semantic expansion)
+    const synonymMap: Record<string, string[]> = {
+      "ai": ["artificial intelligence", "machine learning", "deep learning", "robots", "neural", "intelligence"],
+      "tech": ["technology", "programming", "artificial intelligence", "data science", "coding", "software", "developer"],
+      "science": ["physics", "chemistry", "biology", "space", "astronomy", "nature", "academic"],
+      "business": ["entrepreneurship", "finance", "startup", "marketing", "money", "investing", "economics"],
+      "read": ["novel", "book", "story", "stories", "literature", "fiction", "readed"],
+      "write": ["author", "pen", "creative", "tips", "blog", "blogs", "writer", "publishing"],
+      "love": ["romance", "romantic", "heart", "relationship", "dating"],
+      "scary": ["horror", "ghost", "thriller", "mystery", "spooky", "dark"],
+      "learn": ["education", "skills", "study", "tips", "guide", "tutorial"],
+      "fun": ["comics", "travel", "cooking", "entertainment", "humor"]
+    };
+
+    // Check if query is related to synonyms
+    Object.entries(synonymMap).forEach(([key, values]) => {
+      const isKeyMatch = q.includes(key) || key.includes(q);
+      const isValueMatch = values.some(val => q.includes(val) || val.includes(q));
+      
+      if (isKeyMatch || isValueMatch) {
+        values.forEach(val => {
+          if (title.includes(val)) score += 30;
+          if (category.includes(val)) score += 40;
+          if (desc.includes(val)) score += 15;
+        });
+        if (title.includes(key)) score += 30;
+        if (category.includes(key)) score += 40;
+        if (desc.includes(key)) score += 15;
+      }
+    });
+
+    // 3. Token-based overlap (Fuzzy word matching)
+    const queryTokens = q.split(/\s+/).filter(t => t.length > 1);
+    queryTokens.forEach(token => {
+      if (title.includes(token)) score += 20;
+      if (category.includes(token)) score += 15;
+      if (desc.includes(token)) score += 5;
+      if (author.includes(token)) score += 10;
+    });
+
+    return score;
+  };
+
+  const filteredFeed = mergedFeed
+    .map(item => {
+      const score = searchQuery.trim() ? getSemanticScore(item, searchQuery) : 1;
+      return { ...item, searchScore: score };
+    })
+    .filter(item => {
+      if (feedType !== "all") {
+        if (feedType === "books" && item.type !== "Book") return false;
+        if (feedType === "stories" && item.type !== "Story") return false;
+        if (feedType === "blogs" && item.type !== "Blog") return false;
+      }
+      
+      // If searching, only include items with relevance score > 0
+      if (searchQuery.trim() && item.searchScore <= 0) return false;
+      
+      return true;
+    })
+    .sort((a, b) => {
+      if (searchQuery.trim() && b.searchScore !== a.searchScore) {
+        return b.searchScore - a.searchScore;
+      }
+      return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
+    });
 
   const staffPicks = mergedFeed.slice(0, 4);
 
@@ -122,6 +199,37 @@ function MarketplaceContent() {
             ) : (
               <h1 className="text-4xl font-heading font-black tracking-tight uppercase mb-8">Marketplace</h1>
             )}
+
+            {/* Search Bar Form */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              className="mb-8 relative max-w-lg"
+            >
+              <button 
+                type="submit"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-450 hover:text-black transition-colors border-0 bg-transparent p-0 cursor-pointer flex items-center justify-center"
+              >
+                <Search size={18} />
+              </button>
+              <input
+                type="text"
+                placeholder="Search books, stories, blogs, categories or authors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-12 py-3.5 bg-zinc-50 border border-zinc-200 focus:border-black outline-none font-medium text-sm transition-all rounded-sm placeholder:text-zinc-400 shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-450 hover:text-black transition-colors border-0 bg-transparent p-0 cursor-pointer flex items-center justify-center"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </form>
             
             {/* Tabs and Actions */}
             <div className="flex justify-between items-end border-b border-zinc-150 relative">

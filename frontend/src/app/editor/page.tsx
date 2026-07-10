@@ -125,6 +125,20 @@ function WritePageContent() {
   };
 
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.role === "Reader") {
+          router.replace("/profile");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [router]);
+
+  useEffect(() => {
     const typeParam = searchParams.get("type");
     if (typeParam) {
       const typeMap: Record<string, ContentType> = {
@@ -257,10 +271,22 @@ function WritePageContent() {
     storyCategory: string,
     storyTags: string[],
     storyThumbnail: File | null,
-    storyContent: string
+    storyContent: string,
+    isDraft: boolean = false
   ) => {
-    setIsSubmitting(true);
     setErrorMessage("");
+
+    if (!storyTitle.trim()) {
+      setErrorMessage("Please enter a title before saving.");
+      return;
+    }
+
+    if (!isDraft && !storyContent.trim()) {
+      setErrorMessage("Please write some content before publishing.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -296,7 +322,7 @@ function WritePageContent() {
         body: JSON.stringify({
           title: storyTitle,
           description: storyContent.replace(/<[^>]*>?/gm, '').substring(0, 160) + "...",
-          content: storyContent,
+          content: isDraft ? `[DRAFT]\n${storyContent}` : storyContent,
           category: storyCategory || "General",
           type: "Story",
           coverUrl: thumbnailUrl,
@@ -310,7 +336,11 @@ function WritePageContent() {
       }
 
       const responseData = await res.json();
-      router.push(`/storys/${responseData.id}`);
+      if (isDraft) {
+        router.push("/profile");
+      } else {
+        router.push(`/storys/${responseData.id}`);
+      }
 
     } catch (err: any) {
       console.error(err);
@@ -328,10 +358,22 @@ function WritePageContent() {
   const handleBlogSubmit = async (
     blogTitle: string,
     blogBanner: File | null,
-    blogContent: string
+    blogContent: string,
+    isDraft: boolean = false
   ) => {
-    setIsSubmitting(true);
     setErrorMessage("");
+
+    if (!blogTitle.trim()) {
+      setErrorMessage("Please enter a title before saving.");
+      return;
+    }
+
+    if (!isDraft && !blogContent.trim()) {
+      setErrorMessage("Please write some content before publishing.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -367,7 +409,7 @@ function WritePageContent() {
         body: JSON.stringify({
           title: blogTitle,
           description: blogContent.replace(/<[^>]*>?/gm, '').substring(0, 160) + "...",
-          content: blogContent,
+          content: isDraft ? `[DRAFT]\n${blogContent}` : blogContent,
           category: "Blog",
           type: "Blog",
           coverUrl: bannerUrl,
@@ -381,7 +423,11 @@ function WritePageContent() {
       }
 
       const responseData = await res.json();
-      router.push(`/blogs/${responseData.id}`);
+      if (isDraft) {
+        router.push("/profile");
+      } else {
+        router.push(`/blogs/${responseData.id}`);
+      }
 
     } catch (err: any) {
       console.error(err);
@@ -474,10 +520,13 @@ function WritePageContent() {
 
               {selectedType === "Story" && (
                 <StoryEditorUI 
-                  onSubmit={(e: any) => {
-                    e.preventDefault();
+                  onSaveDraft={() => {
                     const tagArr = tags.split(",").map((t: string) => t.trim()).filter((t: string) => t !== "");
-                    handleStorySubmit(title, category, tagArr, coverFile, content);
+                    handleStorySubmit(title, category, tagArr, coverFile, content, true);
+                  }}
+                  onPublish={() => {
+                    const tagArr = tags.split(",").map((t: string) => t.trim()).filter((t: string) => t !== "");
+                    handleStorySubmit(title, category, tagArr, coverFile, content, false);
                   }}
                   title={title} setTitle={setTitle}
                   category={category} setCategory={setCategory}
@@ -491,10 +540,8 @@ function WritePageContent() {
 
               {selectedType === "Blog" && (
                 <BlogEditorUI 
-                  onSubmit={(e: any) => {
-                    e.preventDefault();
-                    handleBlogSubmit(title, coverFile, content);
-                  }}
+                  onSaveDraft={() => handleBlogSubmit(title, coverFile, content, true)}
+                  onPublish={() => handleBlogSubmit(title, coverFile, content, false)}
                   title={title} setTitle={setTitle}
                   content={content} setContent={setContent}
                   onBannerChange={(e: any) => setCoverFile(e.target.files?.[0] || null)}
@@ -926,7 +973,8 @@ function BookUploadUI({
 }
 
 function StoryEditorUI({ 
-  onSubmit, 
+  onSaveDraft,
+  onPublish, 
   title, setTitle, 
   content, setContent,
   isSubmitting, errorMessage 
@@ -934,7 +982,7 @@ function StoryEditorUI({
   return (
     <div className="min-h-screen bg-[#FDFCF8] px-4 py-12 md:py-24 text-zinc-900 font-serif">
       <div className="max-w-[700px] mx-auto">
-        <form onSubmit={onSubmit} className="space-y-10">
+        <div className="space-y-10">
           
           {errorMessage && (
             <div className="p-4 bg-zinc-100 border border-zinc-300 text-zinc-800 text-xs font-mono uppercase tracking-widest flex items-center gap-3">
@@ -959,23 +1007,32 @@ function StoryEditorUI({
             </div>
           </div>
 
-          <div className="pt-16 pb-12 flex justify-start">
+          <div className="pt-16 pb-12 flex gap-4 justify-start">
             <button 
-              type="submit"
-              disabled={isSubmitting || !title || !content}
-              className="px-8 py-3 bg-zinc-900 text-white font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center gap-3"
+              type="button"
+              onClick={onSaveDraft}
+              disabled={isSubmitting}
+              className="px-8 py-3 bg-white text-zinc-900 border border-zinc-900 font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 cursor-pointer"
+            >
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Save as Draft"}
+            </button>
+            <button 
+              type="button"
+              onClick={onPublish}
+              disabled={isSubmitting}
+              className="px-8 py-3 bg-zinc-900 text-white font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 cursor-pointer"
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish Story"}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 }
-
 function BlogEditorUI({ 
-  onSubmit, 
+  onSaveDraft,
+  onPublish, 
   title, setTitle, 
   content, setContent,
   onBannerChange, 
@@ -985,10 +1042,10 @@ function BlogEditorUI({
     <div className="min-h-[70vh] bg-zinc-50 border border-zinc-200 p-4 md:p-8 rounded-sm max-w-[1400px] mx-auto">
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_350px] gap-8">
         <div className="bg-white p-6 md:p-8 border border-zinc-200 shadow-sm rounded-sm">
-          <form onSubmit={onSubmit} className="space-y-12">
+          <div className="space-y-12">
             <div className="flex items-center gap-4 text-zinc-400 mb-8 pb-4 border-b border-zinc-100">
               <Sparkles size={16} className="text-zinc-950" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-950">Blog Studio</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-955">Blog Studio</span>
               <div className="h-px flex-grow bg-zinc-100" />
             </div>
 
@@ -1004,7 +1061,7 @@ function BlogEditorUI({
                 placeholder="Blog Title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-2xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-b border-zinc-200 focus:border-zinc-950 pb-4"
+                className="w-full text-2xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-b border-zinc-200 focus:border-zinc-955 pb-4"
                 required
               />
             </div>
@@ -1019,22 +1076,31 @@ function BlogEditorUI({
             />
 
             <div className="space-y-4 pt-8">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-955 flex items-center gap-2">
                 <Type size={14} /> Content
               </label>
               <RichTextEditor content={content} onChange={setContent} placeholder="Write your casual story here..." />
             </div>
 
-            <div className="pt-8 border-t border-zinc-100 flex justify-end">
+            <div className="pt-8 border-t border-zinc-100 flex justify-end gap-4">
               <button 
-                type="submit"
-                disabled={isSubmitting || !title || !content}
-                className="px-12 py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-xl flex items-center gap-4 disabled:opacity-50 rounded-sm group"
+                type="button"
+                onClick={onSaveDraft}
+                disabled={isSubmitting}
+                className="px-8 py-4 bg-white text-zinc-955 border border-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-3 cursor-pointer rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Save as Draft"}
+              </button>
+              <button 
+                type="button"
+                onClick={onPublish}
+                disabled={isSubmitting}
+                className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg flex items-center gap-3 cursor-pointer rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish Blog Post"}
               </button>
             </div>
-          </form>
+          </div>
         </div>
 
         {/* Sidebar Rules */}

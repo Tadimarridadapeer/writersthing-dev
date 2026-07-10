@@ -45,7 +45,7 @@ export default function BooksPage() {
                 <div className="flex gap-4">
                   <div className="px-6 py-3 border border-zinc-200 text-[10px] font-black uppercase tracking-widest">Growing Library</div>
                   <Link 
-                    href="/write?type=book"
+                    href="/editor?type=book"
                     className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-sm flex items-center gap-2"
                   >
                     <Feather size={14} /> Publish Book
@@ -130,7 +130,7 @@ export default function BooksPage() {
                 Turn your manuscript into a beautifully presented book on our platform. Retain full control and connect with your readers.
               </p>
               <Link 
-                href="/write?type=book"
+                href="/editor?type=book"
                 className="inline-flex items-center gap-6 px-12 py-5 bg-white text-black text-[10px] font-black uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-2xl"
               >
                 Upload Manuscript <ArrowRight size={16} />

@@ -48,16 +48,16 @@ export async function GET(req: Request) {
 
       // Filter out drafts
       const publishedStories = data ? data.filter((item: any) => 
-        item.content && !item.content.startsWith("[DRAFT]")
+        item.body && !item.body.startsWith("[DRAFT]")
       ) : [];
 
       // Map to frontend-friendly schema (flattening author name and using cover_url)
       const mappedData = publishedStories.map((item: any) => ({
         id: item.id,
         title: item.title,
-        description: extractDescription(item.content),
+        description: extractDescription(item.body),
         category: item.category || "General",
-        cover_url: item.thumbnail_url || extractFirstImage(item.content, "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800"),
+        cover_url: item.cover_image || extractFirstImage(item.body, "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800"),
         created_at: item.created_at,
         authors: {
           name: item.authors?.users?.name || "Unknown Author",
@@ -112,19 +112,24 @@ export async function POST(req: Request) {
     // Ensure author profile exists
     const authorProfile = await ensureAuthorProfile(supabase, user.id);
 
-    const { title, description, content, category, type, coverUrl, tags } = await req.json();
+    const { title, description, content, category, type, coverUrl } = await req.json();
 
     if (type === "Story") {
+      const slug = title
+        ? title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now()
+        : "story-" + Date.now();
+
       const { data, error } = await supabase
         .from("stories")
         .insert([
           {
             title,
-            content: content || description || "", // Initially use content
+            slug,
+            body: content || description || "",
             category: category || "General",
-            thumbnail_url: coverUrl || "",
-            tags: tags || [],
-            author_id: authorProfile.id
+            cover_image: coverUrl || "",
+            author_id: authorProfile.id,
+            status: (content && content.startsWith("[DRAFT]")) ? "draft" : "published"
           }
         ])
         .select()

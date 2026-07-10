@@ -25,6 +25,7 @@ import {
   X
 } from "lucide-react";
 import { uploadAvatar } from "@/lib/avatar";
+import { ensureAuthorProfile } from "@/lib/author";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useRouter } from "next/navigation";
@@ -40,12 +41,25 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
 
-  const [bankDetails, setBankDetails] = useState("");
+  const [bankAccNo, setBankAccNo] = useState("");
+  const [bankIfsc, setBankIfsc] = useState("");
+  const [bankHolder, setBankHolder] = useState("");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   
   useEffect(() => {
     if (user && user.bank_details) {
-      setBankDetails(user.bank_details);
+      try {
+        const parsed = JSON.parse(user.bank_details);
+        if (parsed && typeof parsed === "object") {
+          setBankAccNo(parsed.account_number || "");
+          setBankIfsc(parsed.ifsc_code || "");
+          setBankHolder(parsed.account_holder_name || "");
+        } else {
+          setBankAccNo(user.bank_details);
+        }
+      } catch (e) {
+        setBankAccNo(user.bank_details);
+      }
     }
   }, [user]);
 
@@ -208,6 +222,49 @@ export default function ProfilePage() {
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
     router.push("/login");
   };
+
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const handleUpgradeToAuthor = async () => {
+    if (!user) return;
+    if (!confirm("Are you sure you want to upgrade your profile to Author & Reader? This will allow you to publish books, stories, and blogs.")) {
+      return;
+    }
+    
+    setIsUpgrading(true);
+    setToast(null);
+    try {
+      // 1. Update auth user metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { role: "Author" }
+      });
+      if (authError) throw authError;
+
+      // 2. Ensure author profile in database
+      await ensureAuthorProfile(supabase, user.id);
+
+      // 3. Sync local storage
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        parsed.role = "Author";
+        localStorage.setItem("user", JSON.stringify(parsed));
+      }
+
+      setToast({ message: "Successfully upgraded to Author & Reader! Unlocking features...", type: "success" });
+      
+      // Reload page after a delay to refresh Navbar and state layout cleanly
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (err: any) {
+      console.error("Upgrade error:", err);
+      setToast({ message: err.message || "Failed to upgrade account.", type: "error" });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
   const [purchasedBooks, setPurchasedBooks] = useState<any[]>([]);
   const [myManuscripts, setMyManuscripts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -310,6 +367,9 @@ export default function ProfilePage() {
     }
     
     const parsedUser = JSON.parse(storedUser);
+    if (!parsedUser.role) {
+      parsedUser.role = "Author";
+    }
     setUser(parsedUser);
 
     try {
@@ -611,14 +671,18 @@ export default function ProfilePage() {
               
               {/* Clickable Social Followers/Following Row */}
               <div className="flex justify-center md:justify-start gap-8 mt-4 mb-8 text-sm select-none">
-                <button 
-                  onClick={fetchFollowers} 
-                  className="font-medium hover:text-black transition-colors flex items-center gap-2 group cursor-pointer border-0 bg-transparent p-0"
-                >
-                  <span className="font-heading font-semibold text-lg text-zinc-800 group-hover:text-black transition-colors">{stats.followers}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Followers</span>
-                </button>
-                <div className="w-px h-5 bg-zinc-200 my-auto" />
+                {user?.role !== "Reader" && (
+                  <>
+                    <button 
+                      onClick={fetchFollowers} 
+                      className="font-medium hover:text-black transition-colors flex items-center gap-2 group cursor-pointer border-0 bg-transparent p-0"
+                    >
+                      <span className="font-heading font-semibold text-lg text-zinc-800 group-hover:text-black transition-colors">{stats.followers}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Followers</span>
+                    </button>
+                    <div className="w-px h-5 bg-zinc-200 my-auto" />
+                  </>
+                )}
                 <button 
                   onClick={fetchFollowing} 
                   className="font-medium hover:text-black transition-colors flex items-center gap-2 group cursor-pointer border-0 bg-transparent p-0"
@@ -632,26 +696,20 @@ export default function ProfilePage() {
                 <button onClick={() => setActiveSection("Settings")} className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2 cursor-pointer">
                   <Settings size={14} /> Edit Profile
                 </button>
-                <Link href="/write" className="px-8 py-3 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all flex items-center gap-2">
-                  <Feather size={14} /> Publish Work
-                </Link>
-                <button 
-                  onClick={handleLogout}
-                  className="px-8 py-3 border border-red-500 hover:bg-red-500 hover:text-white text-red-500 text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
-                >
-                  <LogOut size={14} /> Log Out
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-12 border-l border-zinc-100 pl-12 hidden lg:grid">
-              <div className="text-center">
-                <p className="text-4xl font-heading font-semibold text-zinc-900 tracking-tight">{stats.library}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-1">Library</p>
-              </div>
-              <div className="text-center">
-                <p className="text-4xl font-heading font-semibold text-zinc-900 tracking-tight">₹{stats.earnings.toLocaleString()}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-1">Earnings</p>
+                {user?.role === "Reader" ? (
+                  <button
+                    onClick={handleUpgradeToAuthor}
+                    disabled={isUpgrading}
+                    className="px-8 py-3 bg-zinc-900 text-white hover:bg-zinc-800 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isUpgrading ? <Loader2 size={14} className="animate-spin" /> : <Feather size={14} />}
+                    {isUpgrading ? "Upgrading..." : "Become an Author"}
+                  </button>
+                ) : (
+                  <Link href="/editor" className="px-8 py-3 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all flex items-center gap-2">
+                    <Feather size={14} /> Publish Work
+                  </Link>
+                )}
               </div>
             </div>
           </header>
@@ -664,18 +722,10 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Book size={18} />} label="My Library" active={activeSection === "Library"} onClick={() => setActiveSection("Library")} />
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
-                <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
-                <ProfileNavBtn icon={<Sparkles size={18} />} label="Preferences" active={activeSection === "Preferences"} onClick={() => setActiveSection("Preferences")} />
-                
-                {(user.role === "Author" || user.role === "Admin") && (
-                  <>
-                    <p className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-300 mt-8 mb-2 px-6">Creator Hub</p>
-                    <ProfileNavBtn icon={<UploadCloud size={18} />} label="My Manuscripts" active={activeSection === "Manuscripts"} onClick={() => setActiveSection("Manuscripts")} />
-                    <ProfileNavBtn icon={<TrendingUp size={18} />} label="Sales Analytics" active={activeSection === "Analytics"} onClick={() => setActiveSection("Analytics")} />
-                    <ProfileNavBtn icon={<DollarSign size={18} />} label="Payouts" active={activeSection === "Payouts"} onClick={() => setActiveSection("Payouts")} />
-                    <ProfileNavBtn icon={<ShieldCheck size={18} />} label="Writersthing Pro" active={activeSection === "Pro"} onClick={() => setActiveSection("Pro")} />
-                  </>
+                {user?.role !== "Reader" && (
+                  <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
                 )}
+                <ProfileNavBtn icon={<Sparkles size={18} />} label="Preferences" active={activeSection === "Preferences"} onClick={() => setActiveSection("Preferences")} />
               </nav>
             </aside>
 
@@ -746,7 +796,7 @@ export default function ProfilePage() {
                         </div>
 
                         {/* List Render */}
-                        {(() => {
+{(() => {
                           const itemsToShow = libraryPerspective === "reader" ? readedItems : publishedItems;
                           const filtered = itemsToShow.filter(item => {
                             if (libraryFilter === "all") return true;
@@ -754,94 +804,176 @@ export default function ProfilePage() {
                           });
 
                           if (filtered.length > 0) {
-                            return (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                {filtered.map((item) => {
-                                  const details = item.details;
-                                  if (!details) return null;
-                                  const isBook = item.content_type === "book" || details.cover_url !== undefined;
-                                  const isStory = item.content_type === "story" || details.thumbnail_url !== undefined;
-                                  const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
+                            if (libraryPerspective === "reader") {
+                              return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                  {filtered.map((item) => {
+                                    const details = item.details;
+                                    if (!details) return null;
+                                    const isBook = item.content_type === "book" || details.cover_url !== undefined;
+                                    const isStory = item.content_type === "story" || details.cover_image !== undefined || details.thumbnail_url !== undefined;
+                                    const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
-                                  let badge = "CONTENT";
-                                  let link = "";
-                                  let cover = details.cover_url || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                                    let badge = "CONTENT";
+                                    let link = "";
+                                    let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
-                                  if (isBook) {
-                                    badge = "BOOK";
-                                    link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
-                                  } else if (isStory) {
-                                    badge = "STORY";
-                                    link = `/stories/${details.id}`;
-                                  } else if (isBlog) {
-                                    badge = "BLOG";
-                                    link = `/blogs/${details.id}`;
-                                  }
+                                    if (isBook) {
+                                      badge = "BOOK";
+                                      link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
+                                    } else if (isStory) {
+                                      badge = "STORY";
+                                      link = `/stories/${details.id}`;
+                                    } else if (isBlog) {
+                                      badge = "BLOG";
+                                      link = `/blogs/${details.id}`;
+                                    }
 
-                                  return (
-                                    <div key={item.id || `${item.content_type}-${item.content_id}-${details.id}`} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
-                                      <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
-                                        <img src={cover} alt={details.title} className="w-full h-full object-cover" />
-                                        <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
-                                      </div>
-                                      <div className="flex-grow flex flex-col justify-between">
-                                        <div>
-                                          <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
-                                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                    return (
+                                      <div key={item.id || `${item.content_type}-${item.content_id}-${details.id}`} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
+                                        <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
+                                          <img src={cover} alt={details.title} className="w-full h-full object-cover" />
+                                          <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
                                         </div>
-                                        <div className="flex gap-2">
-                                          <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
-                                            Read Now
-                                          </Link>
-                                          {libraryPerspective === "author" && (
-                                            <button 
-                                              onClick={() => {
-                                                if (isBook) {
-                                                  const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
-                                                  if (reason) {
-                                                    fetch(`/api/books/${details.id}`, {
-                                                      method: "PATCH",
-                                                      headers: { "Content-Type": "application/json" },
-                                                      body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
-                                                    }).then(res => {
-                                                      if (res.ok) alert("Deletion requested successfully. Pending 48hr approval.");
-                                                      else alert("Failed to request deletion.");
-                                                    });
-                                                  }
-                                                } else {
-                                                  if (confirm("Are you sure you want to delete this content?")) {
-                                                    fetch(`/api/stories/${details.id}`, {
-                                                      method: "DELETE"
-                                                    }).then(res => {
-                                                      if (res.ok) {
-                                                        alert("Content deleted successfully.");
-                                                        window.location.reload();
-                                                      }
-                                                      else alert("Failed to delete content.");
-                                                    });
-                                                  }
-                                                }
-                                              }}
-                                              className="px-3 py-2 border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-500 transition-all text-[9px] font-black uppercase tracking-widest"
-                                              title={isBook ? "Request Deletion" : "Delete"}
-                                            >
-                                              {isBook ? (details.deletion_status === "Pending_Approval" ? "Pending..." : "Req. Delete") : "Delete"}
-                                            </button>
-                                          )}
+                                        <div className="flex-grow flex flex-col justify-between">
+                                          <div>
+                                            <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
+                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                              Read Now
+                                            </Link>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  );
-                                })}
+                                    );
+                                  })}
 
-                                {libraryPerspective === "reader" && (
                                   <Link href="/marketplace" className="border-2 border-dashed border-zinc-200 rounded-sm flex flex-col items-center justify-center p-12 text-zinc-300 hover:border-black hover:text-black transition-all gap-4 min-h-[160px]">
                                     <Book size={32} />
                                     <span className="text-[10px] font-black uppercase tracking-widest">Explore Marketplace</span>
                                   </Link>
-                                )}
-                              </div>
-                            );
+                                </div>
+                              );
+                            } else {
+                              // Render Author Portfolio with Drafts and Published items separated!
+                              const checkDraft = (item: any) => {
+                                const details = item.details;
+                                if (!details) return false;
+                                return details.status === "Draft" || details.status === "draft" || (details.content && details.content.startsWith("[DRAFT]")) || (details.body && details.body.startsWith("[DRAFT]"));
+                              };
+
+                              const drafts = filtered.filter(checkDraft);
+                              const published = filtered.filter(item => !checkDraft(item));
+
+                              const renderCard = (item: any, isDraft: boolean) => {
+                                const details = item.details;
+                                if (!details) return null;
+                                const isBook = item.content_type === "book" || details.cover_url !== undefined;
+                                const isStory = item.content_type === "story" || details.cover_image !== undefined || details.thumbnail_url !== undefined;
+                                const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
+
+                                let badge = "CONTENT";
+                                let link = "";
+                                let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+
+                                if (isBook) {
+                                  badge = "BOOK";
+                                  link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
+                                } else if (isStory) {
+                                  badge = isDraft ? "DRAFT" : "STORY";
+                                  link = isDraft ? `/write/${details.id}` : `/stories/${details.id}`;
+                                } else if (isBlog) {
+                                  badge = isDraft ? "DRAFT" : "BLOG";
+                                  link = isDraft ? `/write/${details.id}` : `/blogs/${details.id}`;
+                                }
+
+                                return (
+                                  <div key={item.id || `${item.content_type}-${item.content_id}-${details.id}`} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
+                                    <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
+                                      <img src={cover} alt={details.title} className="w-full h-full object-cover" />
+                                      <span className={`absolute top-2 left-2 px-2 py-0.5 text-[7px] font-black tracking-widest ${isDraft ? 'bg-amber-500 text-white' : 'bg-black text-white'}`}>{badge}</span>
+                                    </div>
+                                    <div className="flex-grow flex flex-col justify-between">
+                                      <div>
+                                        <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                          {isDraft ? "Edit Draft" : "Read Now"}
+                                        </Link>
+                                        <button 
+                                          onClick={() => {
+                                            if (isBook) {
+                                              const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
+                                              if (reason) {
+                                                fetch(`/api/books/${details.id}`, {
+                                                  method: "PATCH",
+                                                  headers: { "Content-Type": "application/json" },
+                                                  body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
+                                                }).then(res => {
+                                                  if (res.ok) alert("Deletion requested successfully. Pending 48hr approval.");
+                                                  else alert("Failed to request deletion.");
+                                                });
+                                              }
+                                            } else {
+                                              if (confirm("Are you sure you want to delete this content?")) {
+                                                fetch(`/api/manuscripts/${details.id}`, {
+                                                  method: "DELETE"
+                                                }).then(res => {
+                                                   if (res.ok) {
+                                                     alert("Content deleted successfully.");
+                                                     setPublishedItems(prev => prev.filter(p => p.details?.id !== details.id));
+                                                     setReadedItems(prev => prev.filter(r => r.details?.id !== details.id));
+                                                   }
+                                                   else alert("Failed to delete content.");
+                                                 });
+                                              }
+                                            }
+                                          }}
+                                          className="px-3 py-2 border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-500 transition-all text-[9px] font-black uppercase tracking-widest"
+                                          title={isBook ? "Request Deletion" : "Delete"}
+                                        >
+                                          {isBook ? (details.deletion_status === "Pending_Approval" ? "Pending..." : "Req. Delete") : "Delete"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              };
+
+                              return (
+                                <div className="space-y-12">
+                                  {drafts.length > 0 && (
+                                    <div>
+                                      <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> My Drafts ({drafts.length})
+                                      </h3>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                        {drafts.map(d => renderCard(d, true))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" /> Published Works ({published.length})
+                                    </h3>
+                                    {published.length > 0 ? (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                        {published.map(p => renderCard(p, false))}
+                                      </div>
+                                    ) : (
+                                      <div className="py-12 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed">
+                                        <p className="text-zinc-400 font-medium italic text-xs">No published works found.</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
                           } else {
                             return (
                               <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed flex flex-col items-center justify-center p-12">
@@ -863,7 +995,7 @@ export default function ProfilePage() {
                                     )}
                                   </div>
                                 ) : (
-                                  <Link href="/write" className="px-10 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">
+                                  <Link href="/editor" className="px-10 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">
                                     Publish Your First {libraryFilter === "all" ? "Work" : libraryFilter.toUpperCase()}
                                   </Link>
                                 )}
@@ -919,12 +1051,12 @@ export default function ProfilePage() {
                                   const details = item.details;
                                   if (!details) return null;
                                   const isBook = item.content_type === "book" || details.cover_url !== undefined;
-                                  const isStory = item.content_type === "story" || details.thumbnail_url !== undefined;
+                                  const isStory = item.content_type === "story" || details.cover_image !== undefined || details.thumbnail_url !== undefined;
                                   const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
                                   let badge = "CONTENT";
                                   let link = "";
-                                  let cover = details.cover_url || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                                  let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
                                   if (isBook) {
                                     badge = "BOOK";
@@ -1035,12 +1167,12 @@ export default function ProfilePage() {
                                   const details = item.details;
                                   if (!details) return null;
                                   const isBook = item.content_type === "book" || details.cover_url !== undefined;
-                                  const isStory = item.content_type === "story" || details.thumbnail_url !== undefined;
+                                  const isStory = item.content_type === "story" || details.cover_image !== undefined || details.thumbnail_url !== undefined;
                                   const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
                                   let badge = "CONTENT";
                                   let link = "";
-                                  let cover = details.cover_url || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                                  let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
                                   if (isBook) {
                                     badge = "BOOK";
@@ -1295,42 +1427,109 @@ export default function ProfilePage() {
                     </div>
                   )}
                   {activeSection === "Settings" && (
-                    <div className="py-12 px-8 bg-zinc-50 border border-zinc-200 rounded-sm text-left">
-                      <h3 className="font-heading font-black text-2xl uppercase mb-8">Profile Settings</h3>
-                      
-                      <div className="space-y-6 max-w-xl">
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block mb-2">Banking Information (For Payouts)</label>
-                          <input 
-                            type="text"
-                            value={bankDetails}
-                            onChange={(e) => setBankDetails(e.target.value)}
-                            placeholder="Account Number & IFSC/Routing"
-                            className="w-full bg-white border border-zinc-300 p-4 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all placeholder:text-zinc-400 text-zinc-950"
-                          />
-                          <p className="text-[10px] uppercase tracking-widest text-zinc-400 mt-2 font-medium">This information is used to process payouts for your published books.</p>
-                        </div>
+                    <div className="bg-white border border-zinc-150 p-8 md:p-12 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.02)] text-left space-y-12">
+                      <div>
+                        <h3 className="font-heading font-black text-2xl uppercase tracking-tight mb-2">Profile Settings</h3>
+                        <p className="text-xs text-zinc-400 italic">Manage your account information and payout preferences.</p>
+                      </div>
 
+                      {/* Section 1: Account Information */}
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">1. Account Information</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Display Name</span>
+                            <span className="text-sm font-bold text-zinc-900 block bg-zinc-50 border border-zinc-100 p-4 rounded-sm select-none">{user.name}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Email Address</span>
+                            <span className="text-sm font-bold text-zinc-900 block bg-zinc-50 border border-zinc-100 p-4 rounded-sm select-none">{user.email}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 2: Payout Information */}
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. Creator Payouts</h4>
+                        <div className="max-w-xl space-y-6">
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">Account Holder Name</label>
+                              <input 
+                                type="text"
+                                value={bankHolder}
+                                onChange={(e) => setBankHolder(e.target.value)}
+                                placeholder="ENTER ACCOUNT HOLDER NAME"
+                                className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">Account Number</label>
+                                <input 
+                                  type="text"
+                                  value={bankAccNo}
+                                  onChange={(e) => setBankAccNo(e.target.value)}
+                                  placeholder="ENTER ACCOUNT NUMBER"
+                                  className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">IFSC Code</label>
+                                <input 
+                                  type="text"
+                                  value={bankIfsc}
+                                  onChange={(e) => setBankIfsc(e.target.value)}
+                                  placeholder="ENTER IFSC CODE"
+                                  className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
+                                />
+                              </div>
+                            </div>
+                            <p className="text-[9px] uppercase tracking-wider text-zinc-400 mt-2 font-medium leading-relaxed">This banking detail is used for payouts of purchase royalties from your published manuscripts.</p>
+                          </div>
+
+                          <button 
+                            onClick={async () => {
+                              const payload = JSON.stringify({
+                                account_number: bankAccNo,
+                                ifsc_code: bankIfsc,
+                                account_holder_name: bankHolder
+                              });
+                              
+                              setIsSavingSettings(true);
+                              try {
+                                const { error } = await supabase.from('users').update({ bank_details: payload }).eq('id', user.id);
+                                if (error) throw error;
+                                const updated = { ...user, bank_details: payload };
+                                setUser(updated);
+                                localStorage.setItem("user", JSON.stringify(updated));
+                                setToast({ message: "Settings saved successfully", type: "success" });
+                              } catch (err: any) {
+                                setToast({ message: err.message, type: "error" });
+                              } finally {
+                                setIsSavingSettings(false);
+                              }
+                            }}
+                            disabled={isSavingSettings}
+                            className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer rounded-sm"
+                          >
+                            {isSavingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Section 3: Session Management */}
+                      <div className="space-y-6 pt-6 border-t border-zinc-100">
+                        <div>
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">3. Session Options</h4>
+                          <p className="text-[9px] uppercase tracking-wider text-zinc-400 leading-relaxed font-medium">Log out from your current device profile session.</p>
+                        </div>
                         <button 
-                          onClick={async () => {
-                            setIsSavingSettings(true);
-                            try {
-                              const { error } = await supabase.from('users').update({ bank_details: bankDetails }).eq('id', user.id);
-                              if (error) throw error;
-                              const updated = { ...user, bank_details: bankDetails };
-                              setUser(updated);
-                              localStorage.setItem("user", JSON.stringify(updated));
-                              setToast({ message: "Settings saved successfully", type: "success" });
-                            } catch (err: any) {
-                              setToast({ message: err.message, type: "error" });
-                            } finally {
-                              setIsSavingSettings(false);
-                            }
-                          }}
-                          disabled={isSavingSettings}
-                          className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                          onClick={handleLogout}
+                          className="px-8 py-4 border border-zinc-950 hover:bg-zinc-950 hover:text-white text-zinc-950 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 hover:scale-[1.01] rounded-sm cursor-pointer"
                         >
-                          {isSavingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
+                          <LogOut size={14} /> Log Out from Device
                         </button>
                       </div>
                     </div>
@@ -1600,6 +1799,7 @@ export function PreferencesSettings() {
   const [contentTypes, setContentTypes] = useState<string[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
   const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const INTERESTS_LIST = [
     "Artificial Intelligence", "Technology", "Programming", "Data Science", 
@@ -1613,7 +1813,7 @@ export function PreferencesSettings() {
 
   const CONTENT_TYPES_LIST = [
     "Books", "Stories", "Blogs", "Short Reads", 
-    "Learning Series", "Stories", "Writing Tips", "Book Recommendations"
+    "Learning Series", "Personal Essays", "Writing Tips", "Book Recommendations"
   ];
 
   const GOALS_LIST = [
@@ -1624,6 +1824,17 @@ export function PreferencesSettings() {
   ];
 
   useEffect(() => {
+    // Load role
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUserRole(parsed.role || "Author");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     fetch("/api/user/preferences")
       .then(res => res.json())
       .then(data => {
@@ -1639,6 +1850,15 @@ export function PreferencesSettings() {
         setLoading(false);
       });
   }, []);
+
+  const filteredGoals = GOALS_LIST.filter(goal => {
+    if (userRole === "Reader") {
+      return goal !== "Publish my own books" && 
+             goal !== "Write blogs" && 
+             goal !== "Become an author";
+    }
+    return true;
+  });
 
   const handleSave = async () => {
     setSaving(true);
@@ -1708,7 +1928,7 @@ export function PreferencesSettings() {
       <div>
         <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Your Goals</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {GOALS_LIST.map(goal => {
+          {filteredGoals.map(goal => {
             const isSelected = goals.includes(goal);
             return (
               <label key={goal} className="flex items-center gap-3 p-3 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50">

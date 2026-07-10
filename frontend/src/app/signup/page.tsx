@@ -46,6 +46,7 @@ export default function SignupPage() {
         options: {
           data: {
             name: formData.name,
+            role: "Reader",
           }
         }
       });
@@ -67,20 +68,13 @@ export default function SignupPage() {
         } else {
           console.log("DB Sync success: User profile created.");
         }
-
-        // 2b. Sync to public.authors table via helper
-        try {
-          await ensureAuthorProfile(supabase, data.user.id);
-          console.log("Author Sync success: Author profile ensured.");
-        } catch (authorError: any) {
-          console.error("Author Sync error:", authorError.message);
-        }
         
         // 3. Set local storage user for fallback
         localStorage.setItem("user", JSON.stringify({
           id: data.user.id,
           name: formData.name,
           email: formData.email,
+          role: "Reader",
         }));
 
         const searchParams = new URLSearchParams(window.location.search);

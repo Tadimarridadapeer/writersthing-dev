@@ -46,7 +46,7 @@ export default function StorysPage() {
                 <div className="flex gap-4">
                   <div className="px-6 py-3 border border-zinc-200 text-[10px] font-black uppercase tracking-widest">500+ Storys</div>
                   <Link 
-                    href="/write?type=story"
+                    href="/editor?type=story"
                     className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-sm flex items-center gap-2"
                   >
                     <Feather size={14} /> Contribute
@@ -127,7 +127,7 @@ export default function StorysPage() {
                 Join our editorial community. Professional insights help build the foundation for a more transparent publishing industry.
               </p>
               <Link 
-                href="/write"
+                href="/editor"
                 className="inline-flex items-center gap-6 px-12 py-5 bg-white text-black text-[10px] font-black uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-2xl"
               >
                 Submit Story <ArrowRight size={16} />

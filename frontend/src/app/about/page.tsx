@@ -122,7 +122,7 @@ export default function AboutPage() {
                   <h3 className="text-xl font-heading font-black uppercase mb-4">Start Writing</h3>
                   <p className="text-zinc-500 text-sm mb-8 leading-relaxed">Join thousands of unknown writers who are turning their manuscripts into a legacy.</p>
                   <Link 
-                    href="/write"
+                    href="/editor"
                     className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] hover:gap-6 transition-all"
                   >
                     Launch Composer <ArrowRight size={14} />

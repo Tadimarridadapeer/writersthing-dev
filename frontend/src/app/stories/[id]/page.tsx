@@ -406,8 +406,7 @@ export default function StoryPost() {
 
           <header className="mb-4">
             <span className="inline-block px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mb-6">{story.category}</span>
-              <div className="h-px w-8 bg-zinc-200" />
-            </div>
+            <div className="h-px w-8 bg-zinc-200" />
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-10 md:mb-20 leading-[1.1]">
               {story.title}
             </h1>

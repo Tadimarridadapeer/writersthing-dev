@@ -97,7 +97,7 @@ export default function DashboardSidebar() {
       <div className="mt-auto pt-8 border-t border-zinc-100 flex flex-col gap-6">
         {userRole === "Author" && (
           <Link 
-            href="/write"
+            href="/editor"
             className="w-full bg-black text-white py-4 rounded-sm font-black text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-xl"
           >
             <Plus size={16} /> Create New Post
