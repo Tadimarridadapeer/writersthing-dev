@@ -27,6 +27,7 @@ import Navbar from "@/components/Navbar";
 import RichTextEditor from "@/components/RichTextEditor";
 import { getApiUrl } from "@/lib/config";
 import { ensureAuthorProfile } from "@/lib/author";
+import { useDraftManager } from "@/hooks/useDraftManager";
 
 type ContentType = "Book" | "Blog" | "Story" | "Magazine";
 
@@ -80,12 +81,21 @@ async function getCurrentAuthor() {
   };
 }
 
+function DraftStatusIndicator({ status, lastSaved }: { status: string, lastSaved: Date | null }) {
+  if (status === 'saving') return <span className="text-zinc-400 text-[10px] uppercase font-bold flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Saving...</span>;
+  if (status === 'saved' && lastSaved) return <span className="text-green-600/70 text-[10px] uppercase font-bold flex items-center gap-2"><CheckCircle2 size={12} /> Saved {lastSaved.toLocaleTimeString()}</span>;
+  if (status === 'unsaved') return <span className="text-amber-600/70 text-[10px] uppercase font-bold flex items-center gap-2">Unsaved changes</span>;
+  if (status === 'failed') return <span className="text-red-600/70 text-[10px] uppercase font-bold flex items-center gap-2">Save failed</span>;
+  return null;
+}
+
 function WritePageContent() {
   const [step, setStep] = useState<"selection" | "form" | "success">("selection");
   const [selectedType, setSelectedType] = useState<ContentType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const draftIdParam = searchParams.get("id");
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -98,6 +108,35 @@ function WritePageContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showCreateAuthorBtn, setShowCreateAuthorBtn] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+
+  const { status: draftStatus, lastSaved, errorMessage: draftError, currentId, triggerAutoSave, saveToDatabase, recoverLocalDraft, clearLocal } = useDraftManager(selectedType, draftIdParam);
+
+  // Auto-Save Effect
+  useEffect(() => {
+    if (step === "form" && selectedType) {
+      triggerAutoSave({
+        type: selectedType,
+        title,
+        description,
+        content,
+        category,
+        // Intentionally omit files from auto-save to prevent massive bandwidth usage
+      });
+    }
+  }, [title, description, content, category, selectedType, step, triggerAutoSave]);
+
+  // Initial Load & Local Recovery
+  useEffect(() => {
+    if (step === "form" && selectedType) {
+      const local = recoverLocalDraft();
+      if (local && window.confirm("We found an unsaved local draft for this item. Would you like to recover it?")) {
+        setTitle(local.title || "");
+        setDescription(local.description || "");
+        setContent(local.content || "");
+        setCategory(local.category || "");
+      }
+    }
+  }, [step, selectedType]);
 
   const handleCreateAuthor = async () => {
     setIsSubmitting(true);
@@ -192,65 +231,25 @@ function WritePageContent() {
         throw new Error("Authentication required. Please log in.");
       }
 
-      // Execute full lookup and validation
-      const authorProfile = await getCurrentAuthor();
-      const userId = authorProfile.user.id;
+      // Backend API handles the rest (auth validation, author lookup, storage upload, metadata insert)
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("category", category);
+      if (coverFile) formData.append("coverFile", coverFile);
+      if (pdfFile) formData.append("pdfFile", pdfFile);
 
-      let coverUrl = "";
-      if (coverFile) {
-        const coverExt = coverFile.name.split(".").pop();
-        const coverPath = `${userId}/${Date.now()}-cover.${coverExt}`;
-        const { error: coverError } = await supabase.storage
-          .from("covers")
-          .upload(coverPath, coverFile);
-        
-        if (coverError) throw new Error("Cover Upload Failed: " + coverError.message);
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from("covers")
-          .getPublicUrl(coverPath);
-        coverUrl = publicUrl;
-      }
+      const publishedId = await saveToDatabase({
+        type: "Book",
+        title,
+        description,
+        category,
+        content: "",
+        coverFile,
+        pdfFile
+      }, true);
 
-      let pdfPath = "";
-      if (pdfFile) {
-        pdfPath = `${userId}/${Date.now()}-manuscript.pdf`;
-        const { error: pdfError } = await supabase.storage
-          .from("books")
-          .upload(pdfPath, pdfFile);
-        
-        if (pdfError) throw new Error("Manuscript Upload Failed: " + pdfError.message);
-      }
-
-      const finalCategory = category ? `Book - ${category}` : "Book";
-
-      console.log("Manuscript Upload - Submitting to database");
-
-      const { data, error } = await supabase
-        .from("books")
-        .insert({
-            title,
-            description,
-            category: finalCategory,
-            cover_url: coverUrl,
-            pdf_path: pdfPath,
-            author_id: authorProfile.authorRecord.id,
-            price: 99,
-            status: "Published"
-        })
-        .select();
-
-      if (error) {
-        console.error("Manuscript Upload - Database error:", error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error("An unexpected error occurred during manuscript upload.");
-      }
-
-      const book = data[0];
-      setCreatedId(book.id);
+      setCreatedId(publishedId);
       setStep("success");
 
     } catch (err: any) {
@@ -520,13 +519,19 @@ function WritePageContent() {
 
               {selectedType === "Story" && (
                 <StoryEditorUI 
-                  onSaveDraft={() => {
-                    const tagArr = tags.split(",").map((t: string) => t.trim()).filter((t: string) => t !== "");
-                    handleStorySubmit(title, category, tagArr, coverFile, content, true);
+                  onSaveDraft={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, false);
+                    } finally { setIsSubmitting(false); }
                   }}
-                  onPublish={() => {
-                    const tagArr = tags.split(",").map((t: string) => t.trim()).filter((t: string) => t !== "");
-                    handleStorySubmit(title, category, tagArr, coverFile, content, false);
+                  onPublish={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      const id = await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, true);
+                      setCreatedId(id); setStep("success");
+                    } catch (e: any) { setErrorMessage(e.message); }
+                    finally { setIsSubmitting(false); }
                   }}
                   title={title} setTitle={setTitle}
                   category={category} setCategory={setCategory}
@@ -535,18 +540,31 @@ function WritePageContent() {
                   onThumbnailChange={(e: any) => setCoverFile(e.target.files?.[0] || null)}
                   isSubmitting={isSubmitting}
                   errorMessage={errorMessage}
+                  draftStatus={draftStatus} lastSaved={lastSaved}
                 />
               )}
 
               {selectedType === "Blog" && (
                 <BlogEditorUI 
-                  onSaveDraft={() => handleBlogSubmit(title, coverFile, content, true)}
-                  onPublish={() => handleBlogSubmit(title, coverFile, content, false)}
+                  onSaveDraft={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      await saveToDatabase({ type: "Blog", title, category, content: content, coverFile }, false);
+                    } finally { setIsSubmitting(false); }
+                  }}
+                  onPublish={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      const id = await saveToDatabase({ type: "Blog", title, category, content: content, coverFile }, true);
+                      setCreatedId(id); setStep("success");
+                    } catch (e: any) { setErrorMessage(e.message); }
+                    finally { setIsSubmitting(false); }
+                  }}
                   title={title} setTitle={setTitle}
                   content={content} setContent={setContent}
                   onBannerChange={(e: any) => setCoverFile(e.target.files?.[0] || null)}
-                  isSubmitting={isSubmitting}
-                  errorMessage={errorMessage}
+                  isSubmitting={isSubmitting} errorMessage={errorMessage}
+                  draftStatus={draftStatus} lastSaved={lastSaved}
                 />
               )}
 
@@ -958,7 +976,20 @@ function BookUploadUI({
           </div>
         </div>
 
-        <div className="flex justify-center pt-8">
+        <div className="flex justify-center pt-8 items-center gap-6">
+          <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
+          <button 
+            type="button"
+            onClick={async () => {
+              setIsSubmitting(true);
+              try { await saveToDatabase({ type: "Book", title, description, category, content: "", coverFile, pdfFile }, false); }
+              finally { setIsSubmitting(false); }
+            }}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto px-10 py-6 bg-white text-zinc-955 border border-zinc-300 font-black text-[10px] uppercase tracking-[0.4em] hover:bg-zinc-50 transition-all flex items-center justify-center gap-4 disabled:opacity-50 rounded-sm"
+          >
+            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Save Draft"}
+          </button>
           <button 
             type="submit"
             disabled={isSubmitting}
@@ -977,7 +1008,8 @@ function StoryEditorUI({
   onPublish, 
   title, setTitle, 
   content, setContent,
-  isSubmitting, errorMessage 
+  isSubmitting, errorMessage,
+  draftStatus, lastSaved
 }: any) {
   return (
     <div className="min-h-screen bg-[#FDFCF8] px-4 py-12 md:py-24 text-zinc-900 font-serif">
@@ -999,6 +1031,25 @@ function StoryEditorUI({
               className="w-full text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-none focus:ring-0"
               required
             />
+            
+            <input 
+              type="text"
+              placeholder="Category (e.g. Fiction, Fantasy, Romance)"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full text-sm font-bold tracking-widest uppercase text-zinc-600 placeholder:text-zinc-300 bg-transparent outline-none transition-all border-none focus:ring-0"
+            />
+            
+            <div className="pt-4">
+              <FileUploadField 
+                label="Story Cover Image" 
+                description="Optional: Thumbnail for your story" 
+                accept="image/*"
+                icon={<ImageIcon size={24} />}
+                onChange={onThumbnailChange}
+                compact={true}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -1007,7 +1058,8 @@ function StoryEditorUI({
             </div>
           </div>
 
-          <div className="pt-16 pb-12 flex gap-4 justify-start">
+          <div className="pt-16 pb-12 flex items-center gap-6 justify-start">
+            <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
             <button 
               type="button"
               onClick={onSaveDraft}
@@ -1036,7 +1088,8 @@ function BlogEditorUI({
   title, setTitle, 
   content, setContent,
   onBannerChange, 
-  isSubmitting, errorMessage 
+  isSubmitting, errorMessage,
+  draftStatus, lastSaved
 }: any) {
   return (
     <div className="min-h-[70vh] bg-zinc-50 border border-zinc-200 p-4 md:p-8 rounded-sm max-w-[1400px] mx-auto">
@@ -1082,7 +1135,8 @@ function BlogEditorUI({
               <RichTextEditor content={content} onChange={setContent} placeholder="Write your casual story here..." />
             </div>
 
-            <div className="pt-8 border-t border-zinc-100 flex justify-end gap-4">
+            <div className="pt-8 border-t border-zinc-100 flex justify-end items-center gap-6">
+              <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
               <button 
                 type="button"
                 onClick={onSaveDraft}

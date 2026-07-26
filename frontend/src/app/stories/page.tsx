@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, BookOpen, Clock, User, ShieldCheck, Download, Feather, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function StorysPage() {
   const [storys, setStorys] = useState<any[]>([]);
@@ -74,10 +75,11 @@ export default function StorysPage() {
                   <Link href={`/storys/${story.id}`} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                     <div className="lg:col-span-3">
                       <div className="aspect-[4/3] bg-zinc-100 overflow-hidden rounded-sm">
-                        <img 
+                        <OptimizedImage 
                           src={story.cover_url || "https://images.unsplash.com/photo-1457369804593-50c4113ef53c?auto=format&fit=crop&q=80&w=800"} 
                           alt={story.title}
-                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+                          variant="blog-thumbnail"
+                          imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700"
                         />
                       </div>
                     </div>

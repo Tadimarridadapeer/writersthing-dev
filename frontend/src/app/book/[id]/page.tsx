@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
+import { OptimizedImage } from "@/components/OptimizedImage";
+import { ReviewSection } from "@/components/ReviewSection";
 
 export default function BookDetailPage() {
   const params = useParams();
@@ -281,10 +283,12 @@ export default function BookDetailPage() {
               transition={{ duration: 0.6 }}
               className="aspect-[3/4.5] w-full max-w-[280px] lg:max-w-[320px] bg-zinc-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] relative group overflow-hidden border border-zinc-100 rounded-lg"
             >
-              <img 
+              <OptimizedImage 
                 src={book.cover_url || "/placeholder-cover.jpg"} 
-                alt={book.title} 
-                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
+                alt={book.title}
+                variant="book-cover"
+                priority={true}
+                imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
               />
               <div className="absolute inset-0 ring-1 ring-inset ring-black/5 pointer-events-none" />
             </motion.div>
@@ -380,10 +384,11 @@ export default function BookDetailPage() {
                 {/* Author Profile */}
                 <div className="pt-6 border-t border-zinc-100 flex items-center gap-6">
                   <div className="w-16 h-16 bg-zinc-100 rounded-full overflow-hidden grayscale border border-zinc-200 flex-shrink-0">
-                    <img 
+                    <OptimizedImage 
                       src={book.authors?.users?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200"} 
-                      alt={book.authors?.users?.name}
-                      className="w-full h-full object-cover"
+                      alt={book.authors?.users?.name || "Author"}
+                      variant="profile"
+                      className="w-full h-full"
                     />
                   </div>
                   <div className="flex-grow">
@@ -529,7 +534,7 @@ function ReviewItem({ review, currentUser, onEdit, onDelete }: any) {
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 bg-zinc-100 border border-zinc-200/55 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-black text-zinc-500">
             {reviewer.avatar_url ? (
-              <img src={reviewer.avatar_url} className="w-full h-full object-cover" />
+              <OptimizedImage src={reviewer.avatar_url} alt="Reviewer" variant="profile" className="w-full h-full" />
             ) : (
               (reviewer.name || "A").charAt(0)
             )}

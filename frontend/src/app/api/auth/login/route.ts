@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
+import { withObservability } from "@/lib/api-logger";
 
-export async function POST(req: Request) {
+export const POST = withObservability(async (req: Request) => {
   try {
     const { email, password } = await req.json();
 
@@ -19,6 +21,7 @@ export async function POST(req: Request) {
     });
 
     if (error) {
+      logger.security("Login failed: Invalid credentials", { email, error: error.message });
       return NextResponse.json({ message: error.message }, { status: 401 });
     }
 
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
       .single();
 
     if (userError) {
-      console.warn("User data fetch error:", userError.message);
+      logger.warn("User data fetch error", { error: userError.message });
     }
 
     const response = NextResponse.json(
@@ -61,10 +64,7 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: any) {
-    console.error("Login error:", error);
-    return NextResponse.json(
-      { message: error.message || "Internal Server Error" },
-      { status: 500 }
-    );
+    logger.error("Login error", { error: error.message });
+    throw error; // Let withObservability handle the generic 500
   }
-}
+}, "/api/auth/login");

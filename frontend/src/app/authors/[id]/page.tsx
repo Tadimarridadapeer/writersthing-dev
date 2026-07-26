@@ -16,6 +16,7 @@ import {
   X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function AuthorProfilePage() {
   const params = useParams();
@@ -200,7 +201,7 @@ export default function AuthorProfilePage() {
           {/* Avatar Display */}
           <div className="w-24 h-24 bg-zinc-100 border border-zinc-200/60 rounded-full overflow-hidden flex-shrink-0 grayscale flex items-center justify-center text-2xl font-black text-zinc-400 shadow-inner">
             {authorUser.avatar_url ? (
-              <img src={authorUser.avatar_url} alt={authorUser.name} className="w-full h-full object-cover" />
+              <OptimizedImage src={authorUser.avatar_url} alt={authorUser.name} variant="profile" className="w-full h-full" />
             ) : (
               authorUser.name.charAt(0).toUpperCase()
             )}
@@ -340,10 +341,11 @@ export default function AuthorProfilePage() {
                     className="block bg-white border border-zinc-100 rounded-3xl p-5 hover:border-zinc-950 hover:shadow-md transition-all group"
                   >
                     <div className="aspect-[3/4.2] bg-zinc-50 border border-zinc-100/70 rounded-2xl overflow-hidden mb-4 relative shadow-sm">
-                      <img 
+                      <OptimizedImage 
                         src={bookItem.cover_url || "/placeholder-cover.jpg"} 
                         alt={bookItem.title}
-                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-102 transition-all duration-700" 
+                        variant="book-cover"
+                        imageClassName="grayscale group-hover:grayscale-0 group-hover:scale-102 transition-all duration-700" 
                       />
                     </div>
                     
@@ -440,10 +442,11 @@ export default function AuthorProfilePage() {
                         onClick={() => setShowFollowersModal(false)}
                         className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-zinc-50 border border-transparent hover:border-zinc-100 transition-all group/item"
                       >
-                        <img 
+                        <OptimizedImage 
                           src={follower.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100"} 
                           alt={follower.name} 
-                          className="w-8 h-8 rounded-full object-cover border border-zinc-200 flex-shrink-0" 
+                          variant="profile"
+                          className="w-8 h-8 rounded-full border border-zinc-200 flex-shrink-0" 
                         />
                         <div className="flex-grow min-w-0">
                           <p className="text-xs font-black uppercase tracking-widest text-zinc-800 truncate group-hover/item:text-black">

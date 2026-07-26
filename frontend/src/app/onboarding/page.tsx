@@ -142,7 +142,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#FDFDFD] flex flex-col items-center pt-8 md:pt-16 px-6 pb-6 md:pb-12">
+    <div className="h-full overflow-hidden bg-[#FDFDFD] flex flex-col items-center pt-8 md:pt-16 px-6 pb-6 md:pb-12">
       <div className="absolute top-6 left-6 md:top-8 md:left-8 z-10">
         <Link href="/">
           <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black hover:opacity-80 transition-opacity">
@@ -168,12 +168,12 @@ export default function OnboardingPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex-grow flex flex-col h-full min-h-0"
+              className="flex-grow flex flex-col min-h-0"
             >
               <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight uppercase mb-2">What do you enjoy reading?</h1>
               <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Choose at least 3 interests to personalize your experience.</p>
               
-              <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-4 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4">
                 <div className="flex flex-wrap gap-2 md:gap-3">
                   {INTERESTS.map(interest => {
                     const isSelected = selectedInterests.includes(interest);
@@ -210,12 +210,12 @@ export default function OnboardingPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex-grow flex flex-col h-full min-h-0"
+              className="flex-grow flex flex-col min-h-0"
             >
               <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight uppercase mb-2">What would you like to discover?</h1>
               <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Choose the content you'd love to see in your feed.</p>
               
-              <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-4 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                   {CONTENT_TYPES.map(type => {
                     const isSelected = selectedContentTypes.includes(type.id);
@@ -257,12 +257,12 @@ export default function OnboardingPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex-grow flex flex-col h-full min-h-0"
+              className="flex-grow flex flex-col min-h-0"
             >
               <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight uppercase mb-2">Why are you joining Writer's Thing?</h1>
               <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Help us personalize your experience.</p>
               
-              <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-4 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   {filteredGoals.map(goal => {
                     const isSelected = selectedGoals.includes(goal);
@@ -303,7 +303,7 @@ export default function OnboardingPage() {
               key="step4"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex-grow flex flex-col items-center justify-center text-center h-full min-h-0"
+              className="flex-grow flex flex-col items-center justify-center text-center min-h-0"
             >
               <div className="w-32 h-32 bg-zinc-100 rounded-full flex items-center justify-center mb-8">
                 <Library size={48} className="text-black" />

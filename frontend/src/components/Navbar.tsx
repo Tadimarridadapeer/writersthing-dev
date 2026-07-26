@@ -6,6 +6,7 @@ import { Bell, User, Search, Menu, X, ShoppingBag, Feather, Home, Bookmark, File
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import NotificationsDropdown from "./NotificationsDropdown";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 import { useAuth } from "@/context/AuthContext";
 
@@ -130,10 +131,12 @@ export default function Navbar() {
                       className="group p-1.5 border border-zinc-250 rounded-full hover:bg-zinc-50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2.5 sm:pr-4 shadow-sm"
                     >
                       {user.user_metadata?.avatar_url || user.avatar_url ? (
-                        <img 
+                        <OptimizedImage 
                           src={user.user_metadata.avatar_url || user.avatar_url} 
-                          className="w-[22px] h-[22px] rounded-full object-cover border border-zinc-100 shadow-sm grayscale group-hover:grayscale-0 transition-all duration-300" 
+                          className="w-[22px] h-[22px] rounded-full border border-zinc-100 shadow-sm"
+                          imageClassName="grayscale group-hover:grayscale-0 transition-all duration-300" 
                           alt="Avatar"
+                          variant="profile"
                         />
                       ) : (
                         <div className="w-[22px] h-[22px] rounded-full bg-zinc-800 flex items-center justify-center text-white text-[9px] font-black">

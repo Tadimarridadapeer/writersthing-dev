@@ -5,6 +5,8 @@ import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import LoadingScreen from "@/components/LoadingScreen";
 import { AuthProvider } from "@/context/AuthContext";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -83,6 +85,8 @@ export default function RootLayout({
           id="razorpay-checkout-js"
           src="https://checkout.razorpay.com/v1/checkout.js"
         />
+        {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && <Analytics />}
+        {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && <SpeedInsights />}
       </body>
     </html>
   );

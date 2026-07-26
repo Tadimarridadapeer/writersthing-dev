@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, BookOpen, Feather, Loader2, Library } from "lucide-react";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function BooksPage() {
   const [books, setBooks] = useState<any[]>([]);
@@ -73,10 +74,11 @@ export default function BooksPage() {
                   <Link href={`/book/${book.id}`} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                     <div className="lg:col-span-3">
                       <div className="aspect-[3/4] bg-zinc-100 overflow-hidden rounded-sm shadow-md group-hover:shadow-xl transition-all">
-                        <img 
+                        <OptimizedImage 
                           src={book.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800"} 
                           alt={book.title}
-                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+                          variant="book-cover"
+                          imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700"
                         />
                       </div>
                     </div>

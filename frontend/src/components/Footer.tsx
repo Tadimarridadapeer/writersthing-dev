@@ -91,17 +91,19 @@ export default function Footer() {
                   <p className="text-zinc-500 text-sm">Welcome to Writer&apos;s Thing.</p>
                 </div>
               ) : (
-                <form onSubmit={handleSubscribe} className="flex gap-3">
+                <form onSubmit={handleSubscribe} className="flex gap-3" suppressHydrationWarning>
                   <input
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    suppressHydrationWarning
                     className="flex-1 px-4 py-3 border border-zinc-200 rounded-md text-sm focus:outline-none focus:border-black transition-colors"
                   />
                   <button 
                     type="submit"
+                    suppressHydrationWarning
                     className="px-6 py-3 bg-black text-white text-sm font-semibold rounded-md hover:bg-zinc-800 transition-colors"
                   >
                     Subscribe

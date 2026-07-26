@@ -1,0 +1,188 @@
+import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { withObservability } from "@/lib/api-logger";
+import { logger } from "@/lib/logger";
+import { NotificationService } from "@/lib/notificationService";
+
+function getSupabase() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        async get(name: string) {
+          const cookieStore = await cookies();
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+}
+
+export const GET = withObservability(async (req: Request) => {
+  try {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const contentId = searchParams.get("contentId");
+    const contentType = searchParams.get("contentType");
+
+    if (contentId && contentType) {
+      // Get specific progress
+      const { data, error } = await supabase
+        .from("reading_progress")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("content_id", contentId)
+        .eq("content_type", contentType)
+        .maybeSingle();
+
+      if (error) throw error;
+      return NextResponse.json({ data: data || null }, { status: 200 });
+    } else {
+      // Get recent progress for history/continue reading
+      const { data, error } = await supabase
+        .from("reading_progress")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("last_read_at", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return NextResponse.json({ data: data || [] }, { status: 200 });
+    }
+  } catch (error: any) {
+    logger.error("Reading Progress GET Error", { error: error.message });
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}, "/api/reading-progress");
+
+export const POST = withObservability(async (req: Request) => {
+  try {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { 
+      content_id, 
+      content_type, 
+      progress_percentage, 
+      last_position, 
+      current_page, 
+      total_pages, 
+      reading_time_seconds, 
+      device_type,
+      updated_at // Send from client to handle conflict resolution
+    } = body;
+
+    if (!content_id || !content_type) {
+      return NextResponse.json({ message: "content_id and content_type are required" }, { status: 400 });
+    }
+
+    // Determine completion
+    const isCompleted = progress_percentage >= 95;
+    
+    // Fetch existing to check updated_at (Conflict Resolution)
+    const { data: existing } = await supabase
+      .from("reading_progress")
+      .select("updated_at, reading_time_seconds, completed")
+      .eq("user_id", user.id)
+      .eq("content_id", content_id)
+      .eq("content_type", content_type)
+      .maybeSingle();
+
+    if (existing && updated_at) {
+      const existingDate = new Date(existing.updated_at).getTime();
+      const clientDate = new Date(updated_at).getTime();
+      // If server has a newer record than what client started with, client is stale
+      // We skip update to prevent overwriting newer progress from another device
+      if (existingDate > clientDate) {
+        return NextResponse.json({ message: "Ignored stale update", conflict: true }, { status: 200 });
+      }
+    }
+
+    // Accumulate reading time
+    const totalReadingTime = (existing?.reading_time_seconds || 0) + (reading_time_seconds || 0);
+
+    const payload: any = {
+      user_id: user.id,
+      content_id,
+      content_type,
+      progress_percentage,
+      last_position,
+      reading_time_seconds: totalReadingTime,
+      last_read_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      completed: isCompleted,
+      device_type: device_type || 'web'
+    };
+
+    if (current_page !== undefined) payload.current_page = current_page;
+    if (total_pages !== undefined) payload.total_pages = total_pages;
+    if (isCompleted && !existing?.completed) {
+      payload.completed_at = new Date().toISOString();
+      
+      // Generate a notification using the unified service
+      try {
+        await NotificationService.create({
+          userId: user.id,
+          type: "reading_completed",
+          priority: "success",
+          targetType: content_type,
+          targetId: content_id,
+          metadata: { title: "a book" } // In a real app we'd fetch the title
+        });
+      } catch (err) {
+        logger.error("Failed to generate reading_completed notification", { error: err });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("reading_progress")
+      .upsert(payload, { onConflict: "user_id,content_id,content_type" })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Auto-move to reading lists
+    try {
+      const listName = isCompleted ? "Finished Reading" : "Currently Reading";
+      const { data: targetList } = await supabase
+        .from("reading_lists")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("name", listName)
+        .single();
+        
+      if (targetList) {
+        await supabase
+          .from("bookmarks")
+          .upsert({
+            user_id: user.id,
+            list_id: targetList.id,
+            content_type,
+            content_id,
+            created_at: new Date().toISOString()
+          }, { onConflict: "user_id,content_type,content_id" });
+      }
+    } catch (e) {
+      logger.error("Auto-bookmark sync error", { error: e });
+    }
+
+    return NextResponse.json({ message: "Progress saved", data }, { status: 200 });
+  } catch (error: any) {
+    logger.error("Reading Progress POST Error", { error: error.message });
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}, "/api/reading-progress");

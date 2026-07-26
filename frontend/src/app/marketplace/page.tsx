@@ -1,30 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Bookmark, MoreHorizontal, Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { getApiUrl } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
+import { RecommendationsPayload } from "@/types/recommendations";
+import { OptimizedImage } from "@/components/OptimizedImage";
+import { ContinueReadingSection } from "@/components/ContinueReadingSection";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 function MarketplaceContent() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const typeParam = searchParams?.get("type");
   const initialFeedType = typeParam === "Book" ? "books" : 
                           typeParam === "Story" ? "stories" : 
                           typeParam === "Blog" ? "blogs" : "all";
                           
-  const [books, setBooks] = useState<any[]>([]);
-  const [stories, setStories] = useState<any[]>([]);
-  const [blogs, setBlogs] = useState<any[]>([]);
+  const [feed, setFeed] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const [recommendations, setRecommendations] = useState<RecommendationsPayload | null>(null);
   const [preferences, setPreferences] = useState<{ interests: string[], contentTypes: string[], goals: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [feedType, setFeedType] = useState<"all" | "books" | "stories" | "blogs">(initialFeedType);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  const { toggleBookmark, isBookmarked } = useBookmarks();
 
   useEffect(() => {
     if (toast) {
@@ -33,7 +41,6 @@ function MarketplaceContent() {
     }
   }, [toast]);
 
-  // Keep feedType in sync with URL changes
   useEffect(() => {
     if (typeParam === "Book") setFeedType("books");
     else if (typeParam === "Story") setFeedType("stories");
@@ -41,38 +48,113 @@ function MarketplaceContent() {
     else setFeedType("all");
   }, [typeParam]);
 
-  useEffect(() => {
-    const fetchFeed = async () => {
-      setLoading(true);
-      try {
-        if (user) {
-          const prefRes = await fetch("/api/user/preferences");
-          if (prefRes.ok) {
-            const prefData = await prefRes.json();
-            setPreferences(prefData);
-          }
+  const fetchPaginatedData = useCallback(async (
+    currentPage: number, 
+    currentType: "all" | "books" | "stories" | "blogs", 
+    currentSearch: string, 
+    isLoadMore = false
+  ) => {
+    if (!isLoadMore) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      if (currentSearch.trim() || currentType !== "all") {
+        // Fetch search/category specific data
+        let endpoints: string[] = [];
+        const params = `?page=${currentPage}&limit=20&search=${encodeURIComponent(currentSearch.trim())}`;
+        
+        if (currentType === "all") {
+          endpoints = [`/api/books${params}`, `/api/stories${params}&type=Story`, `/api/stories${params}&type=Blog`];
+        } else if (currentType === "books") {
+          endpoints = [`/api/books${params}`];
+        } else if (currentType === "stories") {
+          endpoints = [`/api/stories${params}&type=Story`];
+        } else if (currentType === "blogs") {
+          endpoints = [`/api/stories${params}&type=Blog`];
         }
 
-        const booksRes = await fetch("/api/books");
-        const booksData = await booksRes.json();
-        setBooks(Array.isArray(booksData) ? booksData : []);
+        const responses = await Promise.all(endpoints.map(ep => fetch(ep).then(res => res.json())));
+        
+        let newFeed: any[] = [];
+        let anyHasMore = false;
+        
+        responses.forEach(res => {
+          if (res.data && Array.isArray(res.data)) {
+            newFeed = [...newFeed, ...res.data];
+          }
+          if (res.hasMore) anyHasMore = true;
+        });
 
-        const storiesRes = await fetch("/api/stories?type=Story");
-        const storiesData = await storiesRes.json();
-        setStories(Array.isArray(storiesData) ? storiesData : []);
+        // Sort the aggregated chunk to maintain chronological order
+        newFeed.sort((a, b) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
 
-        const blogsRes = await fetch("/api/stories?type=Blog");
-        const blogsData = await blogsRes.json();
-        setBlogs(Array.isArray(blogsData) ? blogsData : []);
-      } catch (err) {
-        console.error("Marketplace fetch error:", err);
-      } finally {
-        setLoading(false);
+        if (isLoadMore) {
+          setFeed(prev => [...prev, ...newFeed]);
+        } else {
+          setFeed(newFeed);
+        }
+        setHasMore(anyHasMore);
+
+      } else {
+        // Fetch recommendations for "all" without search
+        const recRes = await fetch(`/api/recommendations?page=${currentPage}&limit=10`);
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          
+          if (isLoadMore) {
+            setRecommendations(prev => {
+              if (!prev) return recData.data;
+              
+              // Append new items to existing sections if titles match, or add new sections
+              const newSections = [...prev.sections];
+              recData.data.sections.forEach((newSec: any) => {
+                const existingIndex = newSections.findIndex(s => s.title === newSec.title);
+                if (existingIndex >= 0) {
+                  newSections[existingIndex].items = [...newSections[existingIndex].items, ...newSec.items];
+                } else {
+                  newSections.push(newSec);
+                }
+              });
+              
+              return { ...prev, sections: newSections };
+            });
+          } else {
+            setRecommendations(recData.data);
+            setPreferences(recData.data.preferences);
+            
+            // Extract a flat list of staff picks from the first few items for the sidebar
+            const initialFeed: any[] = [];
+            recData.data.sections.forEach((s: any) => {
+              if (initialFeed.length < 10) initialFeed.push(...s.items);
+            });
+            setFeed(initialFeed);
+          }
+          setHasMore(recData.hasMore);
+        }
       }
-    };
-
-    fetchFeed();
+    } catch (err) {
+      console.error("Marketplace fetch error:", err);
+    } finally {
+      if (!isLoadMore) setLoading(false);
+      else setLoadingMore(false);
+    }
   }, []);
+
+  // Debounced search & feedType listener
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchPaginatedData(1, feedType, searchQuery, false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, feedType, fetchPaginatedData]);
+
+  const handleLoadMore = () => {
+    if (!hasMore || loadingMore) return;
+    const next = page + 1;
+    setPage(next);
+    fetchPaginatedData(next, feedType, searchQuery, true);
+  };
 
   const handleDelete = async (id: string, type: string) => {
     if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
@@ -80,9 +162,7 @@ function MarketplaceContent() {
       const res = await fetch(`/api/manuscripts/${id}`, { method: "DELETE" });
       if (res.ok) {
         setToast({ message: `${type} deleted successfully!`, type: "success" });
-        if (type === "Book") setBooks(books.filter(b => b.id !== id));
-        if (type === "Story") setStories(stories.filter(s => s.id !== id));
-        if (type === "Blog") setBlogs(blogs.filter(b => b.id !== id));
+        setFeed(prev => prev.filter(item => item.id !== id));
       } else {
         setToast({ message: `Failed to delete ${type}.`, type: "error" });
       }
@@ -91,98 +171,143 @@ function MarketplaceContent() {
     }
   };
 
+  const staffPicks = feed.slice(0, 4);
 
-  const mergedFeed = [
-    ...books.map(b => ({ id: b.id, title: b.title, type: "Book", description: b.description || "An immersive book exploring captivating themes and rich narratives.", category: b.category || "Novel", cover: b.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800", author: b.authors?.users?.name || b.authors?.name || b.author?.name || (user && user.id === b.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/book/${b.id}`, date: b.created_at, price: b.price || 99, isAuthor: user && (user.id === b.author_id || user.id === b.authors?.user_id) })),
-    ...stories.map(a => ({ id: a.id, title: a.title, type: "Story", description: a.description || "A captivating story sharing personal experiences and inspirations.", category: a.category || "Story", cover: a.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800", author: a.authors?.users?.name || a.authors?.name || (user && user.id === a.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/stories/${a.id}`, date: a.created_at, price: a.price || 0, isAuthor: user && (user.id === a.author_id || user.id === a.authors?.user_id) })),
-    ...blogs.map(bl => ({ id: bl.id, title: bl.title, type: "Blog", description: bl.description || "A personal take and casual exploration of interesting concepts.", category: "Personal", cover: bl.cover_url || "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800", author: bl.authors?.users?.name || bl.authors?.name || (user && user.id === bl.authors?.user_id ? (user.user_metadata?.name || user.user_metadata?.full_name || "Unknown") : "Unknown"), url: `/blogs/${bl.id}`, date: bl.created_at, price: bl.price || 0, isAuthor: user && (user.id === bl.author_id || user.id === bl.authors?.user_id) }))
-  ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-  const getSemanticScore = (item: any, query: string): number => {
-    const q = query.toLowerCase().trim();
-    if (!q) return 1;
-
-    let score = 0;
-
-    const title = (item.title || "").toLowerCase();
-    const desc = (item.description || "").toLowerCase();
-    const category = (item.category || "").toLowerCase();
-    const author = (item.author || "").toLowerCase();
-
-    // 1. Exact phrase matches (High weights)
-    if (title.includes(q)) score += 100;
-    if (category.includes(q)) score += 80;
-    if (desc.includes(q)) score += 40;
-    if (author.includes(q)) score += 50;
-
-    // 2. Acronym / Synonym mappings (Semantic expansion)
-    const synonymMap: Record<string, string[]> = {
-      "ai": ["artificial intelligence", "machine learning", "deep learning", "robots", "neural", "intelligence"],
-      "tech": ["technology", "programming", "artificial intelligence", "data science", "coding", "software", "developer"],
-      "science": ["physics", "chemistry", "biology", "space", "astronomy", "nature", "academic"],
-      "business": ["entrepreneurship", "finance", "startup", "marketing", "money", "investing", "economics"],
-      "read": ["novel", "book", "story", "stories", "literature", "fiction", "readed"],
-      "write": ["author", "pen", "creative", "tips", "blog", "blogs", "writer", "publishing"],
-      "love": ["romance", "romantic", "heart", "relationship", "dating"],
-      "scary": ["horror", "ghost", "thriller", "mystery", "spooky", "dark"],
-      "learn": ["education", "skills", "study", "tips", "guide", "tutorial"],
-      "fun": ["comics", "travel", "cooking", "entertainment", "humor"]
+  const renderItem = (item: any) => {
+    // Normalization because DB formats vs Recommendation formats differ slightly
+    const mappedItem = {
+      id: item.id,
+      title: item.title,
+      type: item.type || (item.price !== undefined ? "Book" : "Story"),
+      description: item.description || item.body || item.content || "No description available.",
+      category: item.category || "General",
+      cover: item.cover_url || item.cover_image || item.banner_url || item.cover || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800",
+      author: item.author || item.authors?.name || item.authors?.users?.name || "Unknown",
+      url: item.url || (item.price !== undefined ? `/book/${item.id}` : (item.type === 'Blog' ? `/blogs/${item.id}` : `/stories/${item.id}`)),
+      date: item.created_at || item.date || Date.now(),
+      price: item.price || 0,
+      isAuthor: item.isAuthor || (user && (user.id === item.author_id || user.id === item.authors?.user_id))
     };
 
-    // Check if query is related to synonyms
-    Object.entries(synonymMap).forEach(([key, values]) => {
-      const isKeyMatch = q.includes(key) || key.includes(q);
-      const isValueMatch = values.some(val => q.includes(val) || val.includes(q));
-      
-      if (isKeyMatch || isValueMatch) {
-        values.forEach(val => {
-          if (title.includes(val)) score += 30;
-          if (category.includes(val)) score += 40;
-          if (desc.includes(val)) score += 15;
-        });
-        if (title.includes(key)) score += 30;
-        if (category.includes(key)) score += 40;
-        if (desc.includes(key)) score += 15;
-      }
-    });
+    return (
+      <Link key={`${mappedItem.type}-${mappedItem.id}`} href={mappedItem.url} className="group py-6 md:py-8 border-b border-zinc-100 flex gap-4 md:gap-12 items-start md:items-center">
+        <div className="flex-1 flex flex-col justify-center min-w-0">
+          <div className="flex items-center gap-2 mb-2 md:mb-3 flex-wrap">
+            <div className="w-5 h-5 md:w-6 md:h-6 shrink-0 rounded-full bg-zinc-100 flex items-center justify-center text-[9px] font-black uppercase text-zinc-500 border border-zinc-200 shadow-sm">
+              {mappedItem.author ? mappedItem.author[0] : "?"}
+            </div>
+            <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px]">{mappedItem.author}</span>
+            <span className="text-zinc-400 text-xs shrink-0">in</span>
+            <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px]">{mappedItem.category}</span>
+          </div>
 
-    // 3. Token-based overlap (Fuzzy word matching)
-    const queryTokens = q.split(/\s+/).filter(t => t.length > 1);
-    queryTokens.forEach(token => {
-      if (title.includes(token)) score += 20;
-      if (category.includes(token)) score += 15;
-      if (desc.includes(token)) score += 5;
-      if (author.includes(token)) score += 10;
-    });
+          <h2 className="text-lg md:text-[22px] font-bold font-heading tracking-tight mb-2 group-hover:text-zinc-600 transition-colors line-clamp-2 leading-tight">
+            {mappedItem.title}
+          </h2>
+          
+          <p className="text-sm md:text-base text-zinc-500 font-serif leading-relaxed mb-4 line-clamp-2 hidden sm:block">
+            {mappedItem.description}
+          </p>
 
-    return score;
+          <div className="flex items-center justify-between text-[11px] md:text-xs text-zinc-500 w-full mt-2 sm:mt-0">
+            <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+              <span className="shrink-0">{new Date(mappedItem.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              <span className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
+              <span className="bg-zinc-100 px-2 py-1 rounded-sm text-[8px] md:text-[9px] font-black tracking-widest uppercase text-zinc-600 shrink-0">{mappedItem.type}</span>
+              {mappedItem.type === "Book" && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
+                  <span className="font-bold text-black border-b border-black shrink-0">₹{mappedItem.price}</span>
+                </>
+              )}
+            </div>
+            <div className="flex gap-3 md:gap-4 items-center shrink-0 ml-2">
+              <button 
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const contentType = mappedItem.type.toLowerCase();
+                  const { success, message } = await toggleBookmark(contentType, mappedItem.id);
+                  if (success) {
+                    setToast({ message, type: "success" });
+                  } else {
+                    setToast({ message, type: "error" });
+                  }
+                }}
+                className={`transition-colors ${isBookmarked(mappedItem.type.toLowerCase(), mappedItem.id) ? 'text-amber-500' : 'hover:text-black'}`}
+                title="Bookmark"
+              >
+                <Bookmark size={18} strokeWidth={1.5} className={isBookmarked(mappedItem.type.toLowerCase(), mappedItem.id) ? 'fill-amber-500' : ''} />
+              </button>
+              
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveMenu(activeMenu === `${mappedItem.type}-${mappedItem.id}` ? null : `${mappedItem.type}-${mappedItem.id}`);
+                  }}
+                  className="hover:text-black transition-colors"
+                >
+                  <MoreHorizontal size={18} strokeWidth={1.5} />
+                </button>
+                
+                {activeMenu === `${mappedItem.type}-${mappedItem.id}` && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 shadow-xl rounded-sm py-2 z-50 text-sm font-medium text-zinc-600">
+                    <button 
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        const url = window.location.origin + mappedItem.url;
+                        navigator.clipboard.writeText(url);
+                        setToast({ message: "Link copied to clipboard!", type: "success" }); 
+                        setActiveMenu(null); 
+                      }} 
+                      className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors"
+                    >
+                      Share story...
+                    </button>
+                    <div className="h-px bg-zinc-100 my-1" />
+                    <button 
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        setToast({ message: `Following ${mappedItem.author}`, type: "success" }); 
+                        setActiveMenu(null); 
+                      }} 
+                      className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors"
+                    >
+                      Follow author
+                    </button>
+                    {mappedItem.isAuthor && (
+                      <>
+                        <div className="h-px bg-zinc-100 my-1" />
+                        <button 
+                          onClick={(e) => { 
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                            handleDelete(mappedItem.id, mappedItem.type);
+                            setActiveMenu(null); 
+                          }} 
+                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 transition-colors"
+                        >
+                          Delete {mappedItem.type}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-20 md:w-32 lg:w-40 shrink-0 aspect-square md:aspect-[16/10] bg-zinc-100 overflow-hidden shadow-sm mt-1 md:mt-0 rounded-sm md:rounded-none relative">
+          <OptimizedImage src={mappedItem.cover} alt={mappedItem.title} variant={mappedItem.type === "Book" ? "book-cover" : "blog-thumbnail"} imageClassName="grayscale hover:grayscale-0 group-hover:grayscale-0 transition-all duration-700 hover:scale-105 group-hover:scale-105" />
+        </div>
+      </Link>
+    );
   };
-
-  const filteredFeed = mergedFeed
-    .map(item => {
-      const score = searchQuery.trim() ? getSemanticScore(item, searchQuery) : 1;
-      return { ...item, searchScore: score };
-    })
-    .filter(item => {
-      if (feedType !== "all") {
-        if (feedType === "books" && item.type !== "Book") return false;
-        if (feedType === "stories" && item.type !== "Story") return false;
-        if (feedType === "blogs" && item.type !== "Blog") return false;
-      }
-      
-      // If searching, only include items with relevance score > 0
-      if (searchQuery.trim() && item.searchScore <= 0) return false;
-      
-      return true;
-    })
-    .sort((a, b) => {
-      if (searchQuery.trim() && b.searchScore !== a.searchScore) {
-        return b.searchScore - a.searchScore;
-      }
-      return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
-    });
-
-  const staffPicks = mergedFeed.slice(0, 4);
 
   return (
     <div className="flex bg-white">
@@ -190,6 +315,8 @@ function MarketplaceContent() {
         
         {/* MAIN FEED */}
         <div className="lg:col-span-8">
+          {user && <ContinueReadingSection />}
+          
           <header className="mb-10 mt-6">
             {preferences?.interests && preferences.interests.length > 0 ? (
               <div className="mb-8">
@@ -202,9 +329,7 @@ function MarketplaceContent() {
 
             {/* Search Bar Form */}
             <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-              }}
+              onSubmit={(e) => e.preventDefault()}
               className="mb-8 relative max-w-lg"
             >
               <button 
@@ -246,7 +371,6 @@ function MarketplaceContent() {
                   </button>
                 ))}
               </div>
-              
             </div>
           </header>
 
@@ -254,121 +378,52 @@ function MarketplaceContent() {
             <div className="py-20 flex justify-center">
               <Loader2 className="animate-spin text-zinc-300" size={32} />
             </div>
-          ) : filteredFeed.length === 0 ? (
-            <div className="py-20 text-center text-zinc-500 italic">No content available at the moment.</div>
-          ) : (
+          ) : searchQuery.trim() || feedType !== "all" ? (
             <div className="flex flex-col">
-              {filteredFeed.map((item) => (
-                <Link key={`${item.type}-${item.id}`} href={item.url} className="group py-6 md:py-8 border-b border-zinc-100 flex gap-4 md:gap-12 items-start md:items-center">
-                  <div className="flex-1 flex flex-col justify-center min-w-0">
-                    <div className="flex items-center gap-2 mb-2 md:mb-3 flex-wrap">
-                      <div className="w-5 h-5 md:w-6 md:h-6 shrink-0 rounded-full bg-zinc-100 flex items-center justify-center text-[9px] font-black uppercase text-zinc-500 border border-zinc-200 shadow-sm">
-                        {item.author ? item.author[0] : "?"}
-                      </div>
-                      <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px]">{item.author || "Unknown"}</span>
-                      <span className="text-zinc-400 text-xs shrink-0">in</span>
-                      <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px]">{item.category}</span>
+              {feed.length === 0 ? (
+                <div className="py-20 text-center text-zinc-500 italic">No content available matching your criteria.</div>
+              ) : (
+                <>
+                  {feed.map(renderItem)}
+                  
+                  {hasMore && (
+                    <div className="mt-8 flex justify-center">
+                      <button 
+                        onClick={handleLoadMore}
+                        disabled={loadingMore}
+                        className="px-6 py-3 bg-zinc-900 text-white font-bold text-xs uppercase tracking-widest hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {loadingMore && <Loader2 className="animate-spin" size={14} />}
+                        {loadingMore ? "Loading..." : "Load More"}
+                      </button>
                     </div>
-
-                    <h2 className="text-lg md:text-[22px] font-bold font-heading tracking-tight mb-2 group-hover:text-zinc-600 transition-colors line-clamp-2 leading-tight">
-                      {item.title}
-                    </h2>
-                    
-                    <p className="text-sm md:text-base text-zinc-500 font-serif leading-relaxed mb-4 line-clamp-2 hidden sm:block">
-                      {item.description}
-                    </p>
-
-                    <div className="flex items-center justify-between text-[11px] md:text-xs text-zinc-500 w-full mt-2 sm:mt-0">
-                      <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-                        <span className="shrink-0">{new Date(item.date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                        <span className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
-                        <span className="bg-zinc-100 px-2 py-1 rounded-sm text-[8px] md:text-[9px] font-black tracking-widest uppercase text-zinc-600 shrink-0">{item.type}</span>
-                        {item.type === "Book" && (
-                          <>
-                            <span className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
-                            <span className="font-bold text-black border-b border-black shrink-0">₹{item.price}</span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex gap-3 md:gap-4 items-center shrink-0 ml-2">
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            alert("Saved to reading list!");
-                          }}
-                          className="hover:text-black transition-colors"
-                        >
-                          <Bookmark size={18} strokeWidth={1.5} />
-                        </button>
-                        
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setActiveMenu(activeMenu === `${item.type}-${item.id}` ? null : `${item.type}-${item.id}`);
-                            }}
-                            className="hover:text-black transition-colors"
-                          >
-                            <MoreHorizontal size={18} strokeWidth={1.5} />
-                          </button>
-                          
-                          {activeMenu === `${item.type}-${item.id}` && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 shadow-xl rounded-sm py-2 z-50 text-sm font-medium text-zinc-600">
-                              <button 
-                                onClick={(e) => { 
-                                  e.preventDefault(); 
-                                  e.stopPropagation(); 
-                                  const url = window.location.origin + '/' + (item.type.toLowerCase() === 'book' ? 'book' : item.type.toLowerCase() + 's') + '/' + item.id;
-                                  navigator.clipboard.writeText(url);
-                                  setToast({ message: "Link copied to clipboard!", type: "success" }); 
-                                  setActiveMenu(null); 
-                                }} 
-                                className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors"
-                              >
-                                Share story...
-                              </button>
-                              <div className="h-px bg-zinc-100 my-1" />
-                              <button 
-                                onClick={(e) => { 
-                                  e.preventDefault(); 
-                                  e.stopPropagation(); 
-                                  setToast({ message: `Following ${item.author}`, type: "success" }); 
-                                  setActiveMenu(null); 
-                                }} 
-                                className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors"
-                              >
-                                Follow author
-                              </button>
-                              {item.isAuthor && (
-                                <>
-                                  <div className="h-px bg-zinc-100 my-1" />
-                                  <button 
-                                    onClick={(e) => { 
-                                      e.preventDefault(); 
-                                      e.stopPropagation(); 
-                                      handleDelete(item.id, item.type);
-                                      setActiveMenu(null); 
-                                    }} 
-                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 transition-colors"
-                                  >
-                                    Delete {item.type}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-12">
+              {recommendations?.sections.map((section, idx) => (
+                <div key={idx} className="flex flex-col">
+                  <h2 className="text-xl font-black uppercase tracking-tight mb-4 border-b border-zinc-100 pb-2">{section.title}</h2>
+                  <div className="flex flex-col">
+                    {section.items.map(renderItem)}
                   </div>
-
-                  <div className="w-20 md:w-32 lg:w-40 shrink-0 aspect-square md:aspect-[16/10] bg-zinc-100 overflow-hidden shadow-sm mt-1 md:mt-0 rounded-sm md:rounded-none">
-                    <img src={item.cover} alt={item.title} className="w-full h-full object-cover grayscale hover:grayscale-0 group-hover:grayscale-0 transition-all duration-700 hover:scale-105 group-hover:scale-105" />
-                  </div>
-                </Link>
+                </div>
               ))}
+              
+              {hasMore && (
+                <div className="mt-4 flex justify-center">
+                  <button 
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="px-6 py-3 bg-zinc-900 text-white font-bold text-xs uppercase tracking-widest hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {loadingMore && <Loader2 className="animate-spin" size={14} />}
+                    {loadingMore ? "Loading..." : "Load More"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -380,25 +435,31 @@ function MarketplaceContent() {
             {/* Staff Picks */}
             <div className="mb-12">
               <h3 className="font-black text-sm mb-6 text-black tracking-tight">Staff Picks</h3>
-              {staffPicks.map(pick => (
-                <Link key={`pick-${pick.id}`} href={pick.url} className="block mb-6 group">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-black uppercase text-zinc-500 border border-zinc-200">
-                      {pick.author ? pick.author[0] : "?"}
+              {staffPicks.map((pick: any) => {
+                const url = pick.url || (pick.price !== undefined ? `/book/${pick.id}` : (pick.type === 'Blog' ? `/blogs/${pick.id}` : `/stories/${pick.id}`));
+                const author = pick.author || pick.authors?.name || pick.authors?.users?.name || "Unknown";
+                return (
+                  <Link key={`pick-${pick.id}`} href={url} className="block mb-6 group">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-black uppercase text-zinc-500 border border-zinc-200">
+                        {author ? author[0] : "?"}
+                      </div>
+                      <span className="text-[10px] font-semibold text-zinc-700 truncate max-w-[120px]">{author}</span>
                     </div>
-                    <span className="text-[10px] font-semibold text-zinc-700 truncate max-w-[120px]">{pick.author || "Unknown"}</span>
-                  </div>
-                  <h4 className="font-bold font-heading text-[15px] leading-snug group-hover:text-zinc-600 transition-colors line-clamp-2">{pick.title}</h4>
-                </Link>
-              ))}
-              <Link href="#" className="text-sm text-green-700 hover:text-green-800 font-medium">See the full list</Link>
+                    <h4 className="font-bold font-heading text-[15px] leading-snug group-hover:text-zinc-600 transition-colors line-clamp-2">{pick.title}</h4>
+                  </Link>
+                )
+              })}
             </div>
 
             {/* Recommended Topics */}
             <div className="mb-12">
               <h3 className="font-black text-sm mb-6 tracking-tight">Recommended topics</h3>
               <div className="flex flex-wrap gap-2.5">
-                {["Fiction", "Self Improvement", "Programming", "Politics", "Technology", "History", "Relationships", "Data Science"].map(topic => (
+                {(preferences?.interests && preferences.interests.length > 0
+                  ? preferences.interests 
+                  : ["Fiction", "Self Improvement", "Programming", "Technology", "History"]
+                ).map(topic => (
                   <button key={topic} className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 transition-colors text-sm font-medium rounded-full text-zinc-800">
                     {topic}
                   </button>
@@ -406,25 +467,17 @@ function MarketplaceContent() {
               </div>
             </div>
 
-
-
             {/* Footer links */}
             <div className="mt-12 pt-6 border-t border-zinc-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-500 font-medium">
               <Link href="#" className="hover:text-zinc-800 transition-colors">Help</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Status</Link>
               <Link href="#" className="hover:text-zinc-800 transition-colors">About</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Careers</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Blog</Link>
               <Link href="#" className="hover:text-zinc-800 transition-colors">Privacy</Link>
               <Link href="#" className="hover:text-zinc-800 transition-colors">Terms</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Text to speech</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Teams</Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
           <motion.div

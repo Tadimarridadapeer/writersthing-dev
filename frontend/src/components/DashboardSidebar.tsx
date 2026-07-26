@@ -12,6 +12,7 @@ import {
   Plus,
   LogOut
 } from "lucide-react";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
@@ -108,10 +109,11 @@ export default function DashboardSidebar() {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-black text-white flex items-center justify-center rounded-full text-xs font-black overflow-hidden border border-zinc-100">
               {user?.avatar_url || user?.user_metadata?.avatar_url ? (
-                <img 
+                <OptimizedImage 
                   src={user.avatar_url || user?.user_metadata?.avatar_url} 
-                  className="w-full h-full object-cover" 
+                  className="w-full h-full" 
                   alt="Avatar"
+                  variant="profile"
                 />
               ) : (
                 userInitial

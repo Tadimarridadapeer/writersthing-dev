@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function AboutPage() {
   return (
@@ -78,10 +79,12 @@ export default function AboutPage() {
             
             <div className="relative aspect-square">
                <div className="absolute inset-0 bg-zinc-100 rounded-sm overflow-hidden">
-                  <img 
+                  <OptimizedImage 
                     src="https://images.unsplash.com/photo-1455390582262-044cdead277a?q=80&w=1200" 
                     alt="Writing Atmosphere" 
-                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000"
+                    variant="hero"
+                    className="w-full h-full"
+                    imageClassName="grayscale hover:grayscale-0 transition-all duration-1000"
                   />
                </div>
                <div className="absolute -bottom-10 -right-10 bg-white p-12 border border-zinc-100 shadow-2xl hidden md:block">

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Users, Star, Award, TrendingUp, Search, ArrowRight, Feather } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function AuthorsPage() {
   const authors = [
@@ -101,10 +102,12 @@ export default function AuthorsPage() {
                       </Link>
                     </div>
                     <div className="aspect-square lg:aspect-auto overflow-hidden">
-                       <img 
+                       <OptimizedImage 
                         src={author.image} 
-                        alt={author.name} 
-                        className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000"
+                        alt={author.name}
+                        variant="hero" 
+                        priority={true}
+                        imageClassName="grayscale hover:grayscale-0 transition-all duration-1000"
                        />
                     </div>
                   </div>
@@ -124,7 +127,7 @@ export default function AuthorsPage() {
               >
                 <div className="flex items-center gap-6 mb-10">
                   <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white shadow-lg">
-                    <img src={author.image} alt={author.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                    <OptimizedImage src={author.image} alt={author.name} variant="profile" className="w-full h-full" imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700" />
                   </div>
                   <div>
                     <h3 className="text-xl font-heading font-black uppercase leading-none mb-2">{author.name}</h3>

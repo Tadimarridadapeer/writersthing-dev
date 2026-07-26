@@ -81,19 +81,51 @@ export async function POST(req: Request) {
   }
 }
 
+import { getPagination } from "@/lib/pagination";
+
 export async function GET(req: Request) {
   try {
-    const { data, error } = await supabase
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const search = searchParams.get("search") || "";
+    const category = searchParams.get("category") || "";
+
+    let query = supabase
       .from("books")
-      .select("*, authors:author_id(user_id, users:user_id(name))")
-      .eq("status", "Published")
-      .order("created_at", { ascending: false });
+      .select("id, title, description, category, cover_url, pdf_path, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+      .eq("status", "Published");
+
+    if (search) {
+      const s = `%${search}%`;
+      query = query.or(`title.ilike.${s},description.ilike.${s},category.ilike.${s}`);
+    }
+
+    if (category) {
+      query = query.eq("category", category);
+    }
+
+    const { from, to } = getPagination(page, limit);
+    query = query.range(from, to).order("created_at", { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data);
+    let hasMore = false;
+    let returnData = data || [];
+    if (returnData.length > limit) {
+      hasMore = true;
+      returnData = returnData.slice(0, limit);
+    }
+
+    return NextResponse.json({
+      data: returnData,
+      hasMore,
+      nextPage: hasMore ? page + 1 : null
+    });
   } catch (error: any) {
     console.error("Fetch books error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

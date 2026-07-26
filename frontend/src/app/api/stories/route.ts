@@ -31,28 +31,44 @@ function getSupabase() {
   );
 }
 
+import { getPagination } from "@/lib/pagination";
+
 export async function GET(req: Request) {
   try {
     const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "Story";
-    const now = Date.now();
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const search = searchParams.get("search") || "";
+    const category = searchParams.get("category") || "";
+
+    const { from, to } = getPagination(page, limit);
 
     if (type === "Story") {
-      const { data, error } = await supabase
+      let query = supabase
         .from("stories")
-        .select("*, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .not("body", "ilike", "[DRAFT]%")
         .order("created_at", { ascending: false });
 
+      if (search) {
+        const s = `%${search}%`;
+        query = query.or(`title.ilike.${s},body.ilike.${s},category.ilike.${s}`);
+      }
+      if (category) query = query.eq("category", category);
+
+      const { data, error } = await query.range(from, to);
       if (error) throw error;
 
-      // Filter out drafts
-      const publishedStories = data ? data.filter((item: any) => 
-        item.body && !item.body.startsWith("[DRAFT]")
-      ) : [];
+      let hasMore = false;
+      let returnData = data || [];
+      if (returnData.length > limit) {
+        hasMore = true;
+        returnData = returnData.slice(0, limit);
+      }
 
-      // Map to frontend-friendly schema (flattening author name and using cover_url)
-      const mappedData = publishedStories.map((item: any) => ({
+      const mappedData = returnData.map((item: any) => ({
         id: item.id,
         title: item.title,
         description: extractDescription(item.body),
@@ -65,22 +81,35 @@ export async function GET(req: Request) {
         }
       }));
 
-      return NextResponse.json(mappedData);
+      return NextResponse.json({
+        data: mappedData,
+        hasMore,
+        nextPage: hasMore ? page + 1 : null
+      });
     } else {
-      // Blog
-      const { data, error } = await supabase
+      let query = supabase
         .from("blogs")
-        .select("*, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, content, banner_url, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .not("content", "ilike", "[DRAFT]%")
         .order("created_at", { ascending: false });
 
+      if (search) {
+        const s = `%${search}%`;
+        query = query.or(`title.ilike.${s},content.ilike.${s}`);
+      }
+      if (category) query = query.eq("category", category);
+
+      const { data, error } = await query.range(from, to);
       if (error) throw error;
 
-      // Filter out drafts
-      const publishedBlogs = data ? data.filter((item: any) => 
-        item.content && !item.content.startsWith("[DRAFT]")
-      ) : [];
+      let hasMore = false;
+      let returnData = data || [];
+      if (returnData.length > limit) {
+        hasMore = true;
+        returnData = returnData.slice(0, limit);
+      }
 
-      const mappedData = publishedBlogs.map((item: any) => ({
+      const mappedData = returnData.map((item: any) => ({
         id: item.id,
         title: item.title,
         description: extractDescription(item.content),
@@ -92,7 +121,12 @@ export async function GET(req: Request) {
           user_id: item.authors?.user_id
         }
       }));
-      return NextResponse.json(mappedData);
+
+      return NextResponse.json({
+        data: mappedData,
+        hasMore,
+        nextPage: hasMore ? page + 1 : null
+      });
     }
   } catch (error: any) {
     console.error("Fetch stories error:", error);
@@ -129,7 +163,7 @@ export async function POST(req: Request) {
             category: category || "General",
             cover_image: coverUrl || "",
             author_id: authorProfile.id,
-            status: (content && content.startsWith("[DRAFT]")) ? "draft" : "published"
+            status: req.headers.get("X-Publish") === "true" ? "Published" : "Draft"
           }
         ])
         .select()
@@ -151,9 +185,10 @@ export async function POST(req: Request) {
         .insert([
           {
             title,
-            content: content || description || "", // Initially use content
+            content: content || description || "",
             banner_url: coverUrl || "",
-            author_id: authorProfile.id
+            author_id: authorProfile.id,
+            status: req.headers.get("X-Publish") === "true" ? "Published" : "Draft"
           }
         ])
         .select()
@@ -171,6 +206,67 @@ export async function POST(req: Request) {
     }
   } catch (error: any) {
     console.error("Post story error:", error);
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+    }
+
+    const authorProfile = await ensureAuthorProfile(supabase, user.id);
+    const { id, title, description, content, category, type, coverUrl } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ message: "ID is required for update" }, { status: 400 });
+    }
+
+    const isPublishing = req.headers.get("X-Publish") === "true";
+
+    if (type === "Story") {
+      const { data, error } = await supabase
+        .from("stories")
+        .update({
+          title,
+          body: content || description || "",
+          category: category || "General",
+          cover_image: coverUrl || "",
+          status: isPublishing ? "Published" : "Draft"
+        })
+        .eq("id", id)
+        .eq("author_id", authorProfile.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      ServerCache.clearStories();
+      return NextResponse.json({ message: `${type} updated successfully!`, id: data.id }, { status: 200 });
+    } else {
+      // Blog
+      const { data, error } = await supabase
+        .from("blogs")
+        .update({
+          title,
+          content: content || description || "",
+          banner_url: coverUrl || "",
+          status: isPublishing ? "Published" : "Draft"
+        })
+        .eq("id", id)
+        .eq("author_id", authorProfile.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      ServerCache.clearBlogs();
+      return NextResponse.json({ message: `${type} updated successfully!`, id: data.id }, { status: 200 });
+    }
+  } catch (error: any) {
+    console.error("Put story/blog error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

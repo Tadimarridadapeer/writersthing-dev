@@ -43,7 +43,7 @@ function PDFReaderContent() {
           return;
         }
 
-        const res = await fetch(getApiUrl(`/api/books/read/${bookId}`), {
+        const res = await fetch(getApiUrl(`/api/books/${bookId}/download`), {
           headers: {
             "Authorization": `Bearer ${token}`
           }

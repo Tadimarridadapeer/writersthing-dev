@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, User, Share2, Loader2, Heart, MessageSquare, Bookmark, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { ReviewSection } from "@/components/ReviewSection";
 
 function renderMarkdown(content: string): string {
   if (!content) return "";
@@ -637,6 +638,7 @@ export default function BlogPost() {
               </>
             );
           })()}
+          <ReviewSection contentId={blog.id} contentType="blog" authorId={blog.author_id} />
         </article>
       </div>
     </div>

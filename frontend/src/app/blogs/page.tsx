@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock, User, Feather, Bookmark, Share2, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 export default function BlogsPage() {
   const [blogs, setBlogs] = useState<any[]>([]);
@@ -76,10 +77,11 @@ export default function BlogsPage() {
                 >
                   <Link href={`/blogs/${blog.id}`} className="block">
                     <div className="aspect-[16/10] overflow-hidden mb-10 bg-zinc-100">
-                      <img 
+                      <OptimizedImage 
                         src={blog.cover_url || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&q=80&w=800"} 
                         alt={blog.title}
-                        className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000 hover:scale-105"
+                        variant="blog-thumbnail"
+                        imageClassName="grayscale hover:grayscale-0 transition-all duration-1000 hover:scale-105"
                       />
                     </div>
                     

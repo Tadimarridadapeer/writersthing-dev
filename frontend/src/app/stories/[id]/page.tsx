@@ -399,105 +399,48 @@ export default function StoryPost() {
             </div>
           )}
 
-          <button onClick={() => router.back()} className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-16">
+          <button onClick={() => router.back()} className="inline-flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all mb-8">
             <ArrowLeft size={14} />
             Back
           </button>
 
-          <header className="mb-4">
-            <span className="inline-block px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mb-6">{story.category}</span>
-            <div className="h-px w-8 bg-zinc-200" />
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-10 md:mb-20 leading-[1.1]">
-              {story.title}
-            </h1>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-10 border-y border-zinc-100">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-black flex items-center justify-center rounded-full">
-                  <User size={20} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-black uppercase tracking-widest">
-                    {story.authorId ? (
-                      <Link href={`/authors/${story.authorId}`} className="hover:underline hover:text-zinc-600 transition-colors">
-                        {story.author && story.author !== "Writersthing Author" 
-                          ? story.author 
-                          : (currentUser?.id === story.authorId && (currentUser?.user_metadata?.name || currentUser?.user_metadata?.full_name) 
-                              ? (currentUser.user_metadata.name || currentUser.user_metadata.full_name) 
-                              : "Writersthing Author")}
-                      </Link>
-                    ) : (
-                      story.author || "Writersthing Author"
-                    )}
-                  </p>
-                  <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
-                    {story.updatedAt ? new Date(story.updatedAt).toLocaleDateString() : "Draft"}
-                    {story.authorId && ` • ${followersCount} Followers`}
-                  </p>
-                </div>
+          <header className="mb-8">
+            {/* Author Info (Moved to Top) */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-black flex items-center justify-center rounded-full shrink-0">
+                <User size={20} className="text-white" />
               </div>
-              
-              <div className="flex items-center gap-4">
-                {story.authorId && (
-                  isAuthor ? (
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/write/${params.id}`}
-                        className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-black bg-black text-white hover:bg-zinc-800 transition-all flex items-center justify-center"
-                      >
-                        Edit Story
-                      </Link>
-                      <button
-                        onClick={handleDelete}
-                        className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-600 text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
-                      >
-                        Delete
-                      </button>
-                    </div>
+              <div>
+                <p className="text-sm font-black uppercase tracking-widest">
+                  {story.authorId ? (
+                    <Link href={`/authors/${story.authorId}`} className="hover:underline hover:text-zinc-600 transition-colors">
+                      {story.author && story.author !== "Writersthing Author" 
+                        ? story.author 
+                        : (currentUser?.id === story.authorId && (currentUser?.user_metadata?.name || currentUser?.user_metadata?.full_name) 
+                            ? (currentUser.user_metadata.name || currentUser.user_metadata.full_name) 
+                            : "Writersthing Author")}
+                    </Link>
                   ) : (
-                    <button 
-                      onClick={handleFollow}
-                      className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
-                        isFollowing 
-                          ? "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300" 
-                          : "bg-black text-white hover:bg-zinc-800"
-                      }`}
-                    >
-                      {isFollowing ? "Following" : "Follow"}
-                    </button>
-                  )
-                )}
-                
-                {/* Like Button */}
-                <button 
-                  onClick={handleLike}
-                  className={`p-3.5 border transition-all rounded-xl ${
-                    isLiked 
-                      ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100" 
-                      : "border-zinc-100 hover:bg-zinc-50 text-zinc-500 hover:text-black"
-                  }`}
-                  title="Like story"
-                >
-                  <Heart size={16} className={isLiked ? "fill-rose-500 text-rose-500" : ""} />
-                </button>
-
-                {/* Save Button */}
-                <button 
-                  onClick={handleSave}
-                  className={`flex items-center gap-2 px-6 py-3.5 border text-[10px] font-black uppercase tracking-widest transition-all rounded-xl ${
-                    isSaved 
-                      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" 
-                      : "border-black hover:bg-black hover:text-white"
-                  }`}
-                >
-                  <Bookmark size={14} className={isSaved ? "fill-amber-500 text-amber-500" : ""} />
-                  {isSaved ? "Saved Reference" : "Save Reference"}
-                </button>
-
-                <button onClick={handleShare} className="p-3.5 border border-zinc-100 hover:bg-black hover:text-white transition-all rounded-xl">
-                  <Share2 size={16} />
-                </button>
+                    story.author || "Writersthing Author"
+                  )}
+                </p>
+                <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
+                  {story.updatedAt ? new Date(story.updatedAt).toLocaleDateString() : "Draft"}
+                  {story.authorId && ` • ${followersCount} Followers`}
+                </p>
               </div>
             </div>
+
+            {/* Title (Left) and Category (Right) */}
+            <div className="flex items-start justify-between gap-4 mb-8 md:mb-12">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase leading-[1.1] pr-4">
+                {story.title}
+              </h1>
+              <span className="shrink-0 inline-block px-3 py-1.5 md:px-4 md:py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mt-1.5 md:mt-1">
+                {story.category}
+              </span>
+            </div>
+
           </header>
 
           {story.cover_url && (
@@ -510,7 +453,70 @@ export default function StoryPost() {
             </div>
           )}
 
-          <div className="prose prose-lg md:prose-xl max-w-none mb-24 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanContent) }} />
+          <div className="prose prose-lg md:prose-xl max-w-none mb-12 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanContent) }} />
+
+          {/* Action Buttons Below Story */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 py-6 border-y border-zinc-100 mb-12">
+            {story.authorId && (
+              isAuthor ? (
+                <div className="flex gap-2">
+                  <Link
+                    href={`/write/${params.id}`}
+                    className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-black bg-black text-white hover:bg-zinc-800 transition-all flex items-center justify-center"
+                  >
+                    Edit Story
+                  </Link>
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-600 text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={handleFollow}
+                  className={`px-4 sm:px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                    isFollowing 
+                      ? "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300" 
+                      : "bg-black text-white hover:bg-zinc-800"
+                  }`}
+                >
+                  {isFollowing ? "Following" : "Follow"}
+                </button>
+              )
+            )}
+            
+            {/* Like Button */}
+            <button 
+              onClick={handleLike}
+              className={`p-2 sm:p-3.5 border transition-all rounded-xl ${
+                isLiked 
+                  ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100" 
+                  : "border-zinc-100 hover:bg-zinc-50 text-zinc-500 hover:text-black"
+              }`}
+              title="Like story"
+            >
+              <Heart size={16} className={isLiked ? "fill-rose-500 text-rose-500" : ""} />
+            </button>
+
+            {/* Save Button */}
+            <button 
+              onClick={handleSave}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3.5 border text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all rounded-xl ${
+                isSaved 
+                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" 
+                  : "border-black hover:bg-black hover:text-white"
+              }`}
+            >
+              <Bookmark size={14} className={isSaved ? "fill-amber-500 text-amber-500" : ""} />
+              {isSaved ? "Saved" : "Save Ref"}
+            </button>
+
+            <button onClick={handleShare} className="p-2 sm:p-3.5 border border-zinc-100 hover:bg-black hover:text-white transition-all rounded-xl">
+              <Share2 size={16} />
+            </button>
+          </div>
 
           {/* Calculate Average Rating */}
           {(() => {
