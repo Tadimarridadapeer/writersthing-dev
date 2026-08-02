@@ -3,10 +3,12 @@ import { logger } from "@/lib/logger";
 
 // A server-only service to create notifications bypassing RLS securely, 
 // using the service role key to ensure system notifications always succeed.
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const getServiceSupabase = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+};
 
 export type NotificationType = 
   | 'new_follower' | 'new_review' | 'new_rating' | 'new_comment'
@@ -33,6 +35,9 @@ export const NotificationService = {
    */
   async create(params: CreateNotificationParams) {
     try {
+      const supabase = getServiceSupabase();
+      if (!supabase) return { success: false, error: 'Server misconfigured' };
+
       const { userId, actorId, type, priority = 'info', targetType, targetId, targetUrl, metadata = {} } = params;
 
       // 1. Check if user has preferences disabled (future proofing)
@@ -82,6 +87,9 @@ export const NotificationService = {
   async createBulk(userIds: string[], params: Omit<CreateNotificationParams, 'userId'>) {
     try {
       if (userIds.length === 0) return { success: true };
+
+      const supabase = getServiceSupabase();
+      if (!supabase) return { success: false, error: 'Server misconfigured' };
 
       const { actorId, type, priority = 'info', targetType, targetId, targetUrl, metadata = {} } = params;
 
