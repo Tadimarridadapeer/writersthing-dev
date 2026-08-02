@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize a Supabase client with the service role key to bypass RLS for inserting from a webhook
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const getAdminSupabase = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!url || !key) return null;
+  return createClient(url, key);
+};
 
 export async function POST(request: Request) {
   try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+
     const data = await request.json();
 
     const {
