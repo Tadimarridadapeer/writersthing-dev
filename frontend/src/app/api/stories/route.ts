@@ -187,8 +187,7 @@ export async function POST(req: Request) {
             title,
             content: content || description || "",
             banner_url: coverUrl || "",
-            author_id: authorProfile.id,
-            status: req.headers.get("X-Publish") === "true" ? "Published" : "Draft"
+            author_id: authorProfile.id
           }
         ])
         .select()
@@ -253,8 +252,7 @@ export async function PUT(req: Request) {
         .update({
           title,
           content: content || description || "",
-          banner_url: coverUrl || "",
-          status: isPublishing ? "Published" : "Draft"
+          banner_url: coverUrl || ""
         })
         .eq("id", id)
         .eq("author_id", authorProfile.id)

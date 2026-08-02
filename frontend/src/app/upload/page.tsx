@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 export default function UploadRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.push("/write");
+    router.push("/editor");
   }, [router]);
   return null;
 }

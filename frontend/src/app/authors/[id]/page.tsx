@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import Badge from "@/components/ui/Badge";
+import AvatarWithBadge from "@/components/AvatarWithBadge";
 
 export default function AuthorProfilePage() {
   const params = useParams();
@@ -24,6 +26,7 @@ export default function AuthorProfilePage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authorUser, setAuthorUser] = useState<any>(null);
   const [authorProfile, setAuthorProfile] = useState<any>(null);
+  const [authorBadges, setAuthorBadges] = useState<any[]>([]);
   
   const [blogs, setBlogs] = useState<any[]>([]);
   const [storys, setStorys] = useState<any[]>([]);
@@ -73,7 +76,8 @@ export default function AuthorProfilePage() {
         followsCountRes,
         followStatusRes,
         blogsRes,
-        storysRes
+        storysRes,
+        badgesRes
       ] = await Promise.all([
         directUserRes.data
           ? Promise.resolve(directUserRes)
@@ -82,7 +86,8 @@ export default function AuthorProfilePage() {
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", resolvedUserId),
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("blogs").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
-        supabase.from("storys").select("*").eq("author_id", authorId).order("created_at", { ascending: false })
+        supabase.from("storys").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
+        supabase.from("user_badges").select("*").eq("user_id", resolvedUserId)
       ]);
 
       if (userRes.error || !userRes.data) {
@@ -95,6 +100,7 @@ export default function AuthorProfilePage() {
       setIsFollowing(!!followStatusRes.data);
       setBlogs(blogsRes.data || []);
       setStorys(storysRes.data || []);
+      setAuthorBadges(badgesRes?.data || []);
 
       // Books query depends on author profileData ID
       if (profileRes.data) {
@@ -199,21 +205,24 @@ export default function AuthorProfilePage() {
           <div className="absolute top-0 right-0 w-24 h-24 bg-zinc-50/50 -z-10 rounded-bl-full" />
           
           {/* Avatar Display */}
-          <div className="w-24 h-24 bg-zinc-100 border border-zinc-200/60 rounded-full overflow-hidden flex-shrink-0 grayscale flex items-center justify-center text-2xl font-black text-zinc-400 shadow-inner">
-            {authorUser.avatar_url ? (
-              <OptimizedImage src={authorUser.avatar_url} alt={authorUser.name} variant="profile" className="w-full h-full" />
-            ) : (
-              authorUser.name.charAt(0).toUpperCase()
-            )}
+          <div className="w-24 h-24 rounded-full overflow-hidden flex-shrink-0 shadow-inner">
+            <AvatarWithBadge 
+              userId={authorUser.id}
+              avatarUrl={authorUser.avatar_url}
+              name={authorUser.name}
+              className="w-full h-full"
+            />
           </div>
 
           {/* Profile Text Details */}
           <div className="flex-grow text-center md:text-left">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div>
-                <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900">
-                  {authorUser.name}
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900">
+                    {authorUser.name}
+                  </h1>
+                </div>
                 <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1">
                   {authorUser.role || "Author"}
                 </p>

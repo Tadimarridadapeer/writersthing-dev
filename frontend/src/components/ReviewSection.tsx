@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useReviews, ReviewItem } from "@/hooks/useReviews";
 import { Star, ThumbsUp, ThumbsDown, MessageSquare, MoreVertical, Edit, Trash } from "lucide-react";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import AvatarWithBadge from "@/components/AvatarWithBadge";
 import { formatDistanceToNow } from "date-fns";
 
 interface ReviewSectionProps {
@@ -119,14 +120,13 @@ export function ReviewSection({ contentId, contentType, authorId }: ReviewSectio
         ) : (
           reviews.map((review) => (
             <div key={review.id} className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm flex gap-4 items-start group">
-              <div className="shrink-0">
-                {review.actor?.avatar_url ? (
-                  <OptimizedImage src={review.actor.avatar_url} alt="" variant="profile" className="w-10 h-10 rounded-full" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-400">
-                    {review.actor?.name?.charAt(0) || "U"}
-                  </div>
-                )}
+              <div className="shrink-0 relative">
+                <AvatarWithBadge 
+                  userId={review.user_id}
+                  avatarUrl={review.actor?.avatar_url}
+                  name={review.actor?.name || "U"}
+                  className="w-10 h-10 rounded-full"
+                />
               </div>
               
               <div className="flex-1 min-w-0">

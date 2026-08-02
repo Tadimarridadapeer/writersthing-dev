@@ -7,7 +7,7 @@ export default function SharePage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/write");
+    router.replace("/editor");
   }, [router]);
 
   return (

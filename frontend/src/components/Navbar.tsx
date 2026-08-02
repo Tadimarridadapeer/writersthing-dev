@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import NotificationsDropdown from "./NotificationsDropdown";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import AvatarWithBadge from "./AvatarWithBadge";
 
 import { useAuth } from "@/context/AuthContext";
 
@@ -42,8 +43,7 @@ export default function Navbar() {
   }, []);
 
   const shouldHide = pathname?.startsWith("/read") || 
-                     pathname?.startsWith("/write") ||
-                     pathname === "/editor" ||
+                     pathname?.startsWith("/editor") ||
                      pathname === "/login" ||
                      pathname === "/signup";
 
@@ -128,22 +128,15 @@ export default function Navbar() {
                     
                     <Link
                       href="/profile"
-                      className="group p-1.5 border border-zinc-250 rounded-full hover:bg-zinc-50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2.5 sm:pr-4 shadow-sm"
+                      className="group p-1.5 border border-black bg-white hover:bg-black transition-all duration-300 flex items-center gap-2.5 sm:pr-4"
                     >
-                      {user.user_metadata?.avatar_url || user.avatar_url ? (
-                        <OptimizedImage 
-                          src={user.user_metadata.avatar_url || user.avatar_url} 
-                          className="w-[22px] h-[22px] rounded-full border border-zinc-100 shadow-sm"
-                          imageClassName="grayscale group-hover:grayscale-0 transition-all duration-300" 
-                          alt="Avatar"
-                          variant="profile"
-                        />
-                      ) : (
-                        <div className="w-[22px] h-[22px] rounded-full bg-zinc-800 flex items-center justify-center text-white text-[9px] font-black">
-                          {((user.user_metadata?.name || user.email) as string).charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-zinc-650">
+                      <AvatarWithBadge 
+                        userId={user.id}
+                        avatarUrl={user.user_metadata?.avatar_url || user.avatar_url}
+                        name={(user.user_metadata?.name || user.email) as string}
+                        className="w-[22px] h-[22px] rounded-full"
+                      />
+                      <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-black group-hover:text-white transition-colors">
                         {(user.user_metadata?.name || user.email)?.split('@')[0].split(' ')[0]}
                       </span>
                     </Link>

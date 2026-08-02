@@ -65,20 +65,20 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
   };
 
   return (
-    <div className="border border-zinc-200 rounded-sm bg-white overflow-hidden flex flex-col md:flex-row">
-      <div className="flex md:flex-col flex-wrap items-center md:items-center gap-1 p-2 border-b md:border-b-0 md:border-r border-zinc-200 bg-zinc-50 md:w-14 shrink-0">
-        <div className="relative w-full flex justify-center" ref={fontDropdownRef}>
+    <div className="border border-zinc-200 rounded-sm bg-white overflow-hidden flex flex-col">
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b border-zinc-200 bg-zinc-50">
+        <div className="relative flex justify-center" ref={fontDropdownRef}>
           <button 
             type="button" 
             onClick={() => setIsFontDropdownOpen(!isFontDropdownOpen)} 
-            className={`p-2 rounded text-zinc-650 transition-all flex items-center justify-center w-10 h-10 border ${isFontDropdownOpen ? 'bg-black border-black text-white' : 'hover:bg-zinc-200 border-transparent hover:border-zinc-300'}`}
+            className={`p-2 rounded text-zinc-600 transition-all flex items-center justify-center w-10 h-10 border ${isFontDropdownOpen ? 'bg-black border-black text-white' : 'hover:bg-zinc-200 border-transparent hover:border-zinc-300'}`}
             title="Select Font Style"
           >
             <Type size={16} />
           </button>
 
           {isFontDropdownOpen && (
-            <div className="absolute left-full top-0 ml-2 z-50 bg-white border border-zinc-200 shadow-2xl rounded-sm py-2 w-52 max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-left-2 duration-150">
+            <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-zinc-200 shadow-2xl rounded-sm py-2 w-52 max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-150">
               <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400 px-4 py-1.5 border-b border-zinc-100 mb-1">Select Typeface</p>
               {FONTS.map((font) => (
                 <button
@@ -97,18 +97,18 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
             </div>
           )}
         </div>
-        <div className="hidden md:block w-full h-px bg-zinc-300 my-1" />
-        <button type="button" onClick={() => execCommand("formatBlock", "H1")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Heading 1"><Heading1 size={16} /></button>
-        <button type="button" onClick={() => execCommand("formatBlock", "H2")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Heading 2"><Heading2 size={16} /></button>
-        <div className="w-px h-5 md:w-6 md:h-px bg-zinc-300 mx-1 md:mx-auto md:my-1" />
-        <button type="button" onClick={() => execCommand("bold")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Bold"><Bold size={16} /></button>
-        <button type="button" onClick={() => execCommand("italic")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Italic"><Italic size={16} /></button>
-        <button type="button" onClick={() => execCommand("underline")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Underline"><Underline size={16} /></button>
-        <button type="button" onClick={() => execCommand("strikeThrough")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Strikethrough"><Strikethrough size={16} /></button>
-        <div className="w-px h-5 md:w-6 md:h-px bg-zinc-300 mx-1 md:mx-auto md:my-1" />
-        <button type="button" onClick={() => execCommand("insertUnorderedList")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Bullet List"><List size={16} /></button>
-        <button type="button" onClick={() => execCommand("insertOrderedList")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Numbered List"><ListOrdered size={16} /></button>
-        <button type="button" onClick={() => execCommand("formatBlock", "BLOCKQUOTE")} className="p-2 hover:bg-zinc-200 rounded text-zinc-650 transition-colors" title="Quote"><Quote size={16} /></button>
+        <div className="w-px h-5 bg-zinc-300 mx-1" />
+        <button type="button" onClick={() => execCommand("formatBlock", "H1")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Heading 1"><Heading1 size={16} /></button>
+        <button type="button" onClick={() => execCommand("formatBlock", "H2")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Heading 2"><Heading2 size={16} /></button>
+        <div className="w-px h-5 bg-zinc-300 mx-1" />
+        <button type="button" onClick={() => execCommand("bold")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Bold"><Bold size={16} /></button>
+        <button type="button" onClick={() => execCommand("italic")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Italic"><Italic size={16} /></button>
+        <button type="button" onClick={() => execCommand("underline")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Underline"><Underline size={16} /></button>
+        <button type="button" onClick={() => execCommand("strikeThrough")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Strikethrough"><Strikethrough size={16} /></button>
+        <div className="w-px h-5 bg-zinc-300 mx-1" />
+        <button type="button" onClick={() => execCommand("insertUnorderedList")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Bullet List"><List size={16} /></button>
+        <button type="button" onClick={() => execCommand("insertOrderedList")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Numbered List"><ListOrdered size={16} /></button>
+        <button type="button" onClick={() => execCommand("formatBlock", "BLOCKQUOTE")} className="p-2 hover:bg-zinc-200 rounded text-zinc-600 transition-colors" title="Quote"><Quote size={16} /></button>
       </div>
       <div 
         ref={editorRef}

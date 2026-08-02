@@ -90,7 +90,7 @@ export default async function DraftsPage() {
             <Feather size={48} className="mx-auto text-zinc-300 mb-6" />
             <h3 className="text-xl font-bold text-zinc-900 mb-2">No drafts found</h3>
             <p className="text-zinc-500 mb-8">You don't have any saved drafts at the moment.</p>
-            <Link href="/write" className="px-8 py-3 bg-zinc-900 text-white font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-800 transition-colors">
+            <Link href="/editor" className="px-8 py-3 bg-zinc-900 text-white font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-800 transition-colors">
               Start Writing
             </Link>
           </div>

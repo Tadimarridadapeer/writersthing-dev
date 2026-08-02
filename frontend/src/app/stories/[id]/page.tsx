@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, User, Bookmark, Loader2, Heart, MessageSquare, Share2, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import DictionaryWrapper from "@/components/DictionaryWrapper";
+import LanguageSelector from "@/components/LanguageSelector";
 
 function renderMarkdown(content: string): string {
   if (!content) return "";
@@ -100,11 +102,21 @@ export default function StoryPost() {
   const [commentRating, setCommentRating] = useState<number>(0);
   const [submittingComment, setSubmittingComment] = useState(false);
 
+  // Translation states
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedStory, setTranslatedStory] = useState<{ title?: string, content?: string } | null>(null);
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
     const userObj = stored ? JSON.parse(stored) : null;
     if (userObj) setCurrentUser(userObj);
     fetchStory(userObj);
+
+    const savedLang = localStorage.getItem("preferredLanguage");
+    if (savedLang && savedLang !== "en") {
+      setSelectedLanguage(savedLang);
+    }
   }, [params.id]);
 
   const fetchStory = async (userObj: any) => {
@@ -115,6 +127,11 @@ export default function StoryPost() {
       }
       const data = await res.json();
       setStory(data);
+      
+      const savedLang = localStorage.getItem("preferredLanguage");
+      if (savedLang && savedLang !== "en") {
+        performTranslation(savedLang, data.title, data.content);
+      }
       
       // Load engagement and follow data in parallel
       if (data.authorId) {
@@ -129,6 +146,55 @@ export default function StoryPost() {
       setStory(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // removed infinite loop effect
+
+  const performTranslation = async (lang: string, title: string, content: string) => {
+    setIsTranslating(true);
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyId: params.id,
+          languageCode: lang,
+          title: title,
+          content: content
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'completed') {
+        setTranslatedStory({
+          title: data.title,
+          content: data.content
+        });
+      } else if (data.status === 'pending') {
+        // If pending, we should poll. But for now we just show what we have.
+        console.warn("Translation is pending...");
+      } else {
+        // Fallback for errors
+        console.error("Translation failed:", data.error || "Unknown error");
+        setSelectedLanguage("en");
+        localStorage.removeItem("preferredLanguage");
+      }
+    } catch (err) {
+      console.error("Translation fetch error:", err);
+      setSelectedLanguage("en");
+      localStorage.removeItem("preferredLanguage");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleLanguageChange = (code: string) => {
+    setSelectedLanguage(code);
+    localStorage.setItem("preferredLanguage", code);
+    if (code === "en") {
+      setTranslatedStory(null);
+    } else if (story) {
+      performTranslation(code, story.title, story.content);
     }
   };
 
@@ -434,14 +500,28 @@ export default function StoryPost() {
             {/* Title (Left) and Category (Right) */}
             <div className="flex items-start justify-between gap-4 mb-8 md:mb-12">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase leading-[1.1] pr-4">
-                {story.title}
+                {translatedStory?.title || story.title}
               </h1>
-              <span className="shrink-0 inline-block px-3 py-1.5 md:px-4 md:py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mt-1.5 md:mt-1">
-                {story.category}
-              </span>
+              <div className="flex flex-col items-end gap-2">
+                <span className="shrink-0 inline-block px-3 py-1.5 md:px-4 md:py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest mt-1.5 md:mt-1">
+                  {story.category}
+                </span>
+                {isTranslating && (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-black flex items-center gap-2 shrink-0 whitespace-nowrap">
+                    <Loader2 size={12} className="animate-spin" />
+                    Generating translation...
+                  </span>
+                )}
+              </div>
             </div>
 
           </header>
+
+          <LanguageSelector 
+            selectedLanguage={selectedLanguage}
+            onLanguageChange={handleLanguageChange}
+            isTranslating={isTranslating}
+          />
 
           {story.cover_url && (
             <div className="w-full aspect-[21/9] md:aspect-[16/6] overflow-hidden my-12 bg-zinc-50 border border-zinc-100 rounded-sm">
@@ -453,7 +533,9 @@ export default function StoryPost() {
             </div>
           )}
 
-          <div className="prose prose-lg md:prose-xl max-w-none mb-12 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanContent) }} />
+          <DictionaryWrapper>
+            <div className={`prose prose-lg md:prose-xl max-w-none mb-12 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black ${isTranslating ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}`} dangerouslySetInnerHTML={{ __html: renderMarkdown(translatedStory?.content || cleanContent) }} />
+          </DictionaryWrapper>
 
           {/* Action Buttons Below Story */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 py-6 border-y border-zinc-100 mb-12">

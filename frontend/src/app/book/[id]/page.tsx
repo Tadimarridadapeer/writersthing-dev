@@ -17,6 +17,7 @@ import Navbar from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { ReviewSection } from "@/components/ReviewSection";
+import AvatarWithBadge from "@/components/AvatarWithBadge";
 
 export default function BookDetailPage() {
   const params = useParams();
@@ -383,12 +384,12 @@ export default function BookDetailPage() {
 
                 {/* Author Profile */}
                 <div className="pt-6 border-t border-zinc-100 flex items-center gap-6">
-                  <div className="w-16 h-16 bg-zinc-100 rounded-full overflow-hidden grayscale border border-zinc-200 flex-shrink-0">
-                    <OptimizedImage 
-                      src={book.authors?.users?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200"} 
-                      alt={book.authors?.users?.name || "Author"}
-                      variant="profile"
-                      className="w-full h-full"
+                  <div className="w-16 h-16 bg-zinc-100 rounded-full flex-shrink-0 relative">
+                    <AvatarWithBadge 
+                      userId={book.authors?.user_id}
+                      avatarUrl={book.authors?.users?.avatar_url}
+                      name={book.authors?.users?.name || "Author"}
+                      className="w-full h-full rounded-full"
                     />
                   </div>
                   <div className="flex-grow">
@@ -532,12 +533,13 @@ function ReviewItem({ review, currentUser, onEdit, onDelete }: any) {
     <div className="p-4 bg-zinc-50/40 border border-zinc-100/80 rounded-2xl group/item transition-all hover:bg-zinc-50">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-zinc-100 border border-zinc-200/55 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-black text-zinc-500">
-            {reviewer.avatar_url ? (
-              <OptimizedImage src={reviewer.avatar_url} alt="Reviewer" variant="profile" className="w-full h-full" />
-            ) : (
-              (reviewer.name || "A").charAt(0)
-            )}
+          <div className="w-7 h-7 bg-zinc-100 rounded-full flex-shrink-0 relative">
+            <AvatarWithBadge 
+              userId={review.user_id}
+              avatarUrl={reviewer.avatar_url}
+              name={reviewer.name || "A"}
+              className="w-full h-full rounded-full"
+            />
           </div>
           <div>
             <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800">{reviewer.name || "Anonymous"}</span>

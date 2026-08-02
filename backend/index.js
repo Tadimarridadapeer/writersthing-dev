@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const bookRoutes = require('./routes/books');
 const paymentRoutes = require('./routes/payments');
+const translationRoutes = require('./routes/translations');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,6 +44,7 @@ app.use('/api/', apiLimiter);
 // Routes
 app.use('/api/books', bookRoutes);
 app.use('/api/pay', paymentRoutes);
+app.use('/api/translations', translationRoutes);
 
 app.get('/', (req, res) => {
   res.send('Writersthing Backend API is running...');

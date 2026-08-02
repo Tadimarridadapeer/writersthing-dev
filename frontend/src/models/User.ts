@@ -34,6 +34,14 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isFoundingWriter: {
+      type: Boolean,
+      default: false,
+    },
+    founderNumber: {
+      type: Number,
+      default: null,
+    },
     followers: [
       {
         type: mongoose.Schema.Types.ObjectId,

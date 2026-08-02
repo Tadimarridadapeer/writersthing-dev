@@ -28,6 +28,7 @@ function MarketplaceContent() {
   const [preferences, setPreferences] = useState<{ interests: string[], contentTypes: string[], goals: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [feedType, setFeedType] = useState<"all" | "books" | "stories" | "blogs">(initialFeedType);
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,10 +59,12 @@ function MarketplaceContent() {
     else setLoadingMore(true);
 
     try {
-      if (currentSearch.trim() || currentType !== "all") {
+      if (currentSearch.trim() || currentType !== "all" || languageFilter !== "all") {
         // Fetch search/category specific data
         let endpoints: string[] = [];
-        const params = `?page=${currentPage}&limit=20&search=${encodeURIComponent(currentSearch.trim())}`;
+        let params = `?page=${currentPage}&limit=20&search=${encodeURIComponent(currentSearch.trim())}`;
+        if (languageFilter !== "all") params += `&lang=${languageFilter}`;
+
         
         if (currentType === "all") {
           endpoints = [`/api/books${params}`, `/api/stories${params}&type=Story`, `/api/stories${params}&type=Blog`];
@@ -147,7 +150,7 @@ function MarketplaceContent() {
       fetchPaginatedData(1, feedType, searchQuery, false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, feedType, fetchPaginatedData]);
+  }, [searchQuery, feedType, languageFilter, fetchPaginatedData]);
 
   const handleLoadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -381,7 +384,33 @@ function MarketplaceContent() {
           ) : searchQuery.trim() || feedType !== "all" ? (
             <div className="flex flex-col">
               {feed.length === 0 ? (
-                <div className="py-20 text-center text-zinc-500 italic">No content available matching your criteria.</div>
+                <div className="py-24 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-6">
+                    <Search className="text-zinc-300" size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold text-zinc-900 mb-2">No exact matches found</h3>
+                  <p className="text-zinc-500 text-sm max-w-sm mb-8">
+                    We couldn't find any {feedType === "all" ? "content" : feedType} matching your current filters. 
+                  </p>
+                  
+                  <div className="w-full max-w-md pt-8 border-t border-zinc-100">
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Because you like this, try exploring</h4>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {["Fiction", "Self Improvement", "Programming", "Technology", "History"].map(topic => (
+                        <button 
+                          key={topic}
+                          onClick={() => {
+                            setSearchQuery(topic);
+                            setFeedType("all");
+                          }}
+                          className="px-4 py-2 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 text-sm rounded-full transition-colors font-medium"
+                        >
+                          {topic}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <>
                   {feed.map(renderItem)}

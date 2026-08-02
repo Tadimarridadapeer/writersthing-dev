@@ -40,12 +40,14 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [manuscriptType, setManuscriptType] = useState<ManuscriptType>(null);
   const [manuscriptStatus, setManuscriptStatus] = useState("Draft");
   const [isDraft, setIsDraft] = useState(true);
+  const [originalLanguage, setOriginalLanguage] = useState("auto");
   
   // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>("edit");
   const [zenMode, setZenMode] = useState(false);
@@ -294,16 +296,27 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         throw new Error(errorData.message || "Failed to publish");
       }
       
+      // Fire translation job to backend (fire and forget)
+      fetch("http://localhost:5000/api/translations/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentId: id,
+          contentType: manuscriptType || "book",
+          content: content,
+          title: title,
+          sourceLang: originalLanguage
+        })
+      }).catch(err => console.error("Failed to queue translations:", err));
+      
       // Synchronize initial content to current content to prevent subsequent auto-save triggers
       setInitialContent(content);
       setInitialTitle(title);
       setManuscriptStatus("Published");
       setIsDraft(false); // Disable draft prefix for future edits
-      showNotification("Published successfully! Redirecting…", "success");
+      showNotification("Published successfully!", "success");
       
-      setTimeout(() => {
-        router.push("/dashboard?published=true");
-      }, 1500);
+      setShowPublishSuccess(true);
     } catch (err: any) {
       if (err.name === "AbortError") {
         console.log("Publish request was aborted.");
@@ -607,6 +620,32 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Language Selection */}
+            <div className="flex items-center">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">Language:</span>
+              <select
+                value={originalLanguage}
+                onChange={(e) => setOriginalLanguage(e.target.value)}
+                className="px-2 py-1 border border-zinc-200 text-xs font-bold uppercase text-zinc-600 bg-zinc-50 rounded-sm outline-none cursor-pointer"
+              >
+                <option value="auto">Auto-Detect</option>
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+                <option value="te">Telugu</option>
+                <option value="ta">Tamil</option>
+                <option value="kn">Kannada</option>
+                <option value="ml">Malayalam</option>
+                <option value="mr">Marathi</option>
+                <option value="gu">Gujarati</option>
+                <option value="pa">Punjabi</option>
+                <option value="ur">Urdu</option>
+                <option value="bn">Bengali</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="es">Spanish</option>
+              </select>
+            </div>
+
             {/* Save status indicator */}
             <span className={`text-[10px] font-black uppercase tracking-widest mr-2 flex items-center gap-2 ${
               saveStatus === "saving" ? "text-amber-500" : 
@@ -766,6 +805,67 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
           </div>
         )}
       </div>
+
+      {/* ─── Publishing Success Overlay ───────────────────────────── */}
+      <AnimatePresence>
+        {showPublishSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-white z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="max-w-xl w-full"
+            >
+              <div className="flex justify-center mb-8">
+                <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                  <Check size={32} className="text-white" />
+                </div>
+              </div>
+              
+              <h2 className="text-4xl md:text-5xl font-heading font-black tracking-tight uppercase text-center mb-4">
+                Successfully Published
+              </h2>
+              <p className="text-zinc-500 text-center mb-12">
+                Your manuscript is now live and the Borderless Reading engine has started translating your work.
+              </p>
+
+              <div className="border border-zinc-200 p-6 rounded-sm mb-12 bg-zinc-50">
+                <div className="flex justify-between items-center mb-6">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Translation Progress</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-1 rounded-sm animate-pulse">Processing...</span>
+                </div>
+                
+                <div className="h-2 w-full bg-zinc-200 rounded-full overflow-hidden mb-4">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: "15%" }}
+                    transition={{ duration: 2, ease: "easeOut" }}
+                    className="h-full bg-black"
+                  />
+                </div>
+                
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  <span>Original: {originalLanguage === 'auto' ? 'Detected' : originalLanguage.toUpperCase()}</span>
+                  <span>Target: 50 Languages</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/profile" className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all text-center">
+                  Go to Dashboard
+                </Link>
+                <button onClick={() => setShowPublishSuccess(false)} className="px-8 py-4 border border-zinc-200 text-zinc-600 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-100 transition-colors text-center">
+                  Back to Editor
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

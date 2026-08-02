@@ -116,28 +116,34 @@ export const POST = withObservability(async (req: Request) => {
     }
 
     // Upload PDF securely using backend mapping
-    const pdfPath = `${authorData.id}/${bookId}/manuscript.pdf`;
-    const { error: pdfUploadError } = await supabaseAdmin.storage
-      .from(STORAGE_CONFIG.buckets.privateManuscripts)
-      .upload(pdfPath, pdfFile, { upsert: true });
+    let pdfPath = "";
+    if (pdfFile) {
+      pdfPath = `${authorData.id}/${bookId}/manuscript.pdf`;
+      const { error: pdfUploadError } = await supabaseAdmin.storage
+        .from(STORAGE_CONFIG.buckets.privateManuscripts)
+        .upload(pdfPath, pdfFile, { upsert: true });
 
-    if (pdfUploadError) {
-      logger.error("Manuscript Upload Failed", { error: pdfUploadError.message, bookId });
-      return NextResponse.json({ message: "Manuscript Upload Failed" }, { status: 500 });
+      if (pdfUploadError) {
+        logger.error("Manuscript Upload Failed", { error: pdfUploadError.message, bookId });
+        return NextResponse.json({ message: "Manuscript Upload Failed" }, { status: 500 });
+      }
     }
 
     // Update Book with Storage Metadata and publish
-    const updatePayload = {
+    const updatePayload: any = {
       cover_url: coverUrl,
-      pdf_path: pdfPath, // Legacy support
-      storage_bucket: STORAGE_CONFIG.buckets.privateManuscripts,
-      storage_path: pdfPath,
-      file_size: pdfFile.size,
-      mime_type: pdfFile.type,
-      original_file_name: pdfFile.name,
-      uploaded_at: new Date().toISOString(),
       status: isPublishing ? "Published" : "Draft"
     };
+
+    if (pdfFile && pdfPath) {
+      updatePayload.pdf_path = pdfPath; // Legacy support
+      updatePayload.storage_bucket = STORAGE_CONFIG.buckets.privateManuscripts;
+      updatePayload.storage_path = pdfPath;
+      updatePayload.file_size = pdfFile.size;
+      updatePayload.mime_type = pdfFile.type;
+      updatePayload.original_file_name = pdfFile.name;
+      updatePayload.uploaded_at = new Date().toISOString();
+    }
 
     const { error: updateError } = await supabaseAdmin
       .from("books")

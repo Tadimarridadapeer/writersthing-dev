@@ -3,6 +3,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  experimental: {
+    externalDir: true,
+  },
   images: {
     minimumCacheTTL: 604800,
     remotePatterns: [

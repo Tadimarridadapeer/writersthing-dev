@@ -24,13 +24,17 @@ import {
   Image as ImageIcon,
   X,
   Star,
-  Bell
+  Bell,
+  Check,
+  Globe,
+  BarChart2
 } from "lucide-react";
 import { uploadAvatar } from "@/lib/avatar";
 import { ensureAuthorProfile } from "@/lib/author";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import TranslationDrawer from "@/components/TranslationDrawer";
 import { useRouter } from "next/navigation";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
@@ -81,6 +85,10 @@ export default function ProfilePage() {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [socialList, setSocialList] = useState<any[]>([]);
   const [socialLoading, setSocialLoading] = useState(false);
+
+  // Borderless Reading States
+  const [translationDrawerOpen, setTranslationDrawerOpen] = useState(false);
+  const [drawerContentId, setDrawerContentId] = useState("");
 
   // Auto-hide toast after 4 seconds
   useEffect(() => {
@@ -716,6 +724,22 @@ export default function ProfilePage() {
                   </Link>
                 )}
               </div>
+
+              {/* Borderless Reading Highlights */}
+              <div className="flex flex-wrap items-center gap-6 mt-8 pt-6 border-t border-zinc-100">
+                <div className="flex items-center gap-2">
+                  <Globe size={14} className="text-zinc-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Available in 50 Languages</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Borderless Reading Enabled</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <BarChart2 size={14} className="text-zinc-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Global Readers</span>
+                </div>
+              </div>
             </div>
           </header>
 
@@ -730,7 +754,10 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
                 {user?.role !== "Reader" && (
-                  <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
+                  <>
+                    <ProfileNavBtn icon={<BarChart2 size={18} />} label="Analytics" active={activeSection === "Analytics"} onClick={() => setActiveSection("Analytics")} />
+                    <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
+                  </>
                 )}
                 <ProfileNavBtn icon={<Sparkles size={18} />} label="Preferences" active={activeSection === "Preferences"} onClick={() => setActiveSection("Preferences")} />
               </nav>
@@ -803,7 +830,7 @@ export default function ProfilePage() {
                         </div>
 
                         {/* List Render */}
-{(() => {
+                        {(() => {
                           const itemsToShow = libraryPerspective === "reader" ? readedItems : publishedItems;
                           const filtered = itemsToShow.filter(item => {
                             if (libraryFilter === "all") return true;
@@ -864,7 +891,7 @@ export default function ProfilePage() {
                                 </div>
                               );
                             } else {
-                              // Render Author Portfolio with Drafts and Published items separated!
+                              // Render Author Portfolio
                               const checkDraft = (item: any) => {
                                 const details = item.details;
                                 if (!details) return false;
@@ -906,45 +933,17 @@ export default function ProfilePage() {
                                       <div>
                                         <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
                                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                        <button 
+                                          onClick={() => { setDrawerContentId(details.id); setTranslationDrawerOpen(true); }}
+                                          className="mt-2 flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-zinc-500 hover:text-black"
+                                        >
+                                          <Globe size={10} /> Translate
+                                        </button>
                                       </div>
                                       <div className="flex gap-2">
                                         <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
                                           {isDraft ? "Edit Draft" : "Read Now"}
                                         </Link>
-                                        <button 
-                                          onClick={() => {
-                                            if (isBook) {
-                                              const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
-                                              if (reason) {
-                                                fetch(`/api/books/${details.id}`, {
-                                                  method: "PATCH",
-                                                  headers: { "Content-Type": "application/json" },
-                                                  body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
-                                                }).then(res => {
-                                                  if (res.ok) alert("Deletion requested successfully. Pending 48hr approval.");
-                                                  else alert("Failed to request deletion.");
-                                                });
-                                              }
-                                            } else {
-                                              if (confirm("Are you sure you want to delete this content?")) {
-                                                fetch(`/api/manuscripts/${details.id}`, {
-                                                  method: "DELETE"
-                                                }).then(res => {
-                                                   if (res.ok) {
-                                                     alert("Content deleted successfully.");
-                                                     setPublishedItems(prev => prev.filter(p => p.details?.id !== details.id));
-                                                     setReadedItems(prev => prev.filter(r => r.details?.id !== details.id));
-                                                   }
-                                                   else alert("Failed to delete content.");
-                                                 });
-                                              }
-                                            }
-                                          }}
-                                          className="px-3 py-2 border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-500 transition-all text-[9px] font-black uppercase tracking-widest"
-                                          title={isBook ? "Request Deletion" : "Delete"}
-                                        >
-                                          {isBook ? (details.deletion_status === "Pending_Approval" ? "Pending..." : "Req. Delete") : "Delete"}
-                                        </button>
                                       </div>
                                     </div>
                                   </div>
@@ -1041,11 +1040,6 @@ export default function ProfilePage() {
           <h2 className="text-xl font-black uppercase tracking-tight border-b border-zinc-100 pb-2">{list.name}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {listBookmarks.map(item => {
-              // We don't have full details joined natively in this simplified view unless fetched.
-              // We'll just render a skeleton or simple card since full enrichment requires backend changes.
-              // Assuming bookmarks are enriched via API similar to saves... 
-              // Wait, the API doesn't enrich content details yet.
-              // Let's create a generic view.
               const isBook = item.content_type === "book";
               const isStory = item.content_type === "story";
               const isBlog = item.content_type === "blog";
@@ -1213,65 +1207,6 @@ export default function ProfilePage() {
                     <PreferencesSettings />
                   )}
 
-                  {activeSection === "Manuscripts" && (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-sm font-black uppercase tracking-widest">Your Published Works</h2>
-                        <Link href="/write" className="text-[10px] font-black uppercase tracking-widest border-b border-black pb-1">+ New Manuscript</Link>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4">
-                        {myManuscripts.length > 0 ? myManuscripts.map((m) => (
-                          <div key={m.id} className="p-8 bg-zinc-50 border border-zinc-100 rounded-sm flex items-center justify-between group hover:border-black transition-all">
-                            <div className="flex items-center gap-8">
-                               <div className="w-12 h-16 bg-zinc-200 rounded-sm overflow-hidden grayscale group-hover:grayscale-0 transition-all">
-                                  <OptimizedImage src={m.cover_url || "/placeholder-cover.jpg"} alt={m.title} variant="book-cover" className="w-full h-full" />
-                               </div>
-                               <div>
-                                  <h3 className="font-heading font-bold text-xl">{m.title}</h3>
-                                  <div className="flex items-center gap-4 mt-2">
-                                     <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${m.status === 'Published' ? 'bg-green-100 text-green-600' : 'bg-zinc-100 text-zinc-400'}`}>{m.status}</span>
-                                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{m.sales_count} Sales • ₹{m.price}</p>
-                                     {m.deletion_status === "Pending_Approval" && (
-                                       <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">Pending Deletion</span>
-                                     )}
-                                  </div>
-                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  const reason = prompt("Why do you need to delete this book? (Will take 48 hours for approval)");
-                                  if (reason) {
-                                    fetch(`/api/books/${m.id}`, {
-                                      method: "PATCH",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ deletion_status: "Pending_Approval", deletion_reason: reason })
-                                    }).then(res => {
-                                      if (res.ok) alert("Deletion requested successfully.");
-                                      else alert("Failed to request deletion.");
-                                    });
-                                  }
-                                }}
-                                className="px-3 py-4 bg-white border border-red-100 rounded-sm hover:bg-red-50 text-red-500 hover:text-red-600 transition-all text-[9px] font-black uppercase tracking-widest"
-                                title="Request Deletion"
-                              >
-                                {m.deletion_status === "Pending_Approval" ? "Pending" : "Delete"}
-                              </button>
-                              <Link href={`/book/${m.id}`} className="p-4 bg-white border border-zinc-100 rounded-sm hover:bg-black hover:text-white transition-all">
-                                <ChevronRight size={18} />
-                              </Link>
-                            </div>
-                          </div>
-                        )) : (
-                          <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed">
-                            <p className="text-zinc-400 font-medium italic mb-6">You haven't shared any stories yet.</p>
-                            <Link href="/write" className="px-10 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm">Unshackle Your Narrative</Link>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   {activeSection === "Analytics" && (
                     <div className="space-y-12">
                       <div>
@@ -1306,96 +1241,6 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  {activeSection === "Payouts" && (
-                    <div className="space-y-12">
-                      <div className="p-12 bg-black text-white rounded-sm shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-2">Available for Withdrawal</p>
-                          <p className="text-6xl font-heading font-black tracking-tighter">₹{stats.earnings.toLocaleString()}</p>
-                        </div>
-                        <button className="px-12 py-5 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all">Request Payout</button>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Payout History</h3>
-                        <div className="bg-zinc-50 border border-zinc-100 p-8 rounded-sm text-center">
-                          <p className="text-zinc-300 italic font-medium">No previous payouts processed.</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeSection === "Pro" && (
-                    <div className="space-y-12">
-                      {/* Eligibility Progress Card */}
-                      <div className="p-12 border border-zinc-100 bg-zinc-50/50 rounded-sm relative overflow-hidden shadow-2xl">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-100/50 rounded-full blur-[40px] -z-10" />
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pb-8 border-b border-zinc-100">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-2">Tier Eligibility Status</p>
-                            <h3 className="text-3xl font-heading font-black uppercase tracking-tight">
-                              {stats.followers >= 5 && (reputation?.avg_rating || 0) >= 4.0 && myManuscripts.length >= 2 && (reputation?.reputation_score || 0) >= 100 ? (
-                                <span className="text-black flex items-center gap-2">
-                                  <ShieldCheck className="text-black animate-pulse" size={24} /> Writersthing Pro Eligible
-                                </span>
-                              ) : (
-                                "Pro Membership In Progress"
-                              )}
-                            </h3>
-                          </div>
-                          <span className={`px-4 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-full ${
-                            stats.followers >= 5 && (reputation?.avg_rating || 0) >= 4.0 && myManuscripts.length >= 2 && (reputation?.reputation_score || 0) >= 100
-                              ? "bg-black text-white animate-bounce"
-                              : "bg-zinc-100 text-zinc-400 border border-zinc-200"
-                          }`}>
-                            {stats.followers >= 5 && (reputation?.avg_rating || 0) >= 4.0 && myManuscripts.length >= 2 && (reputation?.reputation_score || 0) >= 100
-                              ? "Unlocked"
-                              : "Locked"
-                            }
-                          </span>
-                        </div>
-
-                        {/* Metrics Progress bar */}
-                        <div className="mb-10">
-                          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">
-                            <span>Criteria Complete</span>
-                            <span>
-                              {Math.round(
-                                (([stats.followers >= 5, (reputation?.avg_rating || 0) >= 4.0, myManuscripts.length >= 2, (reputation?.reputation_score || 0) >= 100].filter(Boolean).length) / 4) * 100
-                              )}%
-                            </span>
-                          </div>
-                          <div className="w-full h-2.5 bg-zinc-200/50 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-black transition-all duration-1000" 
-                              style={{ 
-                                width: `${(([stats.followers >= 5, (reputation?.avg_rating || 0) >= 4.0, myManuscripts.length >= 2, (reputation?.reputation_score || 0) >= 100].filter(Boolean).length) / 4) * 100}%` 
-                              }} 
-                            />
-                          </div>
-                        </div>
-
-                        {/* Itemized checklist */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                          <MetricCheckitem label="5+ Active Followers" met={stats.followers >= 5} progress={`${stats.followers} / 5`} />
-                          <MetricCheckitem label="4.0+ Average Rating" met={(reputation?.avg_rating || 0) >= 4.0} progress={`${reputation?.avg_rating || 0} / 4.0`} />
-                          <MetricCheckitem label="2+ Shared Manuscripts" met={myManuscripts.length >= 2} progress={`${myManuscripts.length} / 2`} />
-                          <MetricCheckitem label="100+ Reputation Score" met={(reputation?.reputation_score || 0) >= 100} progress={`${reputation?.reputation_score || 0} / 100`} />
-                        </div>
-                      </div>
-
-                      {/* Premium Creator Benefits list */}
-                      <div className="space-y-6 select-none">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Exclusive Creator Benefits</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <BenefitItem title="90% Higher Royalty Share" desc="Keep a premium 90% of all ₹99 purchases. Direct author payouts with minimum administrative commissions." />
-                          <BenefitItem title="Verified Creator Status" desc="Earn the coveted solid black verified shield on your profile and marketplace manuscripts." />
-                          <BenefitItem title="Algorithmic Marketplace Boost" desc="Get featured priority visibility in the home page archives and active search filters." />
-                          <BenefitItem title="Advanced Creator Analytics" desc="Access deep audience metrics, demographic distribution, and retention maps." />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   {activeSection === "Settings" && (
                     <div className="bg-white border border-zinc-150 p-8 md:p-12 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.02)] text-left space-y-12">
                       <div>
@@ -1688,6 +1533,14 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Translation Drawer */}
+      <TranslationDrawer 
+        isOpen={translationDrawerOpen} 
+        onClose={() => setTranslationDrawerOpen(false)} 
+        contentId={drawerContentId} 
+        originalLanguage="en" 
+      />
+
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -1771,6 +1624,8 @@ export function PreferencesSettings() {
   const [goals, setGoals] = useState<string[]>([]);
   const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [preferredLanguage, setPreferredLanguage] = useState<string>("en");
+  const [userId, setUserId] = useState<string | null>(null);
 
   const INTERESTS_LIST = [
     "Artificial Intelligence", "Technology", "Programming", "Data Science", 
@@ -1795,12 +1650,14 @@ export function PreferencesSettings() {
   ];
 
   useEffect(() => {
-    // Load role
+    // Load role and ID
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
         setUserRole(parsed.role || "Author");
+        setUserId(parsed.id);
+        setPreferredLanguage(parsed.preferred_reading_language || "en");
       } catch (e) {
         console.error(e);
       }
@@ -1841,6 +1698,23 @@ export function PreferencesSettings() {
         body: JSON.stringify({ interests, contentTypes, goals })
       });
       if (!res.ok) throw new Error("Failed to save preferences");
+
+      // Save language separately
+      if (userId) {
+        import("@/lib/supabase").then(({ supabase }) => {
+          supabase.from("users").update({ preferred_reading_language: preferredLanguage }).eq("id", userId).then(({ error }: { error: any }) => {
+            if (error) console.error("Error saving language", error);
+            else {
+              const storedUser = localStorage.getItem("user");
+              if (storedUser) {
+                const parsed = JSON.parse(storedUser);
+                parsed.preferred_reading_language = preferredLanguage;
+                localStorage.setItem("user", JSON.stringify(parsed));
+              }
+            }
+          });
+        });
+      }
       setMessage({ text: "Preferences updated successfully!", type: "success" });
     } catch (err: any) {
       setMessage({ text: err.message, type: "error" });
@@ -1857,6 +1731,31 @@ export function PreferencesSettings() {
 
   return (
     <div className="space-y-12">
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Preferred Reading Language</h2>
+        <p className="text-sm text-zinc-500 mb-6">Select the language you want to read manuscripts in. We will translate stories automatically if they are available.</p>
+        <select
+          value={preferredLanguage}
+          onChange={(e) => setPreferredLanguage(e.target.value)}
+          className="w-full md:w-1/2 bg-zinc-50 border border-zinc-200 p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm cursor-pointer"
+        >
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="te">Telugu</option>
+          <option value="ta">Tamil</option>
+          <option value="kn">Kannada</option>
+          <option value="ml">Malayalam</option>
+          <option value="mr">Marathi</option>
+          <option value="gu">Gujarati</option>
+          <option value="pa">Punjabi</option>
+          <option value="ur">Urdu</option>
+          <option value="bn">Bengali</option>
+        </select>
+      </div>
+
       <div>
         <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Reading Interests</h2>
         <p className="text-sm text-zinc-500 mb-6">Update the topics you want to see more of in your feed.</p>

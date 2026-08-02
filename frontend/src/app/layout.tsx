@@ -5,6 +5,7 @@ import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import LoadingScreen from "@/components/LoadingScreen";
 import { AuthProvider } from "@/context/AuthContext";
+import { FoundingWritersProvider } from "@/context/FoundingWritersContext";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -77,10 +78,12 @@ export default function RootLayout({
         className={`${inter.variable} ${outfit.variable} ${playfair.variable} ${questrial.variable} ${bodoniModa.variable} ${libreBaskerville.variable} ${ebGaramond.variable} min-h-full flex flex-col bg-white dark:bg-black text-black dark:text-white antialiased`}
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <LoadingScreen />
-          <ClientLayout>{children}</ClientLayout>
-        </AuthProvider>
+        <FoundingWritersProvider>
+          <AuthProvider>
+            <LoadingScreen />
+            <ClientLayout>{children}</ClientLayout>
+          </AuthProvider>
+        </FoundingWritersProvider>
         <Script
           id="razorpay-checkout-js"
           src="https://checkout.razorpay.com/v1/checkout.js"

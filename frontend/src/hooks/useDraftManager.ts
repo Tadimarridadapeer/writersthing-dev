@@ -6,12 +6,13 @@ export interface DraftPayload {
   id?: string;
   type: "Book" | "Blog" | "Story" | "Magazine";
   title: string;
-  description: string;
+  description?: string;
   content: string;
   category: string;
   coverUrl?: string;
   coverFile?: File | null;
   pdfFile?: File | null;
+  tags?: string[];
 }
 
 export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | null, draftId: string | null) {
@@ -66,79 +67,107 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [status]);
 
+  const currentIdRef = useRef<string | null>(draftId);
+  const savePromiseRef = useRef<Promise<any> | null>(null);
+
+  // Keep state in sync with ref for UI
+  useEffect(() => {
+    currentIdRef.current = draftId;
+    setCurrentId(draftId);
+  }, [draftId]);
+
   // 4. Supabase API Save Function
   const saveToDatabase = useCallback(async (payload: DraftPayload, isPublishing: boolean = false) => {
-    setStatus('saving');
-    setErrorMessage("");
+    // If there is already a save in progress, wait for it
+    if (savePromiseRef.current) {
+      try { await savePromiseRef.current; } catch (e) {}
+    }
 
-    try {
-      const endpoint = payload.type === "Book" ? "/api/books/upload" : "/api/stories";
-      const method = currentId ? "PUT" : "POST";
+    const executeSave = async () => {
+      setStatus('saving');
+      setErrorMessage("");
 
-      let body: any;
-      let headers: any = {
-        "X-Publish": isPublishing ? "true" : "false"
-      };
+      try {
+        const endpoint = payload.type === "Book" ? "/api/books/upload" : "/api/stories";
+        const method = currentIdRef.current ? "PUT" : "POST";
 
-      if (payload.type === "Book") {
-        const formData = new FormData();
-        if (currentId) formData.append("id", currentId);
-        formData.append("title", payload.title);
-        formData.append("description", payload.description);
-        formData.append("category", payload.category);
-        if (payload.coverFile) formData.append("coverFile", payload.coverFile);
-        if (payload.pdfFile) formData.append("pdfFile", payload.pdfFile);
-        body = formData;
-        // Don't set content-type for formData
-      } else {
-        headers["Content-Type"] = "application/json";
-        body = JSON.stringify({
-          id: currentId,
-          type: payload.type,
+        let body: any;
+        let headers: any = {
+          "X-Publish": isPublishing ? "true" : "false"
+        };
+
+        if (payload.type === "Book") {
+          const formData = new FormData();
+          if (currentIdRef.current) formData.append("id", currentIdRef.current);
+          formData.append("title", payload.title);
+          formData.append("description", payload.description || "");
+          formData.append("category", payload.category);
+          if (payload.coverFile) formData.append("coverFile", payload.coverFile);
+          if (payload.pdfFile) formData.append("pdfFile", payload.pdfFile);
+          body = formData;
+        } else {
+          headers["Content-Type"] = "application/json";
+          body = JSON.stringify({
+            id: currentIdRef.current,
+            type: payload.type,
+            title: payload.title,
+            description: payload.description,
+            content: payload.content,
+            category: payload.category,
+            coverUrl: payload.coverUrl,
+            tags: payload.tags || []
+          });
+        }
+
+        const res = await fetch(endpoint, { method, headers, body });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to save draft");
+        }
+
+        // First time save generates an ID
+        if (!currentIdRef.current && data.id) {
+          currentIdRef.current = data.id;
+          setCurrentId(data.id);
+        } else if (!currentIdRef.current && data.bookId) {
+          currentIdRef.current = data.bookId;
+          setCurrentId(data.bookId);
+        }
+
+        setStatus('saved');
+        setLastSaved(new Date());
+        
+        lastSavedPayloadStr.current = JSON.stringify({
           title: payload.title,
           description: payload.description,
           content: payload.content,
-          category: payload.category,
-          coverUrl: payload.coverUrl
+          category: payload.category
         });
+
+        if (isPublishing) clearLocal();
+
+        return data.id || data.bookId || currentIdRef.current;
+
+      } catch (err: any) {
+        console.error(err);
+        setStatus('failed');
+        setErrorMessage(err.message);
+        throw err;
       }
+    };
 
-      const res = await fetch(endpoint, { method, headers, body });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to save draft");
+    const promise = executeSave();
+    savePromiseRef.current = promise;
+    try {
+      const res = await promise;
+      return res;
+    } finally {
+      if (savePromiseRef.current === promise) {
+        savePromiseRef.current = null;
       }
-
-      // First time save generates an ID
-      if (!currentId && data.id) {
-        setCurrentId(data.id);
-      } else if (!currentId && data.bookId) {
-        setCurrentId(data.bookId);
-      }
-
-      setStatus('saved');
-      setLastSaved(new Date());
-      
-      // Update our deep equality reference (exclude files for comparison)
-      lastSavedPayloadStr.current = JSON.stringify({
-        title: payload.title,
-        description: payload.description,
-        content: payload.content,
-        category: payload.category
-      });
-
-      if (isPublishing) clearLocal();
-
-      return data.id || data.bookId || currentId;
-
-    } catch (err: any) {
-      console.error(err);
-      setStatus('failed');
-      setErrorMessage(err.message);
-      throw err;
     }
-  }, [currentId, clearLocal]);
+  }, [clearLocal]);
 
   // 5. Trigger Auto Save
   const triggerAutoSave = useCallback((payload: DraftPayload) => {

@@ -23,6 +23,9 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import DictionaryWrapper from "@/components/DictionaryWrapper";
+import BorderlessReadingCard from "@/components/BorderlessReadingCard";
+import LanguageSelector from "@/components/LanguageSelector";
 
 export default function ReaderPage() {
   const [progress, setProgress] = useState(45);
@@ -43,10 +46,73 @@ export default function ReaderPage() {
   const [showCommentsSidebar, setShowCommentsSidebar] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
 
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedStory, setTranslatedStory] = useState<{ title?: string, content?: string } | null>(null);
+
+  useEffect(() => {
+    // We trigger translation in handleLanguageChange
+  }, [id, selectedLanguage]);
+
+  const handleLanguageChange = (code: string) => {
+    setSelectedLanguage(code);
+    localStorage.setItem("preferredLanguage", code);
+    if (code === "en") {
+      setTranslatedStory(null);
+    } else {
+      setIsTranslating(true);
+      fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyId: id,
+          languageCode: code,
+          // Since it's a mocked object we use its default en values
+          title: "The Neon Gate", // displayData.intro
+          content: "He reached the gate—a shimmer of electromagnetic distortion..." // mocked
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'completed') {
+          setTranslatedStory({ title: data.title, content: data.content });
+        } else {
+          console.error("Translation failed:", data.error || "Unknown error");
+          setSelectedLanguage("en");
+          localStorage.removeItem("preferredLanguage");
+        }
+      })
+      .catch(err => {
+        console.error("Translation fetch error:", err);
+        setSelectedLanguage("en");
+        localStorage.removeItem("preferredLanguage");
+      })
+      .finally(() => setIsTranslating(false));
+    }
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
     const userObj = stored ? JSON.parse(stored) : null;
-    if (userObj) setCurrentUser(userObj);
+    if (userObj) {
+      setCurrentUser(userObj);
+      if (userObj.preferred_reading_language && userObj.preferred_reading_language !== "en") {
+        setSelectedLanguage(userObj.preferred_reading_language);
+        handleLanguageChange(userObj.preferred_reading_language);
+      } else {
+        const savedLang = localStorage.getItem("preferredLanguage");
+        if (savedLang && savedLang !== "en") {
+          setSelectedLanguage(savedLang);
+          handleLanguageChange(savedLang);
+        }
+      }
+    } else {
+      const savedLang = localStorage.getItem("preferredLanguage");
+      if (savedLang && savedLang !== "en") {
+        setSelectedLanguage(savedLang);
+        handleLanguageChange(savedLang);
+      }
+    }
     
     if (id) {
       fetchEngagementData(id as string, userObj);
@@ -218,6 +284,12 @@ This book is not just about using AI. It is about learning a skill that will sta
     authorBio: "Elena Vance is a speculative fiction writer exploring the intersection of human consciousness and emerging technologies. Her work has been featured in The Manuscript Review and Wired Digital."
   };
 
+  const displayData = translatedStory ? {
+    ...bookData,
+    title: translatedStory.title || bookData.title,
+    content: translatedStory.content || bookData.content
+  } : bookData;
+
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-black text-white" : "bg-[#FCFCFC] text-black"} transition-colors duration-500`}>
       {/* Top Navigation */}
@@ -227,7 +299,7 @@ This book is not just about using AI. It is about learning a skill that will sta
           <div className="h-6 w-px bg-zinc-200" />
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">READING:</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest">{bookData.title}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest">{displayData.title}</span>
           </div>
         </div>
 
@@ -240,6 +312,17 @@ This book is not just about using AI. It is about learning a skill that will sta
           </div>
           
           <div className="flex items-center gap-6">
+            <select
+              value={selectedLanguage}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="px-2 py-1 border border-zinc-200 text-xs font-bold uppercase text-zinc-600 bg-zinc-50 rounded-sm outline-none cursor-pointer"
+            >
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+            </select>
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-zinc-50 rounded-sm">
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -257,7 +340,7 @@ This book is not just about using AI. It is about learning a skill that will sta
           <div className="mb-16">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-8">Table of Contents</h3>
             <nav className="space-y-4">
-              {bookData.toc.map((item, i) => (
+              {displayData.toc.map((item, i) => (
                 <TOCLink key={i} title={item} active={i === 1} />
               ))}
             </nav>
@@ -306,48 +389,71 @@ This book is not just about using AI. It is about learning a skill that will sta
 
         {/* Reading Area */}
         <main className="flex-grow py-12 px-6 md:py-32 md:px-48 max-w-5xl">
-          <article className="prose prose-zinc max-w-none">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-6">Chapter One</p>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-black tracking-ultra-tight uppercase mb-6 md:mb-12 leading-none">{bookData.intro}</h1>
-            
-            <div className="flex items-center gap-6 mb-20 border-b border-zinc-100 pb-12">
-              <div className="w-10 h-10 bg-zinc-100 rounded-sm overflow-hidden grayscale">
-                <img src={isArtOfPrompt ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100"} alt={bookData.author} />
+          <DictionaryWrapper>
+            <article className="prose prose-zinc max-w-none">
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-6">Chapter One</p>
+              <div className="flex flex-col gap-2 mb-6 md:mb-12">
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-black tracking-ultra-tight uppercase leading-none">
+                  {translatedStory?.title || displayData.intro}
+                </h1>
+                {isTranslating && (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-black flex items-center gap-2">
+                    <Loader2 size={12} className="animate-spin" />
+                    Generating translation...
+                  </span>
+                )}
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest">{bookData.author}</p>
-                <p className="text-[9px] font-medium text-zinc-400 uppercase tracking-widest mt-1">Published 02 May 2026 • 15 Min Read</p>
-              </div>
-            </div>
-
-            <div className={`space-y-10 text-xl leading-[1.8] font-body ${isDarkMode ? "text-zinc-300" : "text-zinc-800"} tracking-tight`}>
-              <p className="first-letter:text-6xl md:first-letter:text-8xl first-letter:font-heading first-letter:font-black first-letter:float-left first-letter:mr-4 md:first-letter:mr-6 first-letter:leading-none">
-                {bookData.content.split('\n')[0]}
-              </p>
               
-              {bookData.content.split('\n').filter(p => p.trim() !== "").slice(1).map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
+              <LanguageSelector 
+                selectedLanguage={selectedLanguage}
+                onLanguageChange={handleLanguageChange}
+                isTranslating={isTranslating}
+              />
+              
+              <BorderlessReadingCard contentId={id as string} originalLanguage="en" isDarkMode={isDarkMode} />
+              
+              <div className="flex items-center gap-6 mb-20 border-b border-zinc-100 pb-12">
+                <div className="w-10 h-10 bg-zinc-100 rounded-sm overflow-hidden grayscale">
+                  <img src={isArtOfPrompt ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100"} alt={displayData.author} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest">{displayData.author}</p>
+                  <p className="text-[9px] font-medium text-zinc-400 uppercase tracking-widest mt-1">Published 02 May 2026 • 15 Min Read</p>
+                </div>
+              </div>
 
-              <blockquote className={`border-l-4 ${isDarkMode ? "border-white" : "border-black"} pl-6 md:pl-12 py-4 md:py-8 my-10 md:my-20 italic text-2xl md:text-4xl font-serif text-zinc-400 leading-tight`}>
-                {isArtOfPrompt ? "Master the way you ask. Shape the way you learn." : '"The truth is never written in ink anymore. It\'s written in light, and light can be turned off."'}
-              </blockquote>
-
-              {!isArtOfPrompt && (
-                <p>
-                  He reached the gate—a shimmer of electromagnetic distortion that separated the residential sectors from the server farms. It was known as the Neon Gate, a threshold where biology ended and pure data began. To cross it was to surrender your history for a chance at immortality.
+              <div className={`space-y-10 text-xl leading-[1.8] font-body ${isDarkMode ? "text-zinc-300" : "text-zinc-800"} tracking-tight ${isTranslating ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}`}>
+                <p className="first-letter:text-6xl md:first-letter:text-8xl first-letter:font-heading first-letter:font-black first-letter:float-left first-letter:mr-4 md:first-letter:mr-6 first-letter:leading-none">
+                  {translatedStory?.content 
+                    ? translatedStory.content.split('\n')[0] 
+                    : displayData.content.split('\n')[0]}
                 </p>
-              )}
-            </div>
+                
+                {(translatedStory?.content || displayData.content).split('\n').filter((p: string) => p.trim() !== "").slice(1).map((p: string, i: number) => (
+                  <p key={i}>{p}</p>
+                ))}
+
+                <blockquote className={`border-l-4 ${isDarkMode ? "border-white" : "border-black"} pl-6 md:pl-12 py-4 md:py-8 my-10 md:my-20 italic text-2xl md:text-4xl font-serif text-zinc-400 leading-tight`}>
+                  {isArtOfPrompt ? "Master the way you ask. Shape the way you learn." : '"The truth is never written in ink anymore. It\'s written in light, and light can be turned off."'}
+                </blockquote>
+
+                {!isArtOfPrompt && (
+                  <p>
+                    He reached the gate—a shimmer of electromagnetic distortion that separated the residential sectors from the server farms. It was known as the Neon Gate, a threshold where biology ended and pure data began. To cross it was to surrender your history for a chance at immortality.
+                  </p>
+                )}
+              </div>
+            </article>
+          </DictionaryWrapper>
 
             <div className={`mt-40 p-20 ${isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-zinc-50 border-zinc-100"} rounded-sm border flex items-center gap-12`}>
               <div className="w-32 h-32 bg-zinc-200 flex-shrink-0 grayscale rounded-sm overflow-hidden">
-                <img src={isArtOfPrompt ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200"} alt={bookData.author} />
+                <img src={isArtOfPrompt ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200"} alt={displayData.author} />
               </div>
               <div className="flex-grow">
-                <h3 className="text-3xl font-heading font-black tracking-tight uppercase mb-4">{bookData.author}</h3>
+                <h3 className="text-3xl font-heading font-black tracking-tight uppercase mb-4">{displayData.author}</h3>
                 <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-8">
-                  {bookData.authorBio}
+                  {displayData.authorBio}
                 </p>
                 <div className="flex gap-4">
                   <button className="px-8 py-3 bg-black text-white dark:bg-white dark:text-black text-[10px] font-black uppercase tracking-widest shadow-xl transition-all hover:scale-105">Support Author</button>
@@ -487,9 +593,8 @@ This book is not just about using AI. It is about learning a skill that will sta
                 </div>
               );
             })()}
-          </article>
-        </main>
-      </div>
+          </main>
+        </div>
 
       {/* Sliding Comments Sidebar */}
       <AnimatePresence>
@@ -513,7 +618,7 @@ This book is not just about using AI. It is about learning a skill that will sta
               }`}>
                 <div>
                   <h3 className="text-lg font-bold uppercase tracking-wider font-heading">Comments ({comments.length})</h3>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">{bookData.title}</p>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">{displayData.title}</p>
                 </div>
                 <button
                   onClick={() => setShowCommentsSidebar(false)}

@@ -18,7 +18,11 @@ import {
   Feather,
   ChevronRight,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  MessageCircle,
+  Clock,
+  Target,
+  Eye
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -83,7 +87,7 @@ async function getCurrentAuthor() {
 
 function DraftStatusIndicator({ status, lastSaved }: { status: string, lastSaved: Date | null }) {
   if (status === 'saving') return <span className="text-zinc-400 text-[10px] uppercase font-bold flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Saving...</span>;
-  if (status === 'saved' && lastSaved) return <span className="text-green-600/70 text-[10px] uppercase font-bold flex items-center gap-2"><CheckCircle2 size={12} /> Saved {lastSaved.toLocaleTimeString()}</span>;
+  if (status === 'saved' && lastSaved) return <span className="text-green-600/70 text-[10px] uppercase font-bold flex items-center gap-2"><CheckCircle2 size={12} /> Your item is drafted</span>;
   if (status === 'unsaved') return <span className="text-amber-600/70 text-[10px] uppercase font-bold flex items-center gap-2">Unsaved changes</span>;
   if (status === 'failed') return <span className="text-red-600/70 text-[10px] uppercase font-bold flex items-center gap-2">Save failed</span>;
   return null;
@@ -209,7 +213,7 @@ function WritePageContent() {
   const handleBack = () => {
     setStep("selection");
     setSelectedType(null);
-    router.replace("/write");
+    router.replace("/editor");
   };
 
   const handleBookSubmit = async (e: React.FormEvent) => {
@@ -495,16 +499,24 @@ function WritePageContent() {
               exit={{ opacity: 0, x: -20 }}
               className="max-w-5xl mx-auto"
             >
-              <button 
-                onClick={handleBack}
-                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black mb-6 transition-colors"
-              >
-                <ArrowLeft size={14} /> Back to Selection
-              </button>
+              {selectedType !== "Blog" && (
+                <button 
+                  onClick={handleBack}
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black mb-6 transition-colors"
+                >
+                  <ArrowLeft size={14} /> Back to Selection
+                </button>
+              )}
               
               {selectedType === "Book" && (
                 <BookUploadUI 
                   onSubmit={handleBookSubmit}
+                  onSaveDraft={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      await saveToDatabase({ type: "Book", title, description, category, content: "", coverFile, pdfFile }, false);
+                    } finally { setIsSubmitting(false); }
+                  }}
                   title={title} setTitle={setTitle}
                   category={category} setCategory={setCategory}
                   description={description} setDescription={setDescription}
@@ -514,6 +526,8 @@ function WritePageContent() {
                   errorMessage={errorMessage}
                   showCreateAuthorBtn={showCreateAuthorBtn}
                   onCreateAuthor={handleCreateAuthor}
+                  draftStatus={draftStatus}
+                  lastSaved={lastSaved}
                 />
               )}
 
@@ -546,6 +560,7 @@ function WritePageContent() {
 
               {selectedType === "Blog" && (
                 <BlogEditorUI 
+                  onBack={handleBack}
                   onSaveDraft={async () => {
                     setIsSubmitting(true);
                     try {
@@ -616,12 +631,20 @@ function WritePageContent() {
                     </button>
                   </>
                 ) : (
-                  <button 
-                    onClick={() => router.push(`/write/${createdId}`)}
-                    className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all"
-                  >
-                    Open Live Editor
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => router.push("/profile")}
+                      className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all"
+                    >
+                      View in Profile
+                    </button>
+                    <button 
+                      onClick={() => setStep("selection")}
+                      className="px-12 py-5 border border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all"
+                    >
+                      Write Another
+                    </button>
+                  </>
                 )}
               </div>
             </motion.div>
@@ -918,13 +941,15 @@ function FileUploadField({ label, description, accept, icon, onChange, compact }
 }
 
 function BookUploadUI({ 
-  onSubmit, 
+  onSubmit,
+  onSaveDraft,
   title, setTitle, 
   category, setCategory, 
   description, setDescription, 
   onCoverChange, onPdfChange, 
   isSubmitting, errorMessage,
-  showCreateAuthorBtn, onCreateAuthor
+  showCreateAuthorBtn, onCreateAuthor,
+  draftStatus, lastSaved
 }: any) {
   return (
     <div className="space-y-12 bg-white p-6 md:p-8 border border-zinc-100 rounded-sm">
@@ -980,11 +1005,7 @@ function BookUploadUI({
           <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
           <button 
             type="button"
-            onClick={async () => {
-              setIsSubmitting(true);
-              try { await saveToDatabase({ type: "Book", title, description, category, content: "", coverFile, pdfFile }, false); }
-              finally { setIsSubmitting(false); }
-            }}
+            onClick={onSaveDraft}
             disabled={isSubmitting}
             className="w-full sm:w-auto px-10 py-6 bg-white text-zinc-955 border border-zinc-300 font-black text-[10px] uppercase tracking-[0.4em] hover:bg-zinc-50 transition-all flex items-center justify-center gap-4 disabled:opacity-50 rounded-sm"
           >
@@ -1007,6 +1028,9 @@ function StoryEditorUI({
   onSaveDraft,
   onPublish, 
   title, setTitle, 
+  category, setCategory,
+  tags, setTags,
+  onThumbnailChange,
   content, setContent,
   isSubmitting, errorMessage,
   draftStatus, lastSaved
@@ -1083,6 +1107,7 @@ function StoryEditorUI({
   );
 }
 function BlogEditorUI({ 
+  onBack,
   onSaveDraft,
   onPublish, 
   title, setTitle, 
@@ -1091,96 +1116,133 @@ function BlogEditorUI({
   isSubmitting, errorMessage,
   draftStatus, lastSaved
 }: any) {
+  const [isPreview, setIsPreview] = useState(false);
+
   return (
-    <div className="min-h-[70vh] bg-zinc-50 border border-zinc-200 p-4 md:p-8 rounded-sm max-w-[1400px] mx-auto">
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_350px] gap-8">
-        <div className="bg-white p-6 md:p-8 border border-zinc-200 shadow-sm rounded-sm">
-          <div className="space-y-12">
-            <div className="flex items-center gap-4 text-zinc-400 mb-8 pb-4 border-b border-zinc-100">
-              <Sparkles size={16} className="text-zinc-950" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-955">Blog Studio</span>
-              <div className="h-px flex-grow bg-zinc-100" />
-            </div>
+    <div className="w-full bg-white min-h-screen pb-20">
+      {/* Top Action Bar */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 py-6 border-b border-zinc-100 mb-8 px-4 md:px-8">
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors"
+        >
+          <ArrowLeft size={14} /> Back to Selection
+        </button>
 
-            {errorMessage && (
-              <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500">
-                {errorMessage}
+        <div className="flex items-center gap-4">
+          <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
+          
+          <button 
+            type="button"
+            onClick={() => setIsPreview(!isPreview)}
+            className={`px-6 py-3 border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 rounded-sm ${isPreview ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white text-zinc-950 border-zinc-200 hover:bg-zinc-50'}`}
+          >
+            <Eye size={14} /> {isPreview ? 'Exit Preview' : 'Preview'}
+          </button>
+          
+          <button 
+            type="button"
+            onClick={onSaveDraft}
+            disabled={isSubmitting}
+            className="px-6 py-3 bg-white text-zinc-950 border border-zinc-200 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Feather size={14} />} 
+            Save Draft
+          </button>
+          
+          <button 
+            type="button"
+            onClick={onPublish}
+            disabled={isSubmitting}
+            className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed shadow-xl"
+          >
+            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} 
+            Publish Blog
+          </button>
+        </div>
+      </div>
+
+      <div className="w-full px-4 md:px-8">
+        {/* Main Editor Column */}
+        <div className="space-y-10">
+          <div className="flex items-center gap-4 text-zinc-400 border-b border-zinc-100 pb-4">
+            <Sparkles size={16} className="text-zinc-950" />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-950">Blog Studio</span>
+          </div>
+
+          {errorMessage && (
+            <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500">
+              {errorMessage}
+            </div>
+          )}
+
+          {isPreview ? (
+            <div className="py-8 space-y-8 animate-in fade-in duration-500">
+              <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-zinc-950 leading-tight">
+                {title || "Untitled Blog"}
+              </h1>
+              {title && (
+                <div className="w-24 h-1 bg-zinc-950 rounded-full" />
+              )}
+              {content ? (
+                <div 
+                  className="prose prose-zinc max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-blue-600 prose-img:rounded-md"
+                  dangerouslySetInnerHTML={{ __html: content }} 
+                />
+              ) : (
+                <p className="text-zinc-500 italic">No content written yet.</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 animate-in fade-in duration-300">
+                {/* Blog Title */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950">Blog Title</label>
+                  <div className="relative h-[calc(100%-2rem)]">
+                    <textarea 
+                      placeholder="Write a compelling title for your blog..."
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value.slice(0, 120))}
+                      className="w-full h-full text-2xl md:text-4xl font-black tracking-tight text-zinc-950 placeholder:text-zinc-400 bg-white border border-zinc-200 p-6 md:p-8 outline-none transition-all focus:border-zinc-950 rounded-sm resize-none"
+                      required
+                    />
+                    <span className="absolute right-6 bottom-6 text-[10px] font-black text-zinc-300 bg-white/80 px-2 py-1">
+                      {title.length}/120
+                    </span>
+                  </div>
+                </div>
+
+                {/* Blog Banner Image */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950">Blog Banner Image</label>
+                  <div className="h-[calc(100%-2rem)]">
+                    <FileUploadField 
+                      label=""
+                      description="JPG/PNG (Max 5MB)" 
+                      accept="image/*"
+                      icon={<ImageIcon size={24} className="text-blue-500" />}
+                      onChange={onBannerChange}
+                      compact={true}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
 
-            <div className="space-y-2">
-              <input 
-                type="text"
-                placeholder="Blog Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-2xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-b border-zinc-200 focus:border-zinc-955 pb-4"
-                required
-              />
-            </div>
-
-            <FileUploadField 
-              label="Blog Banner Image" 
-              description="Optional: Header hero image" 
-              accept="image/*"
-              icon={<ImageIcon size={24} />}
-              onChange={onBannerChange}
-              compact={true}
-            />
-
-            <div className="space-y-4 pt-8">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-955 flex items-center gap-2">
-                <Type size={14} /> Content
-              </label>
-              <RichTextEditor content={content} onChange={setContent} placeholder="Write your casual story here..." />
-            </div>
-
-            <div className="pt-8 border-t border-zinc-100 flex justify-end items-center gap-6">
-              <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
-              <button 
-                type="button"
-                onClick={onSaveDraft}
-                disabled={isSubmitting}
-                className="px-8 py-4 bg-white text-zinc-955 border border-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-3 cursor-pointer rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Save as Draft"}
-              </button>
-              <button 
-                type="button"
-                onClick={onPublish}
-                disabled={isSubmitting}
-                className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg flex items-center gap-3 cursor-pointer rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish Blog Post"}
-              </button>
-            </div>
-          </div>
+              {/* Content */}
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2">
+                  Content
+                </label>
+                <div className="border border-zinc-200 rounded-sm overflow-hidden">
+                  <RichTextEditor content={content} onChange={setContent} placeholder="Start writing your story..." />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Sidebar Rules */}
-        <div className="hidden xl:block space-y-6 sticky top-24 h-max">
-          <div className="bg-white border border-zinc-200 p-6 shadow-sm rounded-sm">
-            <h3 className="text-xs font-black uppercase tracking-widest mb-6 border-b border-zinc-100 pb-4">Blog Rules</h3>
-            <ul className="space-y-6">
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Casual Tone</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Be conversational and personal. Share your direct experiences.</p>
-              </li>
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Length</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Usually 300 to 1,200 words. Short and punchy.</p>
-              </li>
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> Visuals</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Highly visual formatting. Feel free to embed media frequently.</p>
-              </li>
-              <li>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2"><CheckCircle2 size={14} className="text-black" /> SEO Focus</h4>
-                <p className="text-xs text-zinc-500 mt-2 font-medium leading-relaxed">Keep paragraphs short to maximize readability across devices.</p>
-              </li>
-            </ul>
-          </div>
-        </div>
+
       </div>
     </div>
   );
