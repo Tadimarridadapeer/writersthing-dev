@@ -27,6 +27,10 @@ export default function GlobalError({
           <p className="text-sm text-zinc-400 leading-relaxed font-medium">
             A critical error has occurred. Our engineering team has been notified automatically.
           </p>
+          <div className="bg-red-500/10 border border-red-500/20 p-4 rounded text-left text-xs text-red-200 mt-4 overflow-auto">
+            <p className="font-bold">Error Details (Debug Mode):</p>
+            <p>{error?.message || "No error message provided."}</p>
+          </div>
           <div className="pt-8">
             <button
               onClick={() => reset()}

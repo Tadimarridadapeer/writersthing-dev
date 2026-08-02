@@ -35,6 +35,11 @@ export default function ErrorBoundary({
           Something unexpected happened while loading this page. Our team has been automatically notified and is looking into it.
         </p>
 
+        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded text-left text-xs text-red-500 mb-8 overflow-auto">
+          <p className="font-bold mb-1">Error Details (Debug Mode):</p>
+          <p>{error?.message || "No error message provided."}</p>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={() => reset()}
