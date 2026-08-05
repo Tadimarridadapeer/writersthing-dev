@@ -304,36 +304,100 @@ export default function ProfilePage() {
     return "Unknown";
   };
 
+  function toOriginalId(uuid: string): string {
+    if (!uuid) return uuid;
+    if (typeof uuid === "string" && uuid.startsWith("00000000-0000-4000-8000-")) {
+      const hex = uuid.replace("00000000-0000-4000-8000-", "");
+      try {
+        const str = Buffer.from(hex, "hex").toString("utf8").replace(/\0/g, "");
+        if (str) return str;
+      } catch (e) {}
+    }
+    return uuid;
+  }
+
   const fetchItemsDetails = async (items: any[]) => {
     if (!items || !items.length) return [];
-    
-    const bookIds = items.filter(i => i.content_type === "book").map(i => i.content_id);
-    const storyIds = items.filter(i => i.content_type === "story").map(i => i.content_id);
-    const blogIds = items.filter(i => i.content_type === "blog").map(i => i.content_id);
-    
-    const [booksRes, storiesRes, blogsRes] = await Promise.all([
+
+    const isStory = (type: string) => ["story", "article", "post"].includes(type?.toLowerCase());
+    const isBlog = (type: string) => ["blog"].includes(type?.toLowerCase());
+    const isBook = (type: string) => ["book"].includes(type?.toLowerCase());
+
+    const bookRawIds = items.filter(i => isBook(i.content_type)).map(i => i.content_id);
+    const storyRawIds = items.filter(i => isStory(i.content_type)).map(i => i.content_id);
+    const blogRawIds = items.filter(i => isBlog(i.content_type)).map(i => i.content_id);
+
+    const bookIds = Array.from(new Set(bookRawIds.flatMap(id => [id, toOriginalId(id)]))).filter(Boolean);
+    const storyIds = Array.from(new Set(storyRawIds.flatMap(id => [id, toOriginalId(id)]))).filter(Boolean);
+    const blogIds = Array.from(new Set(blogRawIds.flatMap(id => [id, toOriginalId(id)]))).filter(Boolean);
+
+    const [booksRes, storiesRes, manuscriptsRes, blogsRes] = await Promise.all([
       bookIds.length 
         ? supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").in("id", bookIds) 
         : Promise.resolve({ data: [] }),
       storyIds.length 
         ? supabase.from("stories").select("*, authors:author_id(*, users:user_id(name))").in("id", storyIds) 
         : Promise.resolve({ data: [] }),
+      storyIds.length
+        ? supabase.from("manuscripts").select("*").in("id", storyIds)
+        : Promise.resolve({ data: [] }),
       blogIds.length 
         ? supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").in("id", blogIds) 
         : Promise.resolve({ data: [] })
     ]);
-    
-    const booksMap = new Map((booksRes.data || []).map((b: any) => [b.id, { ...b, type: "book" }]));
-    const storiesMap = new Map((storiesRes.data || []).map((a: any) => [a.id, { ...a, type: "story" }]));
-    const blogsMap = new Map((blogsRes.data || []).map((b: any) => [b.id, { ...b, type: "blog" }]));
-    
+
+    const booksMap = new Map();
+    (booksRes.data || []).forEach((b: any) => {
+      booksMap.set(b.id, { ...b, type: "book" });
+    });
+
+    const storiesMap = new Map();
+    (storiesRes.data || []).forEach((s: any) => {
+      storiesMap.set(s.id, { ...s, type: "story" });
+    });
+
+    const manuscriptsMap = new Map();
+    (manuscriptsRes.data || []).forEach((m: any) => {
+      manuscriptsMap.set(m.id, { ...m, type: "story" });
+    });
+
+    const blogsMap = new Map();
+    (blogsRes.data || []).forEach((b: any) => {
+      blogsMap.set(b.id, { ...b, type: "blog" });
+    });
+
     return items.map(item => {
       let details = null;
-      if (item.content_type === "book") details = booksMap.get(item.content_id);
-      else if (item.content_type === "story") details = storiesMap.get(item.content_id);
-      else if (item.content_type === "blog") details = blogsMap.get(item.content_id);
-      
-      return details ? { ...item, details } : null;
+      const targetId = item.content_id;
+      const origId = toOriginalId(targetId);
+
+      if (isBook(item.content_type)) {
+        details = booksMap.get(targetId) || booksMap.get(origId);
+      } else if (isStory(item.content_type)) {
+        details = storiesMap.get(targetId) || storiesMap.get(origId) || manuscriptsMap.get(targetId) || manuscriptsMap.get(origId);
+        if (!details) {
+          details = {
+            id: origId || targetId,
+            title: item.title || `Story #${origId || targetId}`,
+            body: item.description || "A captivating story from Writersthing.",
+            cover_image: item.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800",
+            work_type: "story",
+            type: "story"
+          };
+        }
+      } else if (isBlog(item.content_type)) {
+        details = blogsMap.get(targetId) || blogsMap.get(origId);
+      }
+
+      const normalizedContentType = isStory(item.content_type) 
+        ? "story" 
+        : isBlog(item.content_type) 
+        ? "blog" 
+        : isBook(item.content_type) 
+        ? "book" 
+        : item.content_type;
+
+      return details ? { ...item, content_type: normalizedContentType, details } : null;
     }).filter(Boolean);
   };
 
@@ -1121,6 +1185,7 @@ export default function ProfilePage() {
                         {(() => {
                           const filtered = likedItems.filter(item => {
                             if (likeFilter === "all") return true;
+                            if (likeFilter === "story") return ["story", "article", "post"].includes(item.content_type?.toLowerCase());
                             return item.content_type === likeFilter;
                           });
 
