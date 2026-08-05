@@ -203,7 +203,11 @@ export default function BlogPost() {
 
       // 2. Fetch likes & liked users list via API with Supabase fallback
       try {
-        const likesRes = await fetch(`/api/likes?content_id=${blogId}`);
+        const likesUrl = userObj?.id 
+          ? `/api/likes?content_id=${blogId}&user_id=${userObj.id}` 
+          : `/api/likes?content_id=${blogId}`;
+
+        const likesRes = await fetch(likesUrl);
         if (likesRes.ok) {
           const likesData = await likesRes.json();
           setLikesCount(likesData.likesCount || 0);
@@ -213,10 +217,14 @@ export default function BlogPost() {
           throw new Error("API returned non-200");
         }
       } catch (apiErr) {
+        const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(blogId)
+          ? blogId
+          : `00000000-0000-4000-8000-${Buffer.from(String(blogId)).toString("hex").padEnd(12, "0").slice(0, 12)}`;
+
         const { data: likesData } = await supabase
           .from("likes")
           .select("id, created_at, user_id, users:user_id(id, name, avatar_url)")
-          .eq("content_id", blogId)
+          .in("content_id", [blogId, validId])
           .order("created_at", { ascending: false });
 
         if (likesData) {
@@ -330,19 +338,12 @@ export default function BlogPost() {
       const currentUserName = currentUser.name || currentUser.user_metadata?.name || currentUser.user_metadata?.full_name || "You";
       const currentUserAvatar = currentUser.avatar_url || currentUser.user_metadata?.avatar_url || null;
 
-      if (isLiked) {
-        setIsLiked(false);
-        setLikesCount(prev => Math.max(0, prev - 1));
-        setLikedUsers(prev => prev.filter(u => u.id !== currentUser.id));
+      // Optimistic update
+      const newIsLiked = !isLiked;
+      setIsLiked(newIsLiked);
+      setLikesCount(prev => (newIsLiked ? prev + 1 : Math.max(0, prev - 1)));
 
-        await supabase
-          .from("likes")
-          .delete()
-          .eq("content_id", blogUuid)
-          .eq("user_id", currentUser.id);
-      } else {
-        setIsLiked(true);
-        setLikesCount(prev => prev + 1);
+      if (newIsLiked) {
         setLikedUsers(prev => [
           {
             id: currentUser.id,
@@ -352,25 +353,49 @@ export default function BlogPost() {
           },
           ...prev.filter(u => u.id !== currentUser.id)
         ]);
-
-        await supabase
-          .from("likes")
-          .insert({
-            content_type: "blog",
-            content_id: blogUuid,
-            user_id: currentUser.id
-          });
+      } else {
+        setLikedUsers(prev => prev.filter(u => u.id !== currentUser.id));
       }
 
-      const res = await fetch(`/api/likes?content_id=${blogUuid}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLikesCount(data.likesCount);
-        setIsLiked(data.isLiked);
-        if (data.likedUsers) setLikedUsers(data.likedUsers);
+      // Call POST API for server-side toggle
+      try {
+        const res = await fetch(`/api/likes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content_id: blogUuid, user_id: currentUser.id })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setIsLiked(data.isLiked);
+          setLikesCount(data.likesCount);
+          if (data.likedUsers) setLikedUsers(data.likedUsers);
+        } else {
+          throw new Error("API toggle failed");
+        }
+      } catch (apiErr) {
+        const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(blogUuid)
+          ? blogUuid
+          : `00000000-0000-4000-8000-${Buffer.from(String(blogUuid)).toString("hex").padEnd(12, "0").slice(0, 12)}`;
+
+        if (!newIsLiked) {
+          await supabase
+            .from("likes")
+            .delete()
+            .eq("content_id", validId)
+            .eq("user_id", currentUser.id);
+        } else {
+          await supabase
+            .from("likes")
+            .insert({
+              content_type: "article",
+              content_id: validId,
+              user_id: currentUser.id
+            });
+        }
       }
-    } catch (err) {
-      console.error("Like error:", err);
+    } catch (err: any) {
+      console.error("Like error:", err?.message || err);
     }
   };
 
