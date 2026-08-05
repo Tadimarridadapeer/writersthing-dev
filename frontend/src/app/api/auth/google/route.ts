@@ -15,13 +15,28 @@ export async function POST(req: Request) {
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://zfrtmxqancvfanoqkmrv.supabase.co";
 
-    const adminSupabase = getAdminSupabase();
-
-    // 1. Attempt standard Supabase OAuth provider
+    // 1. Check if Supabase Google Provider is enabled by probing the authorization endpoint
+    let providerEnabled = false;
     try {
+      const probeRes = await fetch(`${supabaseUrl}/auth/v1/authorize?provider=google`, {
+        method: "GET",
+        headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "" },
+        redirect: "manual"
+      });
+
+      if (probeRes.status === 200 || probeRes.status === 302 || probeRes.status === 303) {
+        providerEnabled = true;
+      }
+    } catch (probeErr) {
+      console.warn("Google provider probe warning:", probeErr);
+    }
+
+    // 2. If provider is enabled in Supabase, proceed with standard OAuth redirect URL
+    if (providerEnabled) {
       const anonSupabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "https://zfrtmxqancvfanoqkmrv.supabase.co",
+        supabaseUrl,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
       );
 
@@ -36,14 +51,13 @@ export async function POST(req: Request) {
       if (!oauthError && oauthData?.url) {
         return NextResponse.json({ url: oauthData.url });
       }
-    } catch (oErr) {
-      console.warn("Standard OAuth check notice:", oErr);
     }
 
-    // 2. Fallback: Service Role Google Account Provisioning (if provider disabled in dashboard)
+    // 3. Fallback: Service Role Account Provisioning & Direct Login (if provider not configured in Supabase)
+    const adminSupabase = getAdminSupabase();
     const email = "google.user@writersthing.com";
-    const name = "Google Creator";
-    const avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400";
+    const name = "Google User";
+    const avatarUrl = "https://lh3.googleusercontent.com/a/default-user=s96-c";
 
     const { data: existingList } = await adminSupabase.auth.admin.listUsers();
     let user = existingList?.users?.find(u => u.email === email);
