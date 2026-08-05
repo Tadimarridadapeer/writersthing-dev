@@ -1,33 +1,27 @@
-import { supabase } from "@/lib/supabase";
-
 export async function signInWithGoogle(redirectTo?: string) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const callbackUrl = `${origin}/auth/callback${redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : ""}`;
+  const res = await fetch("/api/auth/google", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ redirectTo: redirectTo || "/marketplace" })
+  });
 
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: callbackUrl,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account"
-        }
-      }
-    });
+  const data = await res.json();
 
-    if (error) {
-      if (error.message?.includes("provider is not enabled") || (error as any).status === 400) {
-        throw new Error("Google Sign-In is not enabled in your Supabase project yet. Please enable Google in Supabase Dashboard > Authentication > Providers.");
-      }
-      throw error;
-    }
-
-    return data;
-  } catch (err: any) {
-    if (err?.message?.includes("provider is not enabled")) {
-      throw new Error("Google Sign-In is not enabled in your Supabase project yet. Please enable Google in Supabase Dashboard > Authentication > Providers.");
-    }
-    throw err;
+  if (!res.ok || data.error) {
+    throw new Error(data.error || "Failed to sign in with Google.");
   }
+
+  if (data.url) {
+    window.location.href = data.url;
+    return;
+  }
+
+  if (data.user) {
+    localStorage.setItem("user", JSON.stringify(data.user));
+    window.dispatchEvent(new Event("storage"));
+    window.location.href = data.redirectTo || "/marketplace";
+    return data;
+  }
+
+  throw new Error("Invalid server response for Google Auth.");
 }
