@@ -405,26 +405,30 @@ export default function BlogPost() {
       return;
     }
     const blogUuid = params.id as string;
+    const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(blogUuid)
+      ? blogUuid
+      : `00000000-0000-4000-8000-${Buffer.from(String(blogUuid)).toString("hex").padEnd(12, "0").slice(0, 12)}`;
+
     try {
       if (isSaved) {
+        setIsSaved(false);
         await supabase
           .from("saves")
           .delete()
-          .eq("content_id", blogUuid)
+          .in("content_id", [blogUuid, validId])
           .eq("user_id", currentUser.id);
-        setIsSaved(false);
       } else {
+        setIsSaved(true);
         await supabase
           .from("saves")
           .insert({
             content_type: "blog",
-            content_id: blogUuid,
+            content_id: validId,
             user_id: currentUser.id
           });
-        setIsSaved(true);
       }
-    } catch (err) {
-      console.error("Save error:", err);
+    } catch (err: any) {
+      console.error("Save error:", err?.message || err);
     }
   };
 

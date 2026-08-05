@@ -413,26 +413,30 @@ export default function StoryPost() {
       return;
     }
     const storyUuid = params.id as string;
+    const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storyUuid)
+      ? storyUuid
+      : `00000000-0000-4000-8000-${Buffer.from(String(storyUuid)).toString("hex").padEnd(12, "0").slice(0, 12)}`;
+
     try {
       if (isSaved) {
+        setIsSaved(false);
         await supabase
           .from("saves")
           .delete()
-          .eq("content_id", storyUuid)
+          .in("content_id", [storyUuid, validId])
           .eq("user_id", currentUser.id);
-        setIsSaved(false);
       } else {
+        setIsSaved(true);
         await supabase
           .from("saves")
           .insert({
-            content_type: "story",
-            content_id: storyUuid,
+            content_type: "article",
+            content_id: validId,
             user_id: currentUser.id
           });
-        setIsSaved(true);
       }
-    } catch (err) {
-      console.error("Save error:", err);
+    } catch (err: any) {
+      console.error("Save error:", err?.message || err);
     }
   };
 

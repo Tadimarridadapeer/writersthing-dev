@@ -507,6 +507,22 @@ export default function ProfilePage() {
         readedSaves = uniqueImpressions;
       }
 
+      // Merge saved stories and items into My Library
+      if (savesRes.data && savesRes.data.length > 0) {
+        const seen = new Set(readedSaves.map((i: any) => `${i.content_type}-${i.content_id}`));
+        savesRes.data.forEach((save: any) => {
+          const key = `${save.content_type}-${save.content_id}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            readedSaves.push({
+              content_type: save.content_type,
+              content_id: save.content_id,
+              created_at: save.created_at || new Date().toISOString()
+            });
+          }
+        });
+      }
+
       // Merge purchased books that aren't already logged in impressions
       if (libRes.data) {
         libRes.data.forEach((lib: any) => {
