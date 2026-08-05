@@ -6,6 +6,7 @@ import { ArrowLeft, Clock, User, Share2, Loader2, Heart, MessageSquare, Bookmark
 import { supabase } from "@/lib/supabase";
 import { ReviewSection } from "@/components/ReviewSection";
 import LanguageSelector from "@/components/LanguageSelector";
+import LikedByUsers, { LikedUser } from "@/components/LikedByUsers";
 
 function renderMarkdown(content: string): string {
   if (!content) return "";
@@ -96,6 +97,7 @@ export default function BlogPost() {
   // Engagement states
   const [likesCount, setLikesCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
+  const [likedUsers, setLikedUsers] = useState<LikedUser[]>([]);
   const [isSaved, setIsSaved] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -199,24 +201,44 @@ export default function BlogPost() {
         viewer_id: userObj?.id || null
       });
 
-      // 2. Fetch likes count
-      const { count: likes } = await supabase
-        .from("likes")
-        .select("*", { count: "exact", head: true })
-        .eq("content_id", blogId);
-      setLikesCount(likes || 0);
+      // 2. Fetch likes & liked users list via API with Supabase fallback
+      try {
+        const likesRes = await fetch(`/api/likes?content_id=${blogId}`);
+        if (likesRes.ok) {
+          const likesData = await likesRes.json();
+          setLikesCount(likesData.likesCount || 0);
+          setIsLiked(!!likesData.isLiked);
+          setLikedUsers(likesData.likedUsers || []);
+        } else {
+          throw new Error("API returned non-200");
+        }
+      } catch (apiErr) {
+        const { data: likesData } = await supabase
+          .from("likes")
+          .select("id, created_at, user_id, users:user_id(id, name, avatar_url)")
+          .eq("content_id", blogId)
+          .order("created_at", { ascending: false });
+
+        if (likesData) {
+          setLikesCount(likesData.length);
+          const mappedUsers = likesData.map((l: any) => {
+            const u = Array.isArray(l.users) ? l.users[0] : l.users;
+            return {
+              id: l.user_id,
+              name: u?.name || "Reader",
+              avatar_url: u?.avatar_url || null,
+              liked_at: l.created_at
+            };
+          });
+          setLikedUsers(mappedUsers);
+          if (userObj) {
+            setIsLiked(mappedUsers.some((u: any) => u.id === userObj.id));
+          }
+        }
+      }
 
       if (userObj) {
-        // 3. Check if current user liked it
-        const { data: like } = await supabase
-          .from("likes")
-          .select("*")
-          .eq("content_id", blogId)
-          .eq("user_id", userObj.id)
-          .maybeSingle();
-        setIsLiked(!!like);
-
-        // 4. Check if current user saved it
+        // Check if current user saved it
         const { data: save } = await supabase
           .from("saves")
           .select("*")
@@ -226,7 +248,7 @@ export default function BlogPost() {
         setIsSaved(!!save);
       }
 
-      // 5. Fetch comments
+      // Fetch comments
       const { data: comms } = await supabase
         .from("comments")
         .select("*, users:user_id(name, avatar_url)")
@@ -295,15 +317,32 @@ export default function BlogPost() {
     }
     const blogUuid = params.id as string;
     try {
+      const currentUserName = currentUser.name || currentUser.user_metadata?.name || currentUser.user_metadata?.full_name || "You";
+      const currentUserAvatar = currentUser.avatar_url || currentUser.user_metadata?.avatar_url || null;
+
       if (isLiked) {
+        setIsLiked(false);
+        setLikesCount(prev => Math.max(0, prev - 1));
+        setLikedUsers(prev => prev.filter(u => u.id !== currentUser.id));
+
         await supabase
           .from("likes")
           .delete()
           .eq("content_id", blogUuid)
           .eq("user_id", currentUser.id);
-        setIsLiked(false);
-        setLikesCount(prev => Math.max(0, prev - 1));
       } else {
+        setIsLiked(true);
+        setLikesCount(prev => prev + 1);
+        setLikedUsers(prev => [
+          {
+            id: currentUser.id,
+            name: currentUserName,
+            avatar_url: currentUserAvatar,
+            liked_at: new Date().toISOString()
+          },
+          ...prev.filter(u => u.id !== currentUser.id)
+        ]);
+
         await supabase
           .from("likes")
           .insert({
@@ -311,8 +350,14 @@ export default function BlogPost() {
             content_id: blogUuid,
             user_id: currentUser.id
           });
-        setIsLiked(true);
-        setLikesCount(prev => prev + 1);
+      }
+
+      const res = await fetch(`/api/likes?content_id=${blogUuid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLikesCount(data.likesCount);
+        setIsLiked(data.isLiked);
+        if (data.likedUsers) setLikedUsers(data.likedUsers);
       }
     } catch (err) {
       console.error("Like error:", err);
@@ -593,31 +638,40 @@ export default function BlogPost() {
 
             return (
               <>
-                {/* Social Stats Summary (Interactive) */}
-                <div className="flex items-center gap-6 py-6 border-y border-zinc-100 text-sm text-zinc-500 mb-16 select-none">
-                  <button 
-                    onClick={handleLike} 
-                    className={`flex items-center gap-1.5 transition-all ${isLiked ? "text-rose-600 font-bold" : "hover:text-black"}`}
-                  >
-                    <Heart size={16} className={`text-rose-500 ${isLiked ? "fill-rose-500" : ""}`} /> 
-                    {likesCount} {likesCount === 1 ? "like" : "likes"}
-                  </button>
-                  <button 
-                    onClick={handleSave} 
-                    className={`flex items-center gap-1.5 transition-all ${isSaved ? "text-amber-600 font-bold" : "hover:text-black"}`}
-                  >
-                    <Bookmark size={16} className={`text-amber-500 ${isSaved ? "fill-amber-500" : ""}`} /> 
-                    {isSaved ? "Saved" : "Save story"}
-                  </button>
-                  <span className="flex items-center gap-1.5">
-                    <MessageSquare size={16} className="text-blue-500" /> 
-                    {comments.length} comments
-                  </span>
-                  {avgRating && (
-                    <span className="flex items-center gap-1 text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-0.5 rounded font-black">
-                      ★ {avgRating} Avg Rating
+                {/* Social Stats Summary & Liked By Component */}
+                <div className="py-6 border-y border-zinc-100 mb-16 select-none space-y-4">
+                  <LikedByUsers 
+                    likedUsers={likedUsers} 
+                    likesCount={likesCount} 
+                    isLiked={isLiked} 
+                    onLikeToggle={handleLike} 
+                  />
+
+                  <div className="flex flex-wrap items-center gap-6 text-sm text-zinc-500 pt-2 border-t border-zinc-50">
+                    <button 
+                      onClick={handleLike} 
+                      className={`flex items-center gap-1.5 transition-all ${isLiked ? "text-rose-600 font-bold" : "hover:text-black"}`}
+                    >
+                      <Heart size={16} className={`text-rose-500 ${isLiked ? "fill-rose-500" : ""}`} /> 
+                      {likesCount} {likesCount === 1 ? "like" : "likes"}
+                    </button>
+                    <button 
+                      onClick={handleSave} 
+                      className={`flex items-center gap-1.5 transition-all ${isSaved ? "text-amber-600 font-bold" : "hover:text-black"}`}
+                    >
+                      <Bookmark size={16} className={`text-amber-500 ${isSaved ? "fill-amber-500" : ""}`} /> 
+                      {isSaved ? "Saved" : "Save story"}
+                    </button>
+                    <span className="flex items-center gap-1.5">
+                      <MessageSquare size={16} className="text-blue-500" /> 
+                      {comments.length} comments
                     </span>
-                  )}
+                    {avgRating && (
+                      <span className="flex items-center gap-1 text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-0.5 rounded font-black">
+                        ★ {avgRating} Avg Rating
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Comments Section */}
