@@ -43,8 +43,9 @@ export default function BookDetailPage() {
   }, [params.id]);
 
   useEffect(() => {
+    const channelId = `book-reviews-${params.id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
-      .channel(`book-reviews-${params.id}`)
+      .channel(channelId)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reviews", filter: `book_id=eq.${params.id}` },
