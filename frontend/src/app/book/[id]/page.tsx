@@ -501,7 +501,7 @@ export default function BookDetailPage() {
                       title: book.title,
                       price: book.price,
                       cover_url: book.cover_url || book.cover_image,
-                      author_name: getAuthorName(book)
+                      author_name: book.authors?.users?.name || book.author?.name || "Author"
                     });
                     setIsAddedToCart(true);
                   }}
