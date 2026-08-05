@@ -18,10 +18,12 @@ import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { ReviewSection } from "@/components/ReviewSection";
 import AvatarWithBadge from "@/components/AvatarWithBadge";
+import { useCart } from "@/hooks/useCart";
 
 export default function BookDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { addToCart, cart } = useCart();
   const [book, setBook] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [isAddedToCart, setIsAddedToCart] = useState(false);
@@ -493,15 +495,24 @@ export default function BookDetailPage() {
 
               <div className="flex gap-3">
                 <button 
-                  onClick={() => setIsAddedToCart(!isAddedToCart)}
-                  className={`px-5 py-3.5 font-black text-[9px] uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-2 border rounded-xl ${
-                    isAddedToCart 
-                      ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-300" 
+                  onClick={() => {
+                    addToCart({
+                      id: book.id,
+                      title: book.title,
+                      price: book.price,
+                      cover_url: book.cover_url || book.cover_image,
+                      author_name: getAuthorName(book)
+                    });
+                    setIsAddedToCart(true);
+                  }}
+                  className={`px-5 py-3.5 font-black text-[9px] uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-2 border rounded-xl cursor-pointer ${
+                    cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart 
+                      ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" 
                       : "bg-transparent border-zinc-700 text-white hover:bg-zinc-900"
                   }`}
                 >
                   <ShoppingBag size={12} />
-                  {isAddedToCart ? "Added" : "Cart"}
+                  {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
                 </button>
                 <button 
                   onClick={handleBuyNow}

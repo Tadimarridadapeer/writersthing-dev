@@ -27,8 +27,13 @@ import {
   Bell,
   Check,
   Globe,
-  BarChart2
+  BarChart2,
+  ShoppingBag,
+  Trash2,
+  Plus,
+  Minus
 } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
 import { uploadAvatar } from "@/lib/avatar";
 import { ensureAuthorProfile } from "@/lib/author";
 import Link from "next/link";
@@ -290,6 +295,7 @@ export default function ProfilePage() {
   const [libraryFilter, setLibraryFilter] = useState<"all" | "book" | "story" | "blog">("all");
   const [bookmarkFilter, setBookmarkFilter] = useState<"all" | "book" | "story" | "blog">("all");
   const [likeFilter, setLikeFilter] = useState<"all" | "book" | "story" | "blog">("all");
+  const { cart, updateQuantity, removeFromCart, clearCart, cartCount, cartSubtotal } = useCart();
   const [readedItems, setReadedItems] = useState<any[]>([]);
   const [publishedItems, setPublishedItems] = useState<any[]>([]);
   const [hasImpressionsError, setHasImpressionsError] = useState(false);
@@ -833,6 +839,7 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Book size={18} />} label="My Library" active={activeSection === "Library"} onClick={() => setActiveSection("Library")} />
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
+                <ProfileNavBtn icon={<ShoppingBag size={18} />} label="My Cart" active={activeSection === "Cart"} onClick={() => setActiveSection("Cart")} />
                 {user?.role !== "Reader" && (
                   <>
                     <ProfileNavBtn icon={<BarChart2 size={18} />} label="Analytics" active={activeSection === "Analytics"} onClick={() => setActiveSection("Analytics")} />
@@ -1282,6 +1289,64 @@ export default function ProfilePage() {
                         })()}
                       </div>
                     )
+                  )}
+
+                  {activeSection === "Cart" && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
+                        <div>
+                          <h2 className="font-heading font-black text-2xl uppercase tracking-tight">My Shopping Cart ({cartCount})</h2>
+                          <p className="text-xs text-zinc-400 font-medium">Manage items added to your cart or proceed to checkout.</p>
+                        </div>
+                        <Link href="/cart" className="px-6 py-2.5 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2">
+                          Full Cart View <ArrowRight size={14} />
+                        </Link>
+                      </div>
+
+                      {cart.length === 0 ? (
+                        <div className="py-16 text-center space-y-4 border border-dashed border-zinc-200 rounded-xl p-8">
+                          <ShoppingBag size={32} className="text-zinc-300 mx-auto" />
+                          <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Your cart is currently empty</p>
+                          <Link href="/marketplace" className="inline-block px-6 py-2.5 border border-zinc-200 text-xs font-black uppercase tracking-widest hover:bg-zinc-50 transition-all">
+                            Browse Marketplace
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {cart.map((item) => (
+                            <div key={item.id} className="p-4 border border-zinc-100 rounded-xl bg-zinc-50 flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-16 bg-zinc-200 rounded-lg overflow-hidden shrink-0">
+                                  <OptimizedImage src={item.cover_url || "/placeholder-cover.jpg"} alt={item.title} variant="book-cover" className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                  <h4 className="font-heading font-bold text-base uppercase tracking-tight">{item.title}</h4>
+                                  <p className="text-xs text-zinc-400">by {item.author_name || "Author"}</p>
+                                  <p className="text-xs font-black text-zinc-900 mt-1">${item.price.toFixed(2)} x {item.quantity}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 border border-zinc-200 bg-white rounded-lg flex items-center justify-center text-xs font-bold hover:bg-zinc-100 cursor-pointer">-</button>
+                                <span className="text-xs font-black">{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 border border-zinc-200 bg-white rounded-lg flex items-center justify-center text-xs font-bold hover:bg-zinc-100 cursor-pointer">+</button>
+                                <button onClick={() => removeFromCart(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg ml-2 cursor-pointer" title="Remove"><Trash2 size={14} /></button>
+                              </div>
+                            </div>
+                          ))}
+
+                          <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
+                            <div>
+                              <span className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Subtotal</span>
+                              <p className="text-xl font-black text-zinc-900">${cartSubtotal.toFixed(2)}</p>
+                            </div>
+                            <Link href="/cart" className="px-8 py-3 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all">
+                              Proceed to Checkout
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {activeSection === "Preferences" && (

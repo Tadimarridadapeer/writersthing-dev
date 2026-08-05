@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Bookmark, MoreHorizontal, Search, X } from "lucide-react";
+import { Loader2, Bookmark, MoreHorizontal, Search, X, ShoppingBag } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { RecommendationsPayload } from "@/types/recommendations";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { ContinueReadingSection } from "@/components/ContinueReadingSection";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useCart } from "@/hooks/useCart";
 
 function MarketplaceContent() {
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const searchParams = useSearchParams();
   const typeParam = searchParams?.get("type");
   const initialFeedType = typeParam === "Book" ? "books" : 
@@ -257,6 +259,25 @@ function MarketplaceContent() {
                 
                 {activeMenu === `${mappedItem.type}-${mappedItem.id}` && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 shadow-xl rounded-sm py-2 z-50 text-sm font-medium text-zinc-600">
+                    <button 
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        addToCart({
+                          id: mappedItem.id,
+                          title: mappedItem.title,
+                          price: mappedItem.price || 14.99,
+                          cover_url: mappedItem.cover,
+                          author_name: mappedItem.author
+                        });
+                        setToast({ message: `Added "${mappedItem.title}" to cart!`, type: "success" }); 
+                        setActiveMenu(null); 
+                      }} 
+                      className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors flex items-center gap-2 cursor-pointer font-bold text-black"
+                    >
+                      <ShoppingBag size={14} /> Add to Cart
+                    </button>
+                    <div className="h-px bg-zinc-100 my-1" />
                     <button 
                       onClick={(e) => { 
                         e.preventDefault(); 
