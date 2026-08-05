@@ -35,7 +35,7 @@ export default function FAQsPage() {
     },
     {
       question: "Can I earn money from my books?",
-      answer: "Yes. You keep a significant percentage of the royalties from every book sold on our marketplace, transferred directly to your registered bank account."
+      answer: "Yes. You keep a significant percentage of the royalties from every book sold on our marketplace, transferred directly to your registered UPI ID."
     },
     {
       question: "Can I edit my story after publishing?",

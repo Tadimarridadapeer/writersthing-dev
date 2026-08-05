@@ -18,10 +18,7 @@ CREATE TABLE public.users (
 -- 2. Authors Profile (Extended Details)
 CREATE TABLE public.authors (
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE PRIMARY KEY,
-  bank_account_number TEXT,
-  bank_ifsc_code TEXT,
-  bank_name TEXT,
-  account_holder_name TEXT,
+  upi_ids JSONB DEFAULT '[]'::jsonb,
   total_earnings DECIMAL(12, 2) DEFAULT 0.00,
   followers_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL

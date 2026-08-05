@@ -55,25 +55,17 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
 
-  const [bankAccNo, setBankAccNo] = useState("");
-  const [bankIfsc, setBankIfsc] = useState("");
-  const [bankHolder, setBankHolder] = useState("");
+  const [upiIds, setUpiIds] = useState<{id: string; upi_id: string; is_default: boolean}[]>([]);
+  const [newUpiId, setNewUpiId] = useState("");
+  const [upiError, setUpiError] = useState("");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   
   useEffect(() => {
-    if (user && user.bank_details) {
+    if (user?.id) {
       try {
-        const parsed = JSON.parse(user.bank_details);
-        if (parsed && typeof parsed === "object") {
-          setBankAccNo(parsed.account_number || "");
-          setBankIfsc(parsed.ifsc_code || "");
-          setBankHolder(parsed.account_holder_name || "");
-        } else {
-          setBankAccNo(user.bank_details);
-        }
-      } catch (e) {
-        setBankAccNo(user.bank_details);
-      }
+        const stored = localStorage.getItem(`upi_ids_${user.id}`);
+        if (stored) setUpiIds(JSON.parse(stored));
+      } catch(e) { /* ignore */ }
     }
   }, [user]);
 
@@ -1409,74 +1401,89 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Section 2: Payout Information */}
+                      {/* Section 2: UPI Payment Settings */}
                       <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. Creator Payouts</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. UPI Payment Settings</h4>
                         <div className="max-w-xl space-y-6">
-                          <div className="space-y-4">
-                            <div>
-                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">Account Holder Name</label>
+                          {/* Add New UPI ID */}
+                          <div className="space-y-3">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Add UPI ID</label>
+                            <div className="flex gap-3">
                               <input 
                                 type="text"
-                                value={bankHolder}
-                                onChange={(e) => setBankHolder(e.target.value)}
-                                placeholder="ENTER ACCOUNT HOLDER NAME"
-                                className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
+                                value={newUpiId}
+                                onChange={(e) => { setNewUpiId(e.target.value.toLowerCase()); setUpiError(""); }}
+                                placeholder="yourname@upi"
+                                className="flex-1 bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
                               />
+                              <button
+                                onClick={() => {
+                                  const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+                                  if (!newUpiId.trim()) { setUpiError("UPI ID is required"); return; }
+                                  if (!upiRegex.test(newUpiId.trim())) { setUpiError("Invalid UPI ID format (e.g. name@upi)"); return; }
+                                  if (upiIds.some(u => u.upi_id === newUpiId.trim())) { setUpiError("This UPI ID already exists"); return; }
+                                  const entry = { id: Date.now().toString(), upi_id: newUpiId.trim(), is_default: upiIds.length === 0 };
+                                  const updated = [...upiIds, entry];
+                                  setUpiIds(updated);
+                                  localStorage.setItem(`upi_ids_${user.id}`, JSON.stringify(updated));
+                                  setNewUpiId("");
+                                  setUpiError("");
+                                  setToast({ message: "UPI ID added successfully", type: "success" });
+                                }}
+                                className="px-6 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm cursor-pointer whitespace-nowrap"
+                              >
+                                Add
+                              </button>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">Account Number</label>
-                                <input 
-                                  type="text"
-                                  value={bankAccNo}
-                                  onChange={(e) => setBankAccNo(e.target.value)}
-                                  placeholder="ENTER ACCOUNT NUMBER"
-                                  className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">IFSC Code</label>
-                                <input 
-                                  type="text"
-                                  value={bankIfsc}
-                                  onChange={(e) => setBankIfsc(e.target.value)}
-                                  placeholder="ENTER IFSC CODE"
-                                  className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
-                                />
-                              </div>
-                            </div>
-                            <p className="text-[9px] uppercase tracking-wider text-zinc-400 mt-2 font-medium leading-relaxed">This banking detail is used for payouts of purchase royalties from your published manuscripts.</p>
+                            {upiError && <p className="text-[9px] font-black uppercase tracking-widest text-red-500">{upiError}</p>}
                           </div>
 
-                          <button 
-                            onClick={async () => {
-                              const payload = JSON.stringify({
-                                account_number: bankAccNo,
-                                ifsc_code: bankIfsc,
-                                account_holder_name: bankHolder
-                              });
-                              
-                              setIsSavingSettings(true);
-                              try {
-                                const { error } = await supabase.from('users').update({ bank_details: payload }).eq('id', user.id);
-                                if (error) throw error;
-                                const updated = { ...user, bank_details: payload };
-                                setUser(updated);
-                                localStorage.setItem("user", JSON.stringify(updated));
-                                setToast({ message: "Settings saved successfully", type: "success" });
-                              } catch (err: any) {
-                                setToast({ message: err.message, type: "error" });
-                              } finally {
-                                setIsSavingSettings(false);
-                              }
-                            }}
-                            disabled={isSavingSettings}
-                            className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer rounded-sm"
-                          >
-                            {isSavingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
-                          </button>
+                          {/* Saved UPI IDs */}
+                          {upiIds.length > 0 && (
+                            <div className="space-y-3">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Saved UPI IDs</label>
+                              <div className="space-y-2">
+                                {upiIds.map((item) => (
+                                  <div key={item.id} className="flex items-center justify-between bg-zinc-50 border border-zinc-100 p-4 rounded-sm group hover:border-zinc-200 transition-all">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-2 h-2 rounded-full ${item.is_default ? 'bg-green-500' : 'bg-zinc-300'}`} />
+                                      <span className="text-xs font-bold text-zinc-900 tracking-wide">{item.upi_id}</span>
+                                      {item.is_default && <span className="text-[8px] font-black uppercase tracking-widest bg-green-50 text-green-600 px-2 py-0.5 rounded-sm border border-green-100">Default</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {!item.is_default && (
+                                        <button
+                                          onClick={() => {
+                                            const updated = upiIds.map(u => ({ ...u, is_default: u.id === item.id }));
+                                            setUpiIds(updated);
+                                            localStorage.setItem(`upi_ids_${user.id}`, JSON.stringify(updated));
+                                            setToast({ message: "Default UPI updated", type: "success" });
+                                          }}
+                                          className="text-[8px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors cursor-pointer"
+                                        >
+                                          Set Default
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          let updated = upiIds.filter(u => u.id !== item.id);
+                                          if (item.is_default && updated.length > 0) updated[0].is_default = true;
+                                          setUpiIds(updated);
+                                          localStorage.setItem(`upi_ids_${user.id}`, JSON.stringify(updated));
+                                          setToast({ message: "UPI ID removed", type: "success" });
+                                        }}
+                                        className="text-[8px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-medium leading-relaxed">Your UPI ID is used for receiving royalty payouts from published manuscripts. The default UPI ID will be used for all payouts.</p>
                         </div>
                       </div>
 

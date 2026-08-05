@@ -15,9 +15,9 @@ import { useState } from "react";
 
 export default function AdminPayoutsPage() {
   const payouts = [
-    { id: "1", author: "Tadimarri Dadapeer", amount: "₹12,450", status: "Pending", requested: "2 days ago", bank: "HDFC Bank •••• 4242" },
-    { id: "2", author: "Elena Vance", amount: "₹8,100", status: "Processed", requested: "5 days ago", bank: "ICICI Bank •••• 9876" },
-    { id: "3", author: "Marcus Thorne", amount: "₹15,900", status: "Pending", requested: "1 day ago", bank: "SBI Bank •••• 1122" },
+    { id: "1", author: "Tadimarri Dadapeer", amount: "₹12,450", status: "Pending", requested: "2 days ago", upi: "dadapeer@ybl" },
+    { id: "2", author: "Elena Vance", amount: "₹8,100", status: "Processed", requested: "5 days ago", upi: "elena.vance@paytm" },
+    { id: "3", author: "Marcus Thorne", amount: "₹15,900", status: "Pending", requested: "1 day ago", upi: "marcus.t@okicici" },
   ];
 
   return (
@@ -45,7 +45,7 @@ export default function AdminPayoutsPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-zinc-50 bg-zinc-50/50">
-                <th className="p-8 text-[10px] font-black uppercase tracking-widest text-zinc-400">Author & Bank</th>
+                <th className="p-8 text-[10px] font-black uppercase tracking-widest text-zinc-400">Author & UPI</th>
                 <th className="p-8 text-[10px] font-black uppercase tracking-widest text-zinc-400">Amount</th>
                 <th className="p-8 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
                 <th className="p-8 text-[10px] font-black uppercase tracking-widest text-zinc-400">Requested</th>
@@ -62,7 +62,7 @@ export default function AdminPayoutsPage() {
                       </div>
                       <div>
                         <h4 className="font-heading font-bold text-lg mb-1">{payout.author}</h4>
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{payout.bank}</p>
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{payout.upi}</p>
                       </div>
                     </div>
                   </td>
