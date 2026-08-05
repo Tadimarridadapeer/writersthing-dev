@@ -248,13 +248,23 @@ export default function BlogPost() {
         setIsSaved(!!save);
       }
 
-      // Fetch comments
-      const { data: comms } = await supabase
-        .from("comments")
-        .select("*, users:user_id(name, avatar_url)")
-        .eq("content_id", blogId)
-        .order("created_at", { ascending: true });
-      if (comms) setComments(comms);
+      // 5. Fetch comments via API with Supabase fallback
+      try {
+        const commsRes = await fetch(`/api/comments?content_id=${blogId}`);
+        if (commsRes.ok) {
+          const commsData = await commsRes.json();
+          if (commsData.comments) setComments(commsData.comments);
+        } else {
+          throw new Error("API returned non-200");
+        }
+      } catch (commsErr) {
+        const { data: comms } = await supabase
+          .from("comments")
+          .select("*, users:user_id(name, avatar_url)")
+          .or(`content_id.eq.${blogId},post_id.eq.${blogId}`)
+          .order("created_at", { ascending: true });
+        if (comms) setComments(comms);
+      }
 
     } catch (err) {
       console.warn("Engagement tables not established yet. Run schema editor migration.", err);
@@ -403,22 +413,54 @@ export default function BlogPost() {
     setSubmittingComment(true);
     const blogUuid = params.id as string;
     try {
-      const { data, error } = await supabase
-        .from("comments")
-        .insert({
-          content_type: "blog",
-          content_id: blogUuid,
-          user_id: currentUser.id,
-          comment_text: newComment.trim() || null,
-          rating: commentRating > 0 ? commentRating : null
-        })
-        .select("*, users:user_id(name, avatar_url)")
-        .single();
+      let postedComment = null;
 
-      if (error) throw error;
-      
-      if (data) {
-        setComments(prev => [...prev, data]);
+      try {
+        const res = await fetch(`/api/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content_type: "blog",
+            content_id: blogUuid,
+            post_id: blogUuid,
+            comment_text: newComment.trim() || null,
+            rating: commentRating > 0 ? commentRating : null,
+            user_id: currentUser.id
+          })
+        });
+
+        if (res.ok) {
+          const resData = await res.json();
+          postedComment = resData.comment;
+        } else {
+          throw new Error("API POST error");
+        }
+      } catch (apiErr) {
+        const { data, error } = await supabase
+          .from("comments")
+          .insert({
+            content_type: "blog",
+            content_id: blogUuid,
+            post_id: blogUuid,
+            user_id: currentUser.id,
+            comment_text: newComment.trim() || null,
+            rating: commentRating > 0 ? commentRating : null
+          })
+          .select("*, users:user_id(name, avatar_url)")
+          .single();
+
+        if (error) throw error;
+        postedComment = data;
+      }
+
+      if (postedComment) {
+        if (!postedComment.users) {
+          postedComment.users = {
+            name: currentUser.name || currentUser.user_metadata?.name || "Reader",
+            avatar_url: currentUser.avatar_url || currentUser.user_metadata?.avatar_url || null
+          };
+        }
+        setComments(prev => [...prev, postedComment]);
         setNewComment("");
         setCommentRating(0);
       }
