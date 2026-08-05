@@ -422,7 +422,6 @@ export default function BlogPost() {
           body: JSON.stringify({
             content_type: "blog",
             content_id: blogUuid,
-            post_id: blogUuid,
             comment_text: newComment.trim() || null,
             rating: commentRating > 0 ? commentRating : null,
             user_id: currentUser.id
@@ -433,15 +432,20 @@ export default function BlogPost() {
           const resData = await res.json();
           postedComment = resData.comment;
         } else {
-          throw new Error("API POST error");
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || "API POST error");
         }
-      } catch (apiErr) {
+      } catch (apiErr: any) {
+        console.warn("API comment submit error, trying client fallback:", apiErr?.message || apiErr);
+        const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(blogUuid)
+          ? blogUuid
+          : `00000000-0000-4000-8000-${Buffer.from(String(blogUuid)).toString("hex").padEnd(12, "0").slice(0, 12)}`;
+
         const { data, error } = await supabase
           .from("comments")
           .insert({
             content_type: "blog",
-            content_id: blogUuid,
-            post_id: blogUuid,
+            content_id: validId,
             user_id: currentUser.id,
             comment_text: newComment.trim() || null,
             rating: commentRating > 0 ? commentRating : null
@@ -449,7 +453,7 @@ export default function BlogPost() {
           .select("*, users:user_id(name, avatar_url)")
           .single();
 
-        if (error) throw error;
+        if (error) throw new Error(error.message || JSON.stringify(error));
         postedComment = data;
       }
 
@@ -464,8 +468,8 @@ export default function BlogPost() {
         setNewComment("");
         setCommentRating(0);
       }
-    } catch (err) {
-      console.error("Comment submit error:", err);
+    } catch (err: any) {
+      console.error("Comment submit error:", err?.message || JSON.stringify(err));
     } finally {
       setSubmittingComment(false);
     }

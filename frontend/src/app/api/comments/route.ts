@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { supabase } from "@/lib/supabase";
 
 function getSupabaseServer() {
   return createServerClient(
@@ -18,30 +17,40 @@ function getSupabaseServer() {
   );
 }
 
+function toValidUUID(id: string): string {
+  if (!id) return "00000000-0000-4000-8000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return id;
+  }
+  const hex = Buffer.from(String(id)).toString("hex").padEnd(12, "0").slice(0, 12);
+  return `00000000-0000-4000-8000-${hex}`;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const contentId = searchParams.get("content_id") || searchParams.get("post_id") || searchParams.get("id");
+    const rawId = searchParams.get("content_id") || searchParams.get("post_id") || searchParams.get("id");
 
-    if (!contentId) {
+    if (!rawId) {
       return NextResponse.json({ error: "content_id or post_id is required" }, { status: 400 });
     }
 
+    const uuid = toValidUUID(rawId);
     const supabaseServer = getSupabaseServer();
 
-    // Query comments with user details join
+    // Query comments matching either rawId or converted UUID
     const { data: commentsData, error } = await supabaseServer
       .from("comments")
       .select("*, users:user_id(name, avatar_url)")
-      .or(`content_id.eq.${contentId},post_id.eq.${contentId}`)
+      .in("content_id", [rawId, uuid])
       .order("created_at", { ascending: true });
 
     if (error) {
-      // Fallback query if OR clause or join encounters schema cache lag
+      // Fallback query without table joins if schema cache lags
       const { data: fallbackComments, error: fallbackErr } = await supabaseServer
         .from("comments")
         .select("*")
-        .or(`content_id.eq.${contentId},post_id.eq.${contentId}`)
+        .in("content_id", [rawId, uuid])
         .order("created_at", { ascending: true });
 
       if (fallbackErr) throw fallbackErr;
@@ -68,8 +77,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ comments: commentsData || [] });
 
   } catch (err: any) {
-    console.error("GET /api/comments error:", err);
-    return NextResponse.json({ error: err.message || "Failed to fetch comments" }, { status: 500 });
+    console.error("GET /api/comments error:", err?.message || err);
+    return NextResponse.json({ error: err?.message || "Failed to fetch comments" }, { status: 500 });
   }
 }
 
@@ -77,7 +86,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const {
-      content_type = "story",
+      content_type = "article",
       content_id,
       post_id,
       comment_text,
@@ -85,9 +94,9 @@ export async function POST(req: Request) {
       user_id: payloadUserId
     } = body;
 
-    const targetId = content_id || post_id;
-    if (!targetId) {
-      return NextResponse.json({ error: "content_id or post_id is required" }, { status: 400 });
+    const rawId = content_id || post_id;
+    if (!rawId) {
+      return NextResponse.json({ error: "content_id is required" }, { status: 400 });
     }
 
     if (!comment_text && !rating) {
@@ -102,41 +111,51 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User authentication required" }, { status: 401 });
     }
 
-    // Prepare insert record handling both legacy post_id and content_id fields
-    const insertPayload: any = {
+    const uuid = toValidUUID(rawId);
+
+    // Attempt insertion with requested content_type first
+    let insertPayload: any = {
       user_id: activeUserId,
-      content_type: content_type || "story",
+      content_type: content_type || "article",
+      content_id: uuid,
       comment_text: comment_text?.trim() || null,
       rating: rating > 0 ? rating : null
     };
 
-    if (targetId) {
-      insertPayload.content_id = targetId;
-      insertPayload.post_id = targetId;
-    }
-
-    // Try server client insert first
     let { data: newComment, error: insertError } = await supabaseServer
       .from("comments")
       .insert(insertPayload)
       .select("*, users:user_id(name, avatar_url)")
       .single();
 
+    // If check constraint fails for 'story', retry with 'article' or 'blog'
     if (insertError) {
-      console.warn("Server client insert error, attempting fallback insert:", insertError.message);
+      console.warn("Primary insert error, retrying with fallback content_type 'article':", insertError.message);
       
-      // Fallback insert via client SDK
-      const { data: fbComment, error: fbError } = await supabase
+      insertPayload.content_type = "article";
+      const { data: fbComment, error: fbError } = await supabaseServer
         .from("comments")
         .insert(insertPayload)
-        .select("*")
+        .select("*, users:user_id(name, avatar_url)")
         .single();
 
-      if (fbError) throw fbError;
-      newComment = fbComment;
+      if (fbError) {
+        console.warn("Secondary insert error, retrying with fallback content_type 'blog':", fbError.message);
+        insertPayload.content_type = "blog";
+        const { data: blogComment, error: blogError } = await supabaseServer
+          .from("comments")
+          .insert(insertPayload)
+          .select("*, users:user_id(name, avatar_url)")
+          .single();
+
+        if (blogError) throw blogError;
+        newComment = blogComment;
+      } else {
+        newComment = fbComment;
+      }
     }
 
-    // Ensure users details are attached to response
+    // Attach user profile details if missing
     if (newComment && !newComment.users) {
       const { data: userData } = await supabaseServer
         .from("users")
@@ -153,7 +172,7 @@ export async function POST(req: Request) {
     });
 
   } catch (err: any) {
-    console.error("POST /api/comments error:", err);
-    return NextResponse.json({ error: err.message || "Failed to post comment" }, { status: 500 });
+    console.error("POST /api/comments error:", err?.message || err);
+    return NextResponse.json({ error: err?.message || "Failed to post comment" }, { status: 500 });
   }
 }

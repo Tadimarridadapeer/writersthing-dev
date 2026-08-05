@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { supabase } from "@/lib/supabase";
 
 function getSupabaseServer() {
   return createServerClient(
@@ -18,6 +17,15 @@ function getSupabaseServer() {
   );
 }
 
+function toValidUUID(id: string): string {
+  if (!id) return "00000000-0000-4000-8000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return id;
+  }
+  const hex = Buffer.from(String(id)).toString("hex").padEnd(12, "0").slice(0, 12);
+  return `00000000-0000-4000-8000-${hex}`;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -28,19 +36,20 @@ export async function GET(
       return NextResponse.json({ error: "Story ID is required" }, { status: 400 });
     }
 
+    const uuid = toValidUUID(storyId);
     const supabaseServer = getSupabaseServer();
 
     const { data: commentsData, error } = await supabaseServer
       .from("comments")
       .select("*, users:user_id(name, avatar_url)")
-      .or(`content_id.eq.${storyId},post_id.eq.${storyId}`)
+      .in("content_id", [storyId, uuid])
       .order("created_at", { ascending: true });
 
     if (error) {
       const { data: fallbackComments, error: fallbackErr } = await supabaseServer
         .from("comments")
         .select("*")
-        .or(`content_id.eq.${storyId},post_id.eq.${storyId}`)
+        .in("content_id", [storyId, uuid])
         .order("created_at", { ascending: true });
 
       if (fallbackErr) throw fallbackErr;
@@ -67,8 +76,8 @@ export async function GET(
     return NextResponse.json({ comments: commentsData || [] });
 
   } catch (err: any) {
-    console.error("GET story comments error:", err);
-    return NextResponse.json({ error: err.message || "Failed to fetch story comments" }, { status: 500 });
+    console.error("GET story comments error:", err?.message || err);
+    return NextResponse.json({ error: err?.message || "Failed to fetch story comments" }, { status: 500 });
   }
 }
 
@@ -97,11 +106,12 @@ export async function POST(
       return NextResponse.json({ error: "User authentication required" }, { status: 401 });
     }
 
-    const insertPayload: any = {
+    const uuid = toValidUUID(storyId);
+
+    let insertPayload: any = {
       user_id: activeUserId,
-      content_type: "story",
-      content_id: storyId,
-      post_id: storyId,
+      content_type: "article",
+      content_id: uuid,
       comment_text: comment_text?.trim() || null,
       rating: rating > 0 ? rating : null
     };
@@ -113,12 +123,13 @@ export async function POST(
       .single();
 
     if (insertError) {
-      console.warn("Server insert error, trying fallback client insert:", insertError.message);
-      
-      const { data: fbComment, error: fbError } = await supabase
+      console.warn("Primary story insert error, trying fallback content_type 'blog':", insertError.message);
+      insertPayload.content_type = "blog";
+
+      const { data: fbComment, error: fbError } = await supabaseServer
         .from("comments")
         .insert(insertPayload)
-        .select("*")
+        .select("*, users:user_id(name, avatar_url)")
         .single();
 
       if (fbError) throw fbError;
@@ -141,7 +152,7 @@ export async function POST(
     });
 
   } catch (err: any) {
-    console.error("POST story comment error:", err);
-    return NextResponse.json({ error: err.message || "Failed to post comment" }, { status: 500 });
+    console.error("POST story comment error:", err?.message || err);
+    return NextResponse.json({ error: err?.message || "Failed to post comment" }, { status: 500 });
   }
 }
