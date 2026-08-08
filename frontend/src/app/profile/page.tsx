@@ -37,6 +37,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import TranslationDrawer from "@/components/TranslationDrawer";
 import { useRouter } from "next/navigation";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import FoundingBadge from "@/components/ui/FoundingBadge";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [activeSection, setActiveSection] = useState("Library");
   const [stats, setStats] = useState({ library: 0, bookmarks: 0, earnings: 0, followers: 0, following: 0 });
+  const [founderInvite, setFounderInvite] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -387,7 +389,7 @@ export default function ProfilePage() {
 
     try {
       // Fetch stats and library in parallel
-      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes] = await Promise.all([
+      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes, founderRes] = await Promise.all([
         supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
         supabase.from("authors").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("books").select("*").eq("author_id", parsedUser.id),
@@ -395,8 +397,11 @@ export default function ProfilePage() {
         supabase.from("likes").select("*").eq("user_id", parsedUser.id),
         supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false }),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", parsedUser.id),
-        supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", parsedUser.id)
+        supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", parsedUser.id),
+        supabase.from("founding_writers").select("*").eq("user_id", parsedUser.id).eq("status", "accepted").maybeSingle()
       ]);
+
+      if (founderRes.data) setFounderInvite(founderRes.data);
 
       if (libRes.error) {
         console.warn("Library table error:", libRes.error.message);
@@ -682,7 +687,17 @@ export default function ProfilePage() {
                 {user.bio || "Crafting stories, exploring digital horizons."}
               </p>
               
-              {/* Clickable Social Followers/Following Row */}
+              {/* Founding Writer Card */}
+              {founderInvite && (
+                <div className="flex items-center gap-4 p-4 mb-6 bg-zinc-50 border border-zinc-100 rounded-sm shadow-inner max-w-xl mx-auto md:mx-0 select-none">
+                  <FoundingBadge founderNumber={founderInvite.founder_number ? parseInt(founderInvite.founder_number.replace('#', '')) : null} isFoundingWriter={true} className="relative scale-110" size={48} />
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Founding Writer</p>
+                    <p className="text-sm font-bold text-zinc-800">Founder {founderInvite.founder_number}</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">One of the earliest members of Writersthing. Accepted on {new Date(founderInvite.accepted_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              )}
               <div className="flex justify-center md:justify-start gap-8 mt-4 mb-8 text-sm select-none">
                 {user?.role !== "Reader" && (
                   <>
