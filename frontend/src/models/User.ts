@@ -77,12 +77,10 @@ const UserSchema = new mongoose.Schema(
         },
       },
     ],
-    bankDetails: {
-      accountNumber: { type: String, default: "" },
-      ifscCode: { type: String, default: "" },
-      bankName: { type: String, default: "" },
-      accountHolderName: { type: String, default: "" },
-    },
+    upiIds: [{
+      upi_id: { type: String, required: true },
+      is_default: { type: Boolean, default: false },
+    }],
     age: {
       type: Number,
       min: [0, "Age cannot be negative"],

@@ -27,8 +27,13 @@ import {
   Bell,
   Check,
   Globe,
-  BarChart2
+  BarChart2,
+  ShoppingBag,
+  Trash2,
+  Plus,
+  Minus
 } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
 import { uploadAvatar } from "@/lib/avatar";
 import { ensureAuthorProfile } from "@/lib/author";
 import Link from "next/link";
@@ -37,7 +42,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import TranslationDrawer from "@/components/TranslationDrawer";
 import { useRouter } from "next/navigation";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import FoundingBadge from "@/components/ui/FoundingBadge";
+import UpiManagementModal from "@/components/UpiManagementModal";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -51,27 +56,52 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [bio, setBio] = useState("");
+  const [savingBio, setSavingBio] = useState(false);
 
-  const [bankAccNo, setBankAccNo] = useState("");
-  const [bankIfsc, setBankIfsc] = useState("");
-  const [bankHolder, setBankHolder] = useState("");
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [activeUpiId, setActiveUpiId] = useState<string | null>(null);
+  const [isUpiVerified, setIsUpiVerified] = useState(false);
+  const [lastUpiChange, setLastUpiChange] = useState<string | null>(null);
+  const [pendingUpiRequest, setPendingUpiRequest] = useState<any>(null);
   
-  useEffect(() => {
-    if (user && user.bank_details) {
-      try {
-        const parsed = JSON.parse(user.bank_details);
-        if (parsed && typeof parsed === "object") {
-          setBankAccNo(parsed.account_number || "");
-          setBankIfsc(parsed.ifsc_code || "");
-          setBankHolder(parsed.account_holder_name || "");
-        } else {
-          setBankAccNo(user.bank_details);
-        }
-      } catch (e) {
-        setBankAccNo(user.bank_details);
+  const [isUpiModalOpen, setIsUpiModalOpen] = useState(false);
+  const [upiModalMode, setUpiModalMode] = useState<'setup' | 'change'>('setup');
+  
+  const fetchUpiData = async () => {
+    if (!user?.id) return;
+    try {
+      // 1. Fetch user profile UPI data
+      const { data: userData } = await supabase
+        .from("users")
+        .select("active_upi_id, is_upi_verified, last_upi_change_at")
+        .eq("id", user.id)
+        .single();
+      
+      if (userData) {
+        setActiveUpiId(userData.active_upi_id);
+        setIsUpiVerified(userData.is_upi_verified);
+        setLastUpiChange(userData.last_upi_change_at);
       }
+
+      // 2. Fetch pending request
+      const { data: requests } = await supabase
+        .from("upi_change_requests")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      
+      if (requests && requests.length > 0) {
+        setPendingUpiRequest(requests[0]);
+      } else {
+        setPendingUpiRequest(null);
+      }
+    } catch (e) {
+      console.error(e);
     }
+  };
+
+  useEffect(() => {
+    fetchUpiData();
   }, [user]);
 
   // Webcam modal state
@@ -292,6 +322,7 @@ export default function ProfilePage() {
   const [libraryFilter, setLibraryFilter] = useState<"all" | "book" | "story" | "blog">("all");
   const [bookmarkFilter, setBookmarkFilter] = useState<"all" | "book" | "story" | "blog">("all");
   const [likeFilter, setLikeFilter] = useState<"all" | "book" | "story" | "blog">("all");
+  const { cart, updateQuantity, removeFromCart, clearCart, cartCount, cartSubtotal } = useCart();
   const [readedItems, setReadedItems] = useState<any[]>([]);
   const [publishedItems, setPublishedItems] = useState<any[]>([]);
   const [hasImpressionsError, setHasImpressionsError] = useState(false);
@@ -306,36 +337,100 @@ export default function ProfilePage() {
     return "Unknown";
   };
 
+  function toOriginalId(uuid: string): string {
+    if (!uuid) return uuid;
+    if (typeof uuid === "string" && uuid.startsWith("00000000-0000-4000-8000-")) {
+      const hex = uuid.replace("00000000-0000-4000-8000-", "");
+      try {
+        const str = Buffer.from(hex, "hex").toString("utf8").replace(/\0/g, "");
+        if (str) return str;
+      } catch (e) {}
+    }
+    return uuid;
+  }
+
   const fetchItemsDetails = async (items: any[]) => {
     if (!items || !items.length) return [];
-    
-    const bookIds = items.filter(i => i.content_type === "book").map(i => i.content_id);
-    const storyIds = items.filter(i => i.content_type === "story").map(i => i.content_id);
-    const blogIds = items.filter(i => i.content_type === "blog").map(i => i.content_id);
-    
-    const [booksRes, storiesRes, blogsRes] = await Promise.all([
+
+    const isStory = (type: string) => ["story", "article", "post"].includes(type?.toLowerCase());
+    const isBlog = (type: string) => ["blog"].includes(type?.toLowerCase());
+    const isBook = (type: string) => ["book"].includes(type?.toLowerCase());
+
+    const bookRawIds = items.filter(i => isBook(i.content_type)).map(i => i.content_id);
+    const storyRawIds = items.filter(i => isStory(i.content_type)).map(i => i.content_id);
+    const blogRawIds = items.filter(i => isBlog(i.content_type)).map(i => i.content_id);
+
+    const bookIds = Array.from(new Set(bookRawIds.flatMap(id => [id, toOriginalId(id)]))).filter(Boolean);
+    const storyIds = Array.from(new Set(storyRawIds.flatMap(id => [id, toOriginalId(id)]))).filter(Boolean);
+    const blogIds = Array.from(new Set(blogRawIds.flatMap(id => [id, toOriginalId(id)]))).filter(Boolean);
+
+    const [booksRes, storiesRes, manuscriptsRes, blogsRes] = await Promise.all([
       bookIds.length 
         ? supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").in("id", bookIds) 
         : Promise.resolve({ data: [] }),
       storyIds.length 
         ? supabase.from("stories").select("*, authors:author_id(*, users:user_id(name))").in("id", storyIds) 
         : Promise.resolve({ data: [] }),
+      storyIds.length
+        ? supabase.from("manuscripts").select("*").in("id", storyIds)
+        : Promise.resolve({ data: [] }),
       blogIds.length 
         ? supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").in("id", blogIds) 
         : Promise.resolve({ data: [] })
     ]);
-    
-    const booksMap = new Map((booksRes.data || []).map((b: any) => [b.id, { ...b, type: "book" }]));
-    const storiesMap = new Map((storiesRes.data || []).map((a: any) => [a.id, { ...a, type: "story" }]));
-    const blogsMap = new Map((blogsRes.data || []).map((b: any) => [b.id, { ...b, type: "blog" }]));
-    
+
+    const booksMap = new Map();
+    (booksRes.data || []).forEach((b: any) => {
+      booksMap.set(b.id, { ...b, type: "book" });
+    });
+
+    const storiesMap = new Map();
+    (storiesRes.data || []).forEach((s: any) => {
+      storiesMap.set(s.id, { ...s, type: "story" });
+    });
+
+    const manuscriptsMap = new Map();
+    (manuscriptsRes.data || []).forEach((m: any) => {
+      manuscriptsMap.set(m.id, { ...m, type: "story" });
+    });
+
+    const blogsMap = new Map();
+    (blogsRes.data || []).forEach((b: any) => {
+      blogsMap.set(b.id, { ...b, type: "blog" });
+    });
+
     return items.map(item => {
       let details = null;
-      if (item.content_type === "book") details = booksMap.get(item.content_id);
-      else if (item.content_type === "story") details = storiesMap.get(item.content_id);
-      else if (item.content_type === "blog") details = blogsMap.get(item.content_id);
-      
-      return details ? { ...item, details } : null;
+      const targetId = item.content_id;
+      const origId = toOriginalId(targetId);
+
+      if (isBook(item.content_type)) {
+        details = booksMap.get(targetId) || booksMap.get(origId);
+      } else if (isStory(item.content_type)) {
+        details = storiesMap.get(targetId) || storiesMap.get(origId) || manuscriptsMap.get(targetId) || manuscriptsMap.get(origId);
+        if (!details) {
+          details = {
+            id: origId || targetId,
+            title: item.title || `Story #${origId || targetId}`,
+            body: item.description || "A captivating story from Writersthing.",
+            cover_image: item.cover_url || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800",
+            work_type: "story",
+            type: "story"
+          };
+        }
+      } else if (isBlog(item.content_type)) {
+        details = blogsMap.get(targetId) || blogsMap.get(origId);
+      }
+
+      const normalizedContentType = isStory(item.content_type) 
+        ? "story" 
+        : isBlog(item.content_type) 
+        ? "blog" 
+        : isBook(item.content_type) 
+        ? "book" 
+        : item.content_type;
+
+      return details ? { ...item, content_type: normalizedContentType, details } : null;
     }).filter(Boolean);
   };
 
@@ -388,6 +483,20 @@ export default function ProfilePage() {
     setUser(parsedUser);
 
     try {
+      // Set initial bio
+      if (parsedUser.bio) {
+        setBio(parsedUser.bio);
+      }
+      
+      // Update from database to get latest info including bio
+      supabase.from('users').select('*').eq('id', parsedUser.id).single().then(({ data }) => {
+        if (data) {
+          setUser(data);
+          localStorage.setItem("user", JSON.stringify(data));
+          if (data.bio) setBio(data.bio);
+        }
+      });
+
       // Fetch stats and library in parallel
       const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes, founderRes] = await Promise.all([
         supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
@@ -446,6 +555,22 @@ export default function ProfilePage() {
           return true;
         });
         readedSaves = uniqueImpressions;
+      }
+
+      // Merge saved stories and items into My Library
+      if (savesRes.data && savesRes.data.length > 0) {
+        const seen = new Set(readedSaves.map((i: any) => `${i.content_type}-${i.content_id}`));
+        savesRes.data.forEach((save: any) => {
+          const key = `${save.content_type}-${save.content_id}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            readedSaves.push({
+              content_type: save.content_type,
+              content_id: save.content_id,
+              created_at: save.created_at || new Date().toISOString()
+            });
+          }
+        });
       }
 
       // Merge purchased books that aren't already logged in impressions
@@ -768,6 +893,7 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Book size={18} />} label="My Library" active={activeSection === "Library"} onClick={() => setActiveSection("Library")} />
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
+                <ProfileNavBtn icon={<ShoppingBag size={18} />} label="My Cart" active={activeSection === "Cart"} onClick={() => setActiveSection("Cart")} />
                 {user?.role !== "Reader" && (
                   <>
                     <ProfileNavBtn icon={<BarChart2 size={18} />} label="Analytics" active={activeSection === "Analytics"} onClick={() => setActiveSection("Analytics")} />
@@ -1136,6 +1262,7 @@ export default function ProfilePage() {
                         {(() => {
                           const filtered = likedItems.filter(item => {
                             if (likeFilter === "all") return true;
+                            if (likeFilter === "story") return ["story", "article", "post"].includes(item.content_type?.toLowerCase());
                             return item.content_type === likeFilter;
                           });
 
@@ -1218,6 +1345,64 @@ export default function ProfilePage() {
                     )
                   )}
 
+                  {activeSection === "Cart" && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
+                        <div>
+                          <h2 className="font-heading font-black text-2xl uppercase tracking-tight">My Shopping Cart ({cartCount})</h2>
+                          <p className="text-xs text-zinc-400 font-medium">Manage items added to your cart or proceed to checkout.</p>
+                        </div>
+                        <Link href="/cart" className="px-6 py-2.5 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2">
+                          Full Cart View <ArrowRight size={14} />
+                        </Link>
+                      </div>
+
+                      {cart.length === 0 ? (
+                        <div className="py-16 text-center space-y-4 border border-dashed border-zinc-200 rounded-xl p-8">
+                          <ShoppingBag size={32} className="text-zinc-300 mx-auto" />
+                          <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Your cart is currently empty</p>
+                          <Link href="/marketplace" className="inline-block px-6 py-2.5 border border-zinc-200 text-xs font-black uppercase tracking-widest hover:bg-zinc-50 transition-all">
+                            Browse Marketplace
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {cart.map((item) => (
+                            <div key={item.id} className="p-4 border border-zinc-100 rounded-xl bg-zinc-50 flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-16 bg-zinc-200 rounded-lg overflow-hidden shrink-0">
+                                  <OptimizedImage src={item.cover_url || "/placeholder-cover.jpg"} alt={item.title} variant="book-cover" className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                  <h4 className="font-heading font-bold text-base uppercase tracking-tight">{item.title}</h4>
+                                  <p className="text-xs text-zinc-400">by {item.author_name || "Author"}</p>
+                                  <p className="text-xs font-black text-zinc-900 mt-1">${item.price.toFixed(2)} x {item.quantity}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 border border-zinc-200 bg-white rounded-lg flex items-center justify-center text-xs font-bold hover:bg-zinc-100 cursor-pointer">-</button>
+                                <span className="text-xs font-black">{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 border border-zinc-200 bg-white rounded-lg flex items-center justify-center text-xs font-bold hover:bg-zinc-100 cursor-pointer">+</button>
+                                <button onClick={() => removeFromCart(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg ml-2 cursor-pointer" title="Remove"><Trash2 size={14} /></button>
+                              </div>
+                            </div>
+                          ))}
+
+                          <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
+                            <div>
+                              <span className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Subtotal</span>
+                              <p className="text-xl font-black text-zinc-900">${cartSubtotal.toFixed(2)}</p>
+                            </div>
+                            <Link href="/cart" className="px-8 py-3 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all">
+                              Proceed to Checkout
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {activeSection === "Preferences" && (
                     <PreferencesSettings />
                   )}
@@ -1278,76 +1463,191 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Section 2: Payout Information */}
+                      {/* Section 1.5: Public Profile */}
                       <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. Creator Payouts</h4>
-                        <div className="max-w-xl space-y-6">
-                          <div className="space-y-4">
-                            <div>
-                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">Account Holder Name</label>
-                              <input 
-                                type="text"
-                                value={bankHolder}
-                                onChange={(e) => setBankHolder(e.target.value)}
-                                placeholder="ENTER ACCOUNT HOLDER NAME"
-                                className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
-                              />
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">1.5 Public Profile</h4>
+                        <div className="max-w-2xl space-y-4">
+                          <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Author Bio (500-1000 words recommended)</span>
+                            <textarea 
+                              value={bio}
+                              onChange={(e) => setBio(e.target.value)}
+                              placeholder="Tell your readers about yourself, your writing journey, and what they can expect from your books..."
+                              className="w-full bg-zinc-50 border border-zinc-200 p-4 rounded-sm outline-none text-sm min-h-[150px] resize-y focus:border-black transition-colors"
+                            />
+                            <div className="flex justify-between items-center mt-2">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                                {bio.trim() ? bio.trim().split(/\s+/).length : 0} Words
+                              </span>
+                              <button 
+                                onClick={async () => {
+                                  setSavingBio(true);
+                                  try {
+                                    const res = await fetch("/api/user/update-bio", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ userId: user.id, bio })
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      setToast({ message: "Bio updated successfully", type: "success" });
+                                      setUser({ ...user, bio });
+                                      localStorage.setItem("user", JSON.stringify({ ...user, bio }));
+                                    } else {
+                                      setToast({ message: data.error || "Failed to save bio", type: "error" });
+                                    }
+                                  } catch (e) {
+                                    setToast({ message: "An error occurred", type: "error" });
+                                  } finally {
+                                    setSavingBio(false);
+                                  }
+                                }}
+                                disabled={savingBio}
+                                className="px-6 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm disabled:opacity-50"
+                              >
+                                {savingBio ? "Saving..." : "Save Bio"}
+                              </button>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">Account Number</label>
-                                <input 
-                                  type="text"
-                                  value={bankAccNo}
-                                  onChange={(e) => setBankAccNo(e.target.value)}
-                                  placeholder="ENTER ACCOUNT NUMBER"
-                                  className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-450 block mb-2">IFSC Code</label>
-                                <input 
-                                  type="text"
-                                  value={bankIfsc}
-                                  onChange={(e) => setBankIfsc(e.target.value)}
-                                  placeholder="ENTER IFSC CODE"
-                                  className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold uppercase tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
-                                />
-                              </div>
-                            </div>
-                            <p className="text-[9px] uppercase tracking-wider text-zinc-400 mt-2 font-medium leading-relaxed">This banking detail is used for payouts of purchase royalties from your published manuscripts.</p>
                           </div>
-
-                          <button 
-                            onClick={async () => {
-                              const payload = JSON.stringify({
-                                account_number: bankAccNo,
-                                ifsc_code: bankIfsc,
-                                account_holder_name: bankHolder
-                              });
-                              
-                              setIsSavingSettings(true);
-                              try {
-                                const { error } = await supabase.from('users').update({ bank_details: payload }).eq('id', user.id);
-                                if (error) throw error;
-                                const updated = { ...user, bank_details: payload };
-                                setUser(updated);
-                                localStorage.setItem("user", JSON.stringify(updated));
-                                setToast({ message: "Settings saved successfully", type: "success" });
-                              } catch (err: any) {
-                                setToast({ message: err.message, type: "error" });
-                              } finally {
-                                setIsSavingSettings(false);
-                              }
-                            }}
-                            disabled={isSavingSettings}
-                            className="px-8 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer rounded-sm"
-                          >
-                            {isSavingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
-                          </button>
                         </div>
                       </div>
+
+                      {/* Section 2: Secure UPI Payment Settings */}
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. Secure Payout Settings</h4>
+                        <div className="max-w-xl space-y-6">
+                          
+                          {/* State 1: No UPI Setup */}
+                          {!activeUpiId && !pendingUpiRequest && (
+                            <div className="p-6 bg-zinc-50 border border-zinc-100 rounded-sm">
+                              <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 bg-white border border-zinc-200 rounded-full flex items-center justify-center shrink-0">
+                                  <ShieldCheck size={18} className="text-zinc-400" />
+                                </div>
+                                <div>
+                                  <h5 className="text-xs font-bold text-zinc-900 mb-1">Setup Payout UPI</h5>
+                                  <p className="text-[10px] text-zinc-500 leading-relaxed mb-4">
+                                    You need a verified UPI ID to receive royalty payouts from your published manuscripts.
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      setUpiModalMode('setup');
+                                      setIsUpiModalOpen(true);
+                                    }}
+                                    className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm shadow-sm"
+                                  >
+                                    Verify & Save UPI
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* State 2 & 4: Verified UPI / Cooldown Active */}
+                          {activeUpiId && !pendingUpiRequest && (
+                            <div className="space-y-4">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Current Payout UPI</label>
+                              <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-sm">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  <span className="text-sm font-bold text-zinc-900 tracking-wide">{activeUpiId.replace(/^(.{2}).*(@.*)$/, "$1***$2")}</span>
+                                  {isUpiVerified && (
+                                    <span className="text-[8px] font-black uppercase tracking-widest bg-green-50 text-green-600 px-2 py-0.5 rounded-sm border border-green-100 flex items-center gap-1">
+                                      <Check size={10} /> Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  {lastUpiChange && (Date.now() - new Date(lastUpiChange).getTime()) / (1000 * 60 * 60 * 24) < 30 ? (
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                                      Cooldown: {Math.ceil(30 - (Date.now() - new Date(lastUpiChange).getTime()) / (1000 * 60 * 60 * 24))} days left
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setUpiModalMode('change');
+                                        setIsUpiModalOpen(true);
+                                      }}
+                                      className="text-[9px] font-black uppercase tracking-widest text-black hover:text-zinc-600 transition-colors"
+                                    >
+                                      Request Change
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-medium leading-relaxed">
+                                For security, changing your UPI requires password verification, email OTP, and a 24-hour security hold.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* State 3: Pending Request */}
+                          {pendingUpiRequest && (
+                            <div className="space-y-4">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Current Payout UPI</label>
+                              <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-sm opacity-75">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  <span className="text-sm font-bold text-zinc-900 tracking-wide">{activeUpiId?.replace(/^(.{2}).*(@.*)$/, "$1***$2") || 'None'}</span>
+                                  <span className="text-[8px] font-black uppercase tracking-widest bg-green-50 text-green-600 px-2 py-0.5 rounded-sm border border-green-100">Active</span>
+                                </div>
+                              </div>
+
+                              <div className="p-4 bg-orange-50 border border-orange-200 rounded-sm mt-4">
+                                <div className="flex items-start gap-3">
+                                  <ShieldAlert className="text-orange-500 shrink-0" size={16} />
+                                  <div>
+                                    <h5 className="text-xs font-bold text-orange-900 mb-1">Security Hold Active</h5>
+                                    <p className="text-[10px] text-orange-700 leading-relaxed mb-3">
+                                      A request to change your UPI ID to <strong>{pendingUpiRequest.new_upi_id}</strong> is pending. It will be activated automatically on {new Date(pendingUpiRequest.activate_after).toLocaleString()}.
+                                    </p>
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm("Are you sure you want to cancel the pending UPI change request?")) {
+                                          try {
+                                            const res = await fetch("/api/upi/cancel-change", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ userId: user.id }),
+                                            });
+                                            if (res.ok) {
+                                              setToast({ message: "UPI change request cancelled", type: "success" });
+                                              fetchUpiData();
+                                            } else {
+                                              setToast({ message: "Failed to cancel request", type: "error" });
+                                            }
+                                          } catch (e) {
+                                            console.error(e);
+                                          }
+                                        }
+                                      }}
+                                      className="px-4 py-2 bg-orange-100 text-orange-800 text-[9px] font-black uppercase tracking-widest hover:bg-orange-200 transition-colors rounded-sm"
+                                    >
+                                      Cancel Request
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <UpiManagementModal
+                        isOpen={isUpiModalOpen}
+                        mode={upiModalMode}
+                        userEmail={user?.email || ""}
+                        userId={user?.id || ""}
+                        onClose={() => setIsUpiModalOpen(false)}
+                        onSuccess={() => {
+                          setIsUpiModalOpen(false);
+                          setToast({ 
+                            message: upiModalMode === 'setup' ? "UPI ID verified successfully" : "UPI change request created. Check email.", 
+                            type: "success" 
+                          });
+                          fetchUpiData();
+                        }}
+                      />
 
                       {/* Section 3: Session Management */}
                       <div className="space-y-6 pt-6 border-t border-zinc-100">
@@ -1641,6 +1941,10 @@ export function PreferencesSettings() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [preferredLanguage, setPreferredLanguage] = useState<string>("en");
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // Notification Preferences
+  const [likeEmailsEnabled, setLikeEmailsEnabled] = useState(true);
+  const [commentEmailsEnabled, setCommentEmailsEnabled] = useState(true);
 
   const INTERESTS_LIST = [
     "Artificial Intelligence", "Technology", "Programming", "Data Science", 
@@ -1686,6 +1990,18 @@ export function PreferencesSettings() {
           setContentTypes(data.contentTypes || []);
           setGoals(data.goals || []);
         }
+      })
+      .catch(err => {
+        console.error(err);
+      });
+
+    fetch("/api/user/notification-preferences")
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+          setLikeEmailsEnabled(data.like_emails_enabled ?? true);
+          setCommentEmailsEnabled(data.comment_emails_enabled ?? true);
+        }
         setLoading(false);
       })
       .catch(err => {
@@ -1693,6 +2009,7 @@ export function PreferencesSettings() {
         setLoading(false);
       });
   }, []);
+
 
   const filteredGoals = GOALS_LIST.filter(goal => {
     if (userRole === "Reader") {
@@ -1713,6 +2030,25 @@ export function PreferencesSettings() {
         body: JSON.stringify({ interests, contentTypes, goals })
       });
       if (!res.ok) throw new Error("Failed to save preferences");
+
+      // Save notification preferences
+      const notifRes = await fetch("/api/user/notification-preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          like_emails_enabled: likeEmailsEnabled,
+          comment_emails_enabled: commentEmailsEnabled
+        })
+      });
+      
+      const notifData = await notifRes.json();
+      if (!notifRes.ok && notifData.error) {
+        if (notifData.error.includes("Database migration required")) {
+          console.warn("Notification preferences not saved - migration pending");
+        } else {
+          throw new Error(notifData.error);
+        }
+      }
 
       // Save language separately
       if (userId) {
@@ -1827,6 +2163,33 @@ export function PreferencesSettings() {
               </label>
             );
           })}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Email Notifications</h2>
+        <p className="text-sm text-zinc-500 mb-6">Manage when you receive emails about interactions on your stories.</p>
+        <div className="grid grid-cols-1 gap-4 max-w-md">
+          <label className="flex items-center justify-between p-4 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50 transition-colors">
+            <div>
+              <span className="text-sm font-bold text-zinc-900 block">Story Likes</span>
+              <span className="text-[10px] font-medium text-zinc-500">Get notified when someone likes your story</span>
+            </div>
+            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${likeEmailsEnabled ? 'bg-black' : 'bg-zinc-200'}`}>
+              <input type="checkbox" className="sr-only" checked={likeEmailsEnabled} onChange={() => setLikeEmailsEnabled(!likeEmailsEnabled)} />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${likeEmailsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </div>
+          </label>
+          <label className="flex items-center justify-between p-4 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50 transition-colors">
+            <div>
+              <span className="text-sm font-bold text-zinc-900 block">Story Comments</span>
+              <span className="text-[10px] font-medium text-zinc-500">Get notified when someone comments on your story</span>
+            </div>
+            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${commentEmailsEnabled ? 'bg-black' : 'bg-zinc-200'}`}>
+              <input type="checkbox" className="sr-only" checked={commentEmailsEnabled} onChange={() => setCommentEmailsEnabled(!commentEmailsEnabled)} />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${commentEmailsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </div>
+          </label>
         </div>
       </div>
 

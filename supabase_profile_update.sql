@@ -1,7 +1,7 @@
 -- Add all missing profile fields to the users table
 ALTER TABLE public.users
 ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '',
-ADD COLUMN IF NOT EXISTS bank_details TEXT,
+ADD COLUMN IF NOT EXISTS upi_ids JSONB DEFAULT '[]'::jsonb,
 ADD COLUMN IF NOT EXISTS website TEXT,
 ADD COLUMN IF NOT EXISTS portfolio_url TEXT,
 ADD COLUMN IF NOT EXISTS twitter_url TEXT,

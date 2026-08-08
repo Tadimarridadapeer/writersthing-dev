@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       pdfUrl, 
       authorId,
       isbn,
-      bankDetails
+      upiId
     } = body;
 
     if (!title || !content) {
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
           author_id: authorId,
           status: "Published",
           isbn: isbn || null,
-          bank_details: bankDetails || null,
+          upi_id: upiId || null,
           deletion_status: "None"
         },
       ])

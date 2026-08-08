@@ -10,12 +10,14 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import AvatarWithBadge from "./AvatarWithBadge";
 
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/hooks/useCart";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const { cartCount } = useCart();
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -115,6 +117,19 @@ export default function Navbar() {
                   </>
                 ) : (
                   <div className="flex items-center gap-3 md:gap-6">
+                    <Link
+                      href="/cart"
+                      className="p-2 text-zinc-700 hover:text-black transition-colors relative flex items-center justify-center"
+                      title="Shopping Cart"
+                    >
+                      <ShoppingBag size={18} />
+                      {cartCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-black text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                          {cartCount > 99 ? "99+" : cartCount}
+                        </span>
+                      )}
+                    </Link>
+
                     <NotificationsDropdown />
                     
                     {userRole && (userRole === "Author" || userRole === "Admin") && (

@@ -67,9 +67,10 @@ export function useNotifications(limit: number = 20) {
 
     if (!user) return;
 
-    // Supabase Realtime for cross-session/device sync
+    // Supabase Realtime for cross-session/device sync with unique instance channel ID
+    const channelId = `notifications-${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
-      .channel("public:notifications")
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
@@ -79,8 +80,6 @@ export function useNotifications(limit: number = 20) {
           filter: `user_id=eq.${user.id}`,
         },
         (payload: any) => {
-          // Simplest reliable way to sync is to refetch on changes
-          // You could optimize this to modify state directly, but refetching guarantees consistency
           fetchNotifications(true, filterRef.current);
         }
       )
