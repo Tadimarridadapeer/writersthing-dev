@@ -42,6 +42,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import TranslationDrawer from "@/components/TranslationDrawer";
 import { useRouter } from "next/navigation";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import UpiManagementModal from "@/components/UpiManagementModal";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -55,18 +56,49 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
 
-  const [upiIds, setUpiIds] = useState<{id: string; upi_id: string; is_default: boolean}[]>([]);
-  const [newUpiId, setNewUpiId] = useState("");
-  const [upiError, setUpiError] = useState("");
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [activeUpiId, setActiveUpiId] = useState<string | null>(null);
+  const [isUpiVerified, setIsUpiVerified] = useState(false);
+  const [lastUpiChange, setLastUpiChange] = useState<string | null>(null);
+  const [pendingUpiRequest, setPendingUpiRequest] = useState<any>(null);
   
-  useEffect(() => {
-    if (user?.id) {
-      try {
-        const stored = localStorage.getItem(`upi_ids_${user.id}`);
-        if (stored) setUpiIds(JSON.parse(stored));
-      } catch(e) { /* ignore */ }
+  const [isUpiModalOpen, setIsUpiModalOpen] = useState(false);
+  const [upiModalMode, setUpiModalMode] = useState<'setup' | 'change'>('setup');
+  
+  const fetchUpiData = async () => {
+    if (!user?.id) return;
+    try {
+      // 1. Fetch user profile UPI data
+      const { data: userData } = await supabase
+        .from("users")
+        .select("active_upi_id, is_upi_verified, last_upi_change_at")
+        .eq("id", user.id)
+        .single();
+      
+      if (userData) {
+        setActiveUpiId(userData.active_upi_id);
+        setIsUpiVerified(userData.is_upi_verified);
+        setLastUpiChange(userData.last_upi_change_at);
+      }
+
+      // 2. Fetch pending request
+      const { data: requests } = await supabase
+        .from("upi_change_requests")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      
+      if (requests && requests.length > 0) {
+        setPendingUpiRequest(requests[0]);
+      } else {
+        setPendingUpiRequest(null);
+      }
+    } catch (e) {
+      console.error(e);
     }
+  };
+
+  useEffect(() => {
+    fetchUpiData();
   }, [user]);
 
   // Webcam modal state
@@ -1401,91 +1433,142 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Section 2: UPI Payment Settings */}
+                      {/* Section 2: Secure UPI Payment Settings */}
                       <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. UPI Payment Settings</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. Secure Payout Settings</h4>
                         <div className="max-w-xl space-y-6">
-                          {/* Add New UPI ID */}
-                          <div className="space-y-3">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Add UPI ID</label>
-                            <div className="flex gap-3">
-                              <input 
-                                type="text"
-                                value={newUpiId}
-                                onChange={(e) => { setNewUpiId(e.target.value.toLowerCase()); setUpiError(""); }}
-                                placeholder="yourname@upi"
-                                className="flex-1 bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-black p-4 text-xs font-bold tracking-widest outline-none transition-all placeholder:text-zinc-300 text-zinc-900 rounded-sm"
-                              />
-                              <button
-                                onClick={() => {
-                                  const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-                                  if (!newUpiId.trim()) { setUpiError("UPI ID is required"); return; }
-                                  if (!upiRegex.test(newUpiId.trim())) { setUpiError("Invalid UPI ID format (e.g. name@upi)"); return; }
-                                  if (upiIds.some(u => u.upi_id === newUpiId.trim())) { setUpiError("This UPI ID already exists"); return; }
-                                  const entry = { id: Date.now().toString(), upi_id: newUpiId.trim(), is_default: upiIds.length === 0 };
-                                  const updated = [...upiIds, entry];
-                                  setUpiIds(updated);
-                                  localStorage.setItem(`upi_ids_${user.id}`, JSON.stringify(updated));
-                                  setNewUpiId("");
-                                  setUpiError("");
-                                  setToast({ message: "UPI ID added successfully", type: "success" });
-                                }}
-                                className="px-6 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm cursor-pointer whitespace-nowrap"
-                              >
-                                Add
-                              </button>
-                            </div>
-                            {upiError && <p className="text-[9px] font-black uppercase tracking-widest text-red-500">{upiError}</p>}
-                          </div>
-
-                          {/* Saved UPI IDs */}
-                          {upiIds.length > 0 && (
-                            <div className="space-y-3">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Saved UPI IDs</label>
-                              <div className="space-y-2">
-                                {upiIds.map((item) => (
-                                  <div key={item.id} className="flex items-center justify-between bg-zinc-50 border border-zinc-100 p-4 rounded-sm group hover:border-zinc-200 transition-all">
-                                    <div className="flex items-center gap-3">
-                                      <div className={`w-2 h-2 rounded-full ${item.is_default ? 'bg-green-500' : 'bg-zinc-300'}`} />
-                                      <span className="text-xs font-bold text-zinc-900 tracking-wide">{item.upi_id}</span>
-                                      {item.is_default && <span className="text-[8px] font-black uppercase tracking-widest bg-green-50 text-green-600 px-2 py-0.5 rounded-sm border border-green-100">Default</span>}
-                                    </div>
-                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      {!item.is_default && (
-                                        <button
-                                          onClick={() => {
-                                            const updated = upiIds.map(u => ({ ...u, is_default: u.id === item.id }));
-                                            setUpiIds(updated);
-                                            localStorage.setItem(`upi_ids_${user.id}`, JSON.stringify(updated));
-                                            setToast({ message: "Default UPI updated", type: "success" });
-                                          }}
-                                          className="text-[8px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors cursor-pointer"
-                                        >
-                                          Set Default
-                                        </button>
-                                      )}
-                                      <button
-                                        onClick={() => {
-                                          let updated = upiIds.filter(u => u.id !== item.id);
-                                          if (item.is_default && updated.length > 0) updated[0].is_default = true;
-                                          setUpiIds(updated);
-                                          localStorage.setItem(`upi_ids_${user.id}`, JSON.stringify(updated));
-                                          setToast({ message: "UPI ID removed", type: "success" });
-                                        }}
-                                        className="text-[8px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors cursor-pointer"
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
+                          
+                          {/* State 1: No UPI Setup */}
+                          {!activeUpiId && !pendingUpiRequest && (
+                            <div className="p-6 bg-zinc-50 border border-zinc-100 rounded-sm">
+                              <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 bg-white border border-zinc-200 rounded-full flex items-center justify-center shrink-0">
+                                  <ShieldCheck size={18} className="text-zinc-400" />
+                                </div>
+                                <div>
+                                  <h5 className="text-xs font-bold text-zinc-900 mb-1">Setup Payout UPI</h5>
+                                  <p className="text-[10px] text-zinc-500 leading-relaxed mb-4">
+                                    You need a verified UPI ID to receive royalty payouts from your published manuscripts.
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      setUpiModalMode('setup');
+                                      setIsUpiModalOpen(true);
+                                    }}
+                                    className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm shadow-sm"
+                                  >
+                                    Verify & Save UPI
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
 
-                          <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-medium leading-relaxed">Your UPI ID is used for receiving royalty payouts from published manuscripts. The default UPI ID will be used for all payouts.</p>
+                          {/* State 2 & 4: Verified UPI / Cooldown Active */}
+                          {activeUpiId && !pendingUpiRequest && (
+                            <div className="space-y-4">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Current Payout UPI</label>
+                              <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-sm">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  <span className="text-sm font-bold text-zinc-900 tracking-wide">{activeUpiId.replace(/^(.{2}).*(@.*)$/, "$1***$2")}</span>
+                                  {isUpiVerified && (
+                                    <span className="text-[8px] font-black uppercase tracking-widest bg-green-50 text-green-600 px-2 py-0.5 rounded-sm border border-green-100 flex items-center gap-1">
+                                      <Check size={10} /> Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  {lastUpiChange && (Date.now() - new Date(lastUpiChange).getTime()) / (1000 * 60 * 60 * 24) < 30 ? (
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                                      Cooldown: {Math.ceil(30 - (Date.now() - new Date(lastUpiChange).getTime()) / (1000 * 60 * 60 * 24))} days left
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setUpiModalMode('change');
+                                        setIsUpiModalOpen(true);
+                                      }}
+                                      className="text-[9px] font-black uppercase tracking-widest text-black hover:text-zinc-600 transition-colors"
+                                    >
+                                      Request Change
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-medium leading-relaxed">
+                                For security, changing your UPI requires password verification, email OTP, and a 24-hour security hold.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* State 3: Pending Request */}
+                          {pendingUpiRequest && (
+                            <div className="space-y-4">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block">Current Payout UPI</label>
+                              <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-sm opacity-75">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  <span className="text-sm font-bold text-zinc-900 tracking-wide">{activeUpiId?.replace(/^(.{2}).*(@.*)$/, "$1***$2") || 'None'}</span>
+                                  <span className="text-[8px] font-black uppercase tracking-widest bg-green-50 text-green-600 px-2 py-0.5 rounded-sm border border-green-100">Active</span>
+                                </div>
+                              </div>
+
+                              <div className="p-4 bg-orange-50 border border-orange-200 rounded-sm mt-4">
+                                <div className="flex items-start gap-3">
+                                  <ShieldAlert className="text-orange-500 shrink-0" size={16} />
+                                  <div>
+                                    <h5 className="text-xs font-bold text-orange-900 mb-1">Security Hold Active</h5>
+                                    <p className="text-[10px] text-orange-700 leading-relaxed mb-3">
+                                      A request to change your UPI ID to <strong>{pendingUpiRequest.new_upi_id}</strong> is pending. It will be activated automatically on {new Date(pendingUpiRequest.activate_after).toLocaleString()}.
+                                    </p>
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm("Are you sure you want to cancel the pending UPI change request?")) {
+                                          try {
+                                            const res = await fetch("/api/upi/cancel-change", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ userId: user.id }),
+                                            });
+                                            if (res.ok) {
+                                              setToast({ message: "UPI change request cancelled", type: "success" });
+                                              fetchUpiData();
+                                            } else {
+                                              setToast({ message: "Failed to cancel request", type: "error" });
+                                            }
+                                          } catch (e) {
+                                            console.error(e);
+                                          }
+                                        }
+                                      }}
+                                      className="px-4 py-2 bg-orange-100 text-orange-800 text-[9px] font-black uppercase tracking-widest hover:bg-orange-200 transition-colors rounded-sm"
+                                    >
+                                      Cancel Request
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      <UpiManagementModal
+                        isOpen={isUpiModalOpen}
+                        mode={upiModalMode}
+                        userEmail={user?.email || ""}
+                        userId={user?.id || ""}
+                        onClose={() => setIsUpiModalOpen(false)}
+                        onSuccess={() => {
+                          setIsUpiModalOpen(false);
+                          setToast({ 
+                            message: upiModalMode === 'setup' ? "UPI ID verified successfully" : "UPI change request created. Check email.", 
+                            type: "success" 
+                          });
+                          fetchUpiData();
+                        }}
+                      />
 
                       {/* Section 3: Session Management */}
                       <div className="space-y-6 pt-6 border-t border-zinc-100">
