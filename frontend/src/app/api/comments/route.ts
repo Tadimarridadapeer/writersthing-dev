@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { sendCommentNotificationEmail } from "@/lib/email";
+
 
 function getSupabaseServer() {
   return createServerClient(
@@ -165,6 +167,71 @@ export async function POST(req: Request) {
       
       newComment.users = userData || { name: "Reader", avatar_url: null };
     }
+
+    // Handle Comment Notification
+    try {
+      if (newComment && newComment.id) {
+        // Find content details
+        const tablesToTry = ['articles', 'stories', 'blogs', 'manuscripts', 'books'];
+        let contentInfo = null;
+        for (const table of tablesToTry) {
+          const { data } = await supabaseServer.from(table).select('title, user_id, author_id').eq('id', uuid).maybeSingle();
+          if (data) {
+            contentInfo = { ...data, table };
+            break;
+          }
+        }
+
+        if (contentInfo) {
+          const authorId = contentInfo.user_id || contentInfo.author_id;
+          
+          if (authorId && authorId !== activeUserId) {
+            // Get Author settings and details
+            const { data: authorData } = await supabaseServer
+              .from('users')
+              .select('id, name, email, comment_emails_enabled')
+              .eq('id', authorId)
+              .maybeSingle();
+
+            if (authorData) {
+              // Create DB notification
+              const { data: notifData, error: notifError } = await supabaseServer
+                .from('notifications')
+                .insert({
+                  user_id: authorId,
+                  actor_id: activeUserId,
+                  content_id: uuid,
+                  type: 'comment',
+                  message: 'commented on your story',
+                  is_read: false
+                })
+                .select('id')
+                .maybeSingle();
+              
+              // Only send email if a new notification was successfully created
+              // and if author has comment emails enabled
+              if (!notifError && notifData && authorData.comment_emails_enabled !== false && authorData.email) {
+                const storyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/read/${uuid}`;
+                const commentTextSafe = comment_text?.trim() || "Rated your story.";
+                
+                // Do not await this so it can run in background, but wrap in try/catch
+                sendCommentNotificationEmail(
+                  authorData.email,
+                  authorData.name,
+                  newComment.users?.name || 'A reader',
+                  contentInfo.title || 'A story',
+                  commentTextSafe,
+                  storyUrl
+                ).catch(e => console.error("Email send failed:", e));
+              }
+            }
+          }
+        }
+      }
+    } catch (notifErr) {
+      console.error("Error processing comment notification:", notifErr);
+    }
+
 
     return NextResponse.json({
       success: true,

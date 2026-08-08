@@ -55,6 +55,8 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [bio, setBio] = useState("");
+  const [savingBio, setSavingBio] = useState(false);
 
   const [activeUpiId, setActiveUpiId] = useState<string | null>(null);
   const [isUpiVerified, setIsUpiVerified] = useState(false);
@@ -480,6 +482,20 @@ export default function ProfilePage() {
     setUser(parsedUser);
 
     try {
+      // Set initial bio
+      if (parsedUser.bio) {
+        setBio(parsedUser.bio);
+      }
+      
+      // Update from database to get latest info including bio
+      supabase.from('users').select('*').eq('id', parsedUser.id).single().then(({ data }) => {
+        if (data) {
+          setUser(data);
+          localStorage.setItem("user", JSON.stringify(data));
+          if (data.bio) setBio(data.bio);
+        }
+      });
+
       // Fetch stats and library in parallel
       const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes] = await Promise.all([
         supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
@@ -1433,6 +1449,55 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
+                      {/* Section 1.5: Public Profile */}
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">1.5 Public Profile</h4>
+                        <div className="max-w-2xl space-y-4">
+                          <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Author Bio (500-1000 words recommended)</span>
+                            <textarea 
+                              value={bio}
+                              onChange={(e) => setBio(e.target.value)}
+                              placeholder="Tell your readers about yourself, your writing journey, and what they can expect from your books..."
+                              className="w-full bg-zinc-50 border border-zinc-200 p-4 rounded-sm outline-none text-sm min-h-[150px] resize-y focus:border-black transition-colors"
+                            />
+                            <div className="flex justify-between items-center mt-2">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                                {bio.trim() ? bio.trim().split(/\s+/).length : 0} Words
+                              </span>
+                              <button 
+                                onClick={async () => {
+                                  setSavingBio(true);
+                                  try {
+                                    const res = await fetch("/api/user/update-bio", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ userId: user.id, bio })
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      setToast({ message: "Bio updated successfully", type: "success" });
+                                      setUser({ ...user, bio });
+                                      localStorage.setItem("user", JSON.stringify({ ...user, bio }));
+                                    } else {
+                                      setToast({ message: data.error || "Failed to save bio", type: "error" });
+                                    }
+                                  } catch (e) {
+                                    setToast({ message: "An error occurred", type: "error" });
+                                  } finally {
+                                    setSavingBio(false);
+                                  }
+                                }}
+                                disabled={savingBio}
+                                className="px-6 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm disabled:opacity-50"
+                              >
+                                {savingBio ? "Saving..." : "Save Bio"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Section 2: Secure UPI Payment Settings */}
                       <div className="space-y-6">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2. Secure Payout Settings</h4>
@@ -1862,6 +1927,10 @@ export function PreferencesSettings() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [preferredLanguage, setPreferredLanguage] = useState<string>("en");
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // Notification Preferences
+  const [likeEmailsEnabled, setLikeEmailsEnabled] = useState(true);
+  const [commentEmailsEnabled, setCommentEmailsEnabled] = useState(true);
 
   const INTERESTS_LIST = [
     "Artificial Intelligence", "Technology", "Programming", "Data Science", 
@@ -1907,6 +1976,18 @@ export function PreferencesSettings() {
           setContentTypes(data.contentTypes || []);
           setGoals(data.goals || []);
         }
+      })
+      .catch(err => {
+        console.error(err);
+      });
+
+    fetch("/api/user/notification-preferences")
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+          setLikeEmailsEnabled(data.like_emails_enabled ?? true);
+          setCommentEmailsEnabled(data.comment_emails_enabled ?? true);
+        }
         setLoading(false);
       })
       .catch(err => {
@@ -1914,6 +1995,7 @@ export function PreferencesSettings() {
         setLoading(false);
       });
   }, []);
+
 
   const filteredGoals = GOALS_LIST.filter(goal => {
     if (userRole === "Reader") {
@@ -1934,6 +2016,25 @@ export function PreferencesSettings() {
         body: JSON.stringify({ interests, contentTypes, goals })
       });
       if (!res.ok) throw new Error("Failed to save preferences");
+
+      // Save notification preferences
+      const notifRes = await fetch("/api/user/notification-preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          like_emails_enabled: likeEmailsEnabled,
+          comment_emails_enabled: commentEmailsEnabled
+        })
+      });
+      
+      const notifData = await notifRes.json();
+      if (!notifRes.ok && notifData.error) {
+        if (notifData.error.includes("Database migration required")) {
+          console.warn("Notification preferences not saved - migration pending");
+        } else {
+          throw new Error(notifData.error);
+        }
+      }
 
       // Save language separately
       if (userId) {
@@ -2048,6 +2149,33 @@ export function PreferencesSettings() {
               </label>
             );
           })}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-heading font-black uppercase tracking-tight mb-2">Email Notifications</h2>
+        <p className="text-sm text-zinc-500 mb-6">Manage when you receive emails about interactions on your stories.</p>
+        <div className="grid grid-cols-1 gap-4 max-w-md">
+          <label className="flex items-center justify-between p-4 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50 transition-colors">
+            <div>
+              <span className="text-sm font-bold text-zinc-900 block">Story Likes</span>
+              <span className="text-[10px] font-medium text-zinc-500">Get notified when someone likes your story</span>
+            </div>
+            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${likeEmailsEnabled ? 'bg-black' : 'bg-zinc-200'}`}>
+              <input type="checkbox" className="sr-only" checked={likeEmailsEnabled} onChange={() => setLikeEmailsEnabled(!likeEmailsEnabled)} />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${likeEmailsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </div>
+          </label>
+          <label className="flex items-center justify-between p-4 border border-zinc-200 rounded-sm cursor-pointer hover:bg-zinc-50 transition-colors">
+            <div>
+              <span className="text-sm font-bold text-zinc-900 block">Story Comments</span>
+              <span className="text-[10px] font-medium text-zinc-500">Get notified when someone comments on your story</span>
+            </div>
+            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${commentEmailsEnabled ? 'bg-black' : 'bg-zinc-200'}`}>
+              <input type="checkbox" className="sr-only" checked={commentEmailsEnabled} onChange={() => setCommentEmailsEnabled(!commentEmailsEnabled)} />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${commentEmailsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </div>
+          </label>
         </div>
       </div>
 

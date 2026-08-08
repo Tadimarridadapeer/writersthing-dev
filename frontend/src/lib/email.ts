@@ -71,3 +71,70 @@ export const sendUpiChangeNotification = async (to: string, oldUpi: string | nul
     html,
   });
 };
+
+export const sendLikeNotificationEmail = async (to: string, authorName: string, readerName: string, storyTitle: string, storyUrl: string) => {
+  try {
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.log(`[SIMULATED EMAIL] To: ${to}, Subject: Someone liked your story`);
+      return;
+    }
+
+    const subject = "Someone liked your story";
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2>Good news, ${authorName || 'Author'}!</h2>
+        <p><strong>${readerName || 'Someone'}</strong> liked your story '<strong>${storyTitle}</strong>'.</p>
+        <div style="margin-top: 30px;">
+          <a href="${storyUrl}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Story</a>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Writersthing Notifications" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (error) {
+    console.error("Failed to send like email:", error);
+    // Suppress error so caller doesn't fail the API request
+  }
+};
+
+export const sendCommentNotificationEmail = async (to: string, authorName: string, readerName: string, storyTitle: string, commentText: string, storyUrl: string) => {
+  try {
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.log(`[SIMULATED EMAIL] To: ${to}, Subject: New comment on your story`);
+      return;
+    }
+
+    const subject = "New comment on your story";
+    const safeComment = commentText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2>Hi ${authorName || 'Author'},</h2>
+        <p><strong>${readerName || 'Someone'}</strong> commented on your story '<strong>${storyTitle}</strong>'.</p>
+        <div style="background: #f9fafb; border-left: 4px solid #000; padding: 15px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+          <p style="margin: 0; font-style: italic;">"${safeComment}"</p>
+        </div>
+        <div style="margin-top: 30px;">
+          <a href="${storyUrl}" style="background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Story</a>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Writersthing Notifications" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (error) {
+    console.error("Failed to send comment email:", error);
+    // Suppress error so caller doesn't fail the API request
+  }
+};
+

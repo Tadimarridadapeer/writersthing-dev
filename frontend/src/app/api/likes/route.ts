@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
+import { sendLikeNotificationEmail } from "@/lib/email";
+
 
 function getSupabaseServer() {
   return createServerClient(
@@ -151,6 +153,73 @@ export async function POST(req: Request) {
       if (insertErr) {
         console.warn("Primary like insert error, trying client insert fallback:", insertErr.message);
         await supabase.from("likes").insert(insertPayload);
+      }
+      
+      // Handle Like Notification
+      try {
+        // Find content details (try articles, stories, blogs, manuscripts, books)
+        const tablesToTry = ['articles', 'stories', 'blogs', 'manuscripts', 'books'];
+        let contentInfo = null;
+        for (const table of tablesToTry) {
+          const { data } = await supabaseServer.from(table).select('title, user_id, author_id').eq('id', validUuid).maybeSingle();
+          if (data) {
+            contentInfo = { ...data, table };
+            break;
+          }
+        }
+
+        if (contentInfo) {
+          const authorId = contentInfo.user_id || contentInfo.author_id;
+          
+          if (authorId && authorId !== activeUserId) {
+            // Get Author settings and details
+            const { data: authorData } = await supabaseServer
+              .from('users')
+              .select('id, name, email, like_emails_enabled')
+              .eq('id', authorId)
+              .maybeSingle();
+
+            if (authorData) {
+              // Create DB notification (this handles uniqueness through SQL constraints)
+              const { data: notifData, error: notifError } = await supabaseServer
+                .from('notifications')
+                .insert({
+                  user_id: authorId,
+                  actor_id: activeUserId,
+                  content_id: validUuid,
+                  type: 'like',
+                  message: 'liked your story',
+                  is_read: false
+                })
+                .select('id')
+                .maybeSingle();
+              
+              // Only send email if a new notification was successfully created (prevents duplicates)
+              // and if author has emails enabled
+              if (!notifError && notifData && authorData.like_emails_enabled !== false && authorData.email) {
+                // Get Reader details
+                const { data: readerData } = await supabaseServer
+                  .from('users')
+                  .select('name')
+                  .eq('id', activeUserId)
+                  .maybeSingle();
+                
+                const storyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/read/${validUuid}`;
+                
+                // Do not await this so it can run in background, but wrap in try/catch
+                sendLikeNotificationEmail(
+                  authorData.email,
+                  authorData.name,
+                  readerData?.name || 'A reader',
+                  contentInfo.title || 'A story',
+                  storyUrl
+                ).catch(e => console.error("Email send failed:", e));
+              }
+            }
+          }
+        }
+      } catch (notifErr) {
+        console.error("Error processing like notification:", notifErr);
       }
     }
 
