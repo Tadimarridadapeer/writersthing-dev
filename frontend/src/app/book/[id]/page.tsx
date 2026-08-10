@@ -19,10 +19,12 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import { ReviewSection } from "@/components/ReviewSection";
 import AvatarWithBadge from "@/components/AvatarWithBadge";
 import { useCart } from "@/hooks/useCart";
+import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
 
 export default function BookDetailPage() {
   const params = useParams();
   const router = useRouter();
+  useAnalyticsTracking("book", params.id as string);
   const { addToCart, cart } = useCart();
   const [book, setBook] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);

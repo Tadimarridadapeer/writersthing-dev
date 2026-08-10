@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import DictionaryWrapper from "@/components/DictionaryWrapper";
 import LanguageSelector from "@/components/LanguageSelector";
 import LikedByUsers, { LikedUser } from "@/components/LikedByUsers";
+import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
 
 function renderMarkdown(content: string): string {
   if (!content) return "";
@@ -88,6 +89,7 @@ function renderMarkdown(content: string): string {
 export default function StoryPost() {
   const params = useParams();
   const router = useRouter();
+  useAnalyticsTracking("story", params.id as string);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [story, setStory] = useState<any>(null);
   const [followersCount, setFollowersCount] = useState(0);

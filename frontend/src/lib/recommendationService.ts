@@ -86,6 +86,7 @@ export class RecommendationService {
         .from("books")
         .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
         .ilike("category", `%${mainInterest}%`)
+        .eq("status", "Published")
         .range(from, to);
         
       if (books && books.length > 0) {
@@ -107,7 +108,8 @@ export class RecommendationService {
         
         const { data: stories } = await this.supabase
           .from("stories")
-          .select("id, title, body, category, cover_image, type, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+          .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+          .eq("status", "Published")
           .or(query)
           .range(from, to);
           
@@ -135,7 +137,7 @@ export class RecommendationService {
             .range(from, to),
           this.supabase
             .from("stories")
-            .select("id, title, body, category, cover_image, type, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+            .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
             .eq("status", "Published")
             .order("created_at", { ascending: false })
             .range(from, to)
@@ -176,6 +178,7 @@ export class RecommendationService {
       const { data: books } = await this.supabase
         .from("books")
         .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .eq("status", "Published")
         .order("created_at", { ascending: false })
         .range(from, to);
         
@@ -192,8 +195,8 @@ export class RecommendationService {
     try {
       const { data: stories } = await this.supabase
         .from("stories")
-        .select("id, title, body, category, cover_image, type, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
-        .eq("type", "Story")
+        .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .eq("status", "Published")
         .order("created_at", { ascending: false })
         .range(from, to);
         
@@ -209,9 +212,8 @@ export class RecommendationService {
     // Popular Blogs
     try {
       const { data: blogs } = await this.supabase
-        .from("stories") // Assume blogs are in stories based on existing code `eq("type", "Blog")`
-        .select("id, title, body, category, cover_image, type, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
-        .eq("type", "Blog")
+        .from("blogs") 
+        .select("id, title, content, banner_url, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
         .order("created_at", { ascending: false })
         .range(from, to);
         
@@ -219,7 +221,7 @@ export class RecommendationService {
         sections.push({
           title: "Popular Blogs",
           type: "row",
-          items: blogs.slice(0, limit).map((b: any) => this.mapStoryToItem(b))
+          items: blogs.slice(0, limit).map((b: any) => this.mapStoryToItem({ ...b, type: 'Blog' }))
         });
       }
     } catch (e) { console.error(e); }

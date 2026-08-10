@@ -16,9 +16,9 @@ export default function BlogsPage() {
 
   const fetchBlogs = async () => {
     try {
-      const res = await fetch("/api/stories?type=Blog");
+      const res = await fetch("/api/stories?type=Blog", { cache: 'no-store' });
       const data = await res.json();
-      setBlogs(Array.isArray(data) ? data : []);
+      setBlogs(data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     } catch (err) {
       console.error("Fetch blogs error:", err);
     } finally {

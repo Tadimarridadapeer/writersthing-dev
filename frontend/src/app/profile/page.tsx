@@ -17,6 +17,7 @@ import {
   DollarSign,
   TrendingUp,
   ShieldCheck,
+  ShieldAlert,
   Feather,
   Loader2,
   LogOut,
@@ -43,6 +44,7 @@ import TranslationDrawer from "@/components/TranslationDrawer";
 import { useRouter } from "next/navigation";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import UpiManagementModal from "@/components/UpiManagementModal";
+import FoundingBadge from "@/components/ui/FoundingBadge";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -325,6 +327,13 @@ export default function ProfilePage() {
   const { cart, updateQuantity, removeFromCart, clearCart, cartCount, cartSubtotal } = useCart();
   const [readedItems, setReadedItems] = useState<any[]>([]);
   const [publishedItems, setPublishedItems] = useState<any[]>([]);
+
+  const isContentDraft = (item: any) => {
+    const details = item.details;
+    if (!details) return false;
+    return details.status === "Draft" || details.status === "draft" || (details.content && details.content.startsWith("[DRAFT]")) || (details.body && details.body.startsWith("[DRAFT]"));
+  };
+  const isCreator = publishedItems.filter((item) => !isContentDraft(item)).length > 0;
   const [hasImpressionsError, setHasImpressionsError] = useState(false);
 
   const getAuthorName = (book: any) => {
@@ -489,7 +498,7 @@ export default function ProfilePage() {
       }
       
       // Update from database to get latest info including bio
-      supabase.from('users').select('*').eq('id', parsedUser.id).single().then(({ data }) => {
+      supabase.from('users').select('*').eq('id', parsedUser.id).single().then(({ data }: any) => {
         if (data) {
           setUser(data);
           localStorage.setItem("user", JSON.stringify(data));
@@ -636,6 +645,14 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchProfileData();
   }, [router]);
+
+  useEffect(() => {
+    if (!loading) {
+      if (!isCreator && activeSection === "Analytics") {
+        setActiveSection("Library");
+      }
+    }
+  }, [activeSection, isCreator, loading]);
 
   const fetchFollowers = async () => {
     setSocialLoading(true);
@@ -808,7 +825,7 @@ export default function ProfilePage() {
                   </Link>
                 )}
               </div>
-              <p className="text-lg text-zinc-600 font-normal mb-6 max-w-xl">
+              <p className="text-lg text-zinc-600 font-normal mb-6 max-w-xl whitespace-pre-wrap">
                 {user.bio || "Crafting stories, exploring digital horizons."}
               </p>
               
@@ -894,11 +911,11 @@ export default function ProfilePage() {
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
                 <ProfileNavBtn icon={<ShoppingBag size={18} />} label="My Cart" active={activeSection === "Cart"} onClick={() => setActiveSection("Cart")} />
+                {isCreator && (
+                  <ProfileNavBtn icon={<BarChart2 size={18} />} label="Analytics" active={activeSection === "Analytics"} onClick={() => setActiveSection("Analytics")} />
+                )}
                 {user?.role !== "Reader" && (
-                  <>
-                    <ProfileNavBtn icon={<BarChart2 size={18} />} label="Analytics" active={activeSection === "Analytics"} onClick={() => setActiveSection("Analytics")} />
-                    <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
-                  </>
+                  <ProfileNavBtn icon={<Settings size={18} />} label="Settings" active={activeSection === "Settings"} onClick={() => setActiveSection("Settings")} />
                 )}
                 <ProfileNavBtn icon={<Sparkles size={18} />} label="Preferences" active={activeSection === "Preferences"} onClick={() => setActiveSection("Preferences")} />
               </nav>
@@ -1033,14 +1050,9 @@ export default function ProfilePage() {
                               );
                             } else {
                               // Render Author Portfolio
-                              const checkDraft = (item: any) => {
-                                const details = item.details;
-                                if (!details) return false;
-                                return details.status === "Draft" || details.status === "draft" || (details.content && details.content.startsWith("[DRAFT]")) || (details.body && details.body.startsWith("[DRAFT]"));
-                              };
+                              const drafts = filtered.filter(isContentDraft);
+                              const published = filtered.filter(item => !isContentDraft(item));
 
-                              const drafts = filtered.filter(checkDraft);
-                              const published = filtered.filter(item => !checkDraft(item));
 
                               const renderCard = (item: any, isDraft: boolean) => {
                                 const details = item.details;
@@ -1155,79 +1167,75 @@ export default function ProfilePage() {
                   )}
 
                   {activeSection === "Bookmarks" && (
-  <div className="space-y-12">
-    {/* Statistics */}
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-      {[
-        { label: "Total Bookmarks", count: bookmarks.length },
-        { label: "Read Later", count: bookmarks.filter(b => b.reading_lists?.name === "Read Later").length },
-        { label: "Currently Reading", count: bookmarks.filter(b => b.reading_lists?.name === "Currently Reading").length },
-        { label: "Favorites", count: bookmarks.filter(b => b.reading_lists?.name === "Favorites").length },
-        { label: "Finished", count: bookmarks.filter(b => b.reading_lists?.name === "Finished Reading").length }
-      ].map(stat => (
-        <div key={stat.label} className="bg-zinc-50 border border-zinc-100 p-4 flex flex-col items-center justify-center rounded-sm">
-          <span className="text-2xl font-black text-black">{stat.count}</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mt-1">{stat.label}</span>
-        </div>
-      ))}
-    </div>
+                    hasSavesError ? (
+                      <div className="text-center py-20 bg-zinc-50 border border-zinc-100 rounded-sm">
+                        <p className="text-red-500 font-medium italic mb-4">Table 'saves' is missing from the database.</p>
+                      </div>
+                    ) : bookmarkedItems.length === 0 ? (
+                      <div className="text-center py-20 bg-zinc-50 border border-zinc-100 rounded-sm">
+                        <Bookmark className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-black uppercase tracking-tight text-black mb-2">No bookmarks yet</h3>
+                        <p className="text-sm font-medium text-zinc-500">Save your favorite stories and books to read them later.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <h2 className="text-xl font-black uppercase tracking-tight border-b border-zinc-100 pb-2">Saved Content</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                          {bookmarkedItems.map((item) => {
+                            const details = item.details;
+                            if (!details) return null;
+                            const isBook = item.content_type === "book" || details.cover_url !== undefined;
+                            const isStory = item.content_type === "story" || details.cover_image !== undefined || details.thumbnail_url !== undefined;
+                            const isBlog = item.content_type === "blog" || details.banner_url !== undefined;
 
-    {lists.map(list => {
-      const listBookmarks = bookmarks.filter(b => b.list_id === list.id);
-      if (listBookmarks.length === 0) return null;
+                            let badge = "CONTENT";
+                            let link = "";
+                            let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
-      return (
-        <div key={list.id} className="space-y-6">
-          <h2 className="text-xl font-black uppercase tracking-tight border-b border-zinc-100 pb-2">{list.name}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {listBookmarks.map(item => {
-              const isBook = item.content_type === "book";
-              const isStory = item.content_type === "story";
-              const isBlog = item.content_type === "blog";
-              let badge = isBook ? "BOOK" : isStory ? "STORY" : "BLOG";
-              let link = isBook ? `/read/${item.content_id}` : isStory ? `/stories/${item.content_id}` : `/blogs/${item.content_id}`;
+                            if (isBook) {
+                              badge = "BOOK";
+                              link = `/read/pdf?id=${details.id}&title=${encodeURIComponent(details.title)}`;
+                            } else if (isStory) {
+                              badge = "STORY";
+                              link = `/stories/${details.id}`;
+                            } else if (isBlog) {
+                              badge = "BLOG";
+                              link = `/blogs/${details.id}`;
+                            }
 
-              return (
-                <div key={item.id} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all">
-                  <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative flex items-center justify-center">
-                    <Bookmark className="text-zinc-400" />
-                    <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
-                  </div>
-                  <div className="flex-grow flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-heading font-bold text-sm mb-1 uppercase tracking-tight leading-none line-clamp-2">Content ID: {item.content_id.split('-')[0]}...</h3>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link href={link} className="flex-grow block text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
-                        Read Now
-                      </Link>
-                      <button 
-                        onClick={async (e) => { e.preventDefault(); await toggleBookmark(item.content_type, item.content_id); }}
-                        className="px-3 bg-amber-50 border border-amber-200 rounded-sm text-amber-600 hover:text-red-600 transition-all"
-                        title="Remove bookmark"
-                      >
-                        <Bookmark size={14} className="fill-current" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    })}
-
-    {bookmarks.length === 0 && (
-      <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed flex flex-col items-center justify-center p-12">
-        <p className="text-zinc-400 font-medium italic mb-8">
-          You haven't bookmarked anything yet.
-        </p>
-        <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Browse Content</Link>
-      </div>
-    )}
-  </div>
-)}
+                            return (
+                              <div key={item.id} className="group flex gap-6 p-6 bg-zinc-50 border border-zinc-100 rounded-sm hover:border-black transition-all relative">
+                                <div className="w-24 h-32 flex-shrink-0 bg-zinc-200 shadow-lg grayscale group-hover:grayscale-0 transition-all overflow-hidden relative">
+                                  <OptimizedImage src={cover} alt={details.title} variant="book-cover" className="w-full h-full" />
+                                  <span className="absolute top-2 left-2 bg-black text-white px-2 py-0.5 text-[7px] font-black tracking-widest">{badge}</span>
+                                </div>
+                                <div className="flex-grow flex flex-col justify-between">
+                                  <div>
+                                    <h3 className="font-heading font-bold text-sm mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
+                                    <p className="text-xs font-medium text-zinc-500 line-clamp-2 mb-3">{details.description || details.body || "No description available."}</p>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <Link
+                                      href={link}
+                                      className="text-[9px] font-black uppercase tracking-widest bg-black text-white px-4 py-2 rounded-sm hover:bg-zinc-800 transition-colors"
+                                    >
+                                      Read Now
+                                    </Link>
+                                    <button
+                                      onClick={() => handleUnsave(item.id)}
+                                      className="text-[9px] font-black uppercase tracking-widest border border-red-200 text-red-500 px-4 py-2 rounded-sm hover:bg-red-50 transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )
+                  )}
 {activeSection === "Likes" && (
                     hasLikesError ? (
                       <div className="py-20 text-center bg-zinc-50 border border-red-100 rounded-sm border-dashed">
@@ -1407,39 +1415,52 @@ export default function ProfilePage() {
                     <PreferencesSettings />
                   )}
 
-                  {activeSection === "Analytics" && (
-                    <div className="space-y-12">
-                      <div>
-                        <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Profile & Audience Reach</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                          <AnalyticsCard title="Blogs Reach" value="14.2K" unit="Views" />
-                          <AnalyticsCard title="Following Reach" value="8.5K" unit="Accounts" />
-                          <AnalyticsCard title="New Followers" value="+124" unit="This Month" />
+                  {activeSection === "Analytics" && isCreator && (() => {
+                    const nonDrafts = publishedItems.filter((i) => !isContentDraft(i));
+                    const storiesReach = nonDrafts.filter((i) => i.type === "story").reduce((acc, s) => acc + (s.views || 0), 0);
+                    const blogsReach = nonDrafts.filter((i) => i.type === "blog").reduce((acc, b) => acc + (b.views || 0), 0);
+                    const totalSales = nonDrafts.filter((i) => i.type === "book").reduce((acc, b) => acc + (b.sales_count || 0), 0);
+                    const totalRevenue = nonDrafts.filter((i) => i.type === "book").reduce((acc, b) => acc + ((b.price || 0) * (b.sales_count || 0)), 0);
+                    const totalLikes = nonDrafts.reduce((acc, i) => acc + (i.likes_count || 0), 0);
+                    const totalComments = nonDrafts.reduce((acc, i) => acc + (i.comments_count || 0), 0);
+
+                    return (
+                      <div className="space-y-12">
+                        <div>
+                          <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Profile & Audience Reach</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <AnalyticsCard title="Blogs Reach" value={blogsReach} unit="Views" />
+                            <AnalyticsCard title="Stories Reach" value={storiesReach} unit="Views" />
+                            <AnalyticsCard title="Total Followers" value={stats.followers} unit="Accounts" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Sales Analytics</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <AnalyticsCard title="Total Books Sold" value={totalSales} unit="Units" />
+                            <AnalyticsCard title="Gross Revenue" value={`₹${totalRevenue.toLocaleString()}`} unit="INR" />
+                            <AnalyticsCard title="Avg. Retention" value="N/A" unit="Rate" />
+                          </div>
+                        </div>
+
+                        <div className="bg-zinc-50 border border-zinc-100 p-12 rounded-sm text-center">
+                          <TrendingUp size={48} className="mx-auto text-zinc-200 mb-6" />
+                          <h3 className="text-2xl font-heading font-black uppercase tracking-tight mb-4">Total Engagement</h3>
+                          <div className="grid grid-cols-2 max-w-sm mx-auto gap-8 mb-8">
+                            <div>
+                              <p className="text-3xl font-black text-black">{totalLikes}</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mt-1">Likes</p>
+                            </div>
+                            <div>
+                              <p className="text-3xl font-black text-black">{totalComments}</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mt-1">Comments</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
-
-                      <div>
-                        <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Sales Analytics</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                          <AnalyticsCard title="Monthly Sales" value={myManuscripts.reduce((acc, m) => acc + (m.sales_count || 0), 0)} unit="Units" />
-                          <AnalyticsCard title="Gross Revenue" value={`₹${stats.earnings.toLocaleString()}`} unit="INR" />
-                          <AnalyticsCard title="Avg. Retention" value="78%" unit="Rate" />
-                        </div>
-                      </div>
-
-                      <div className="bg-zinc-50 border border-zinc-100 p-12 rounded-sm text-center">
-                         <TrendingUp size={48} className="mx-auto text-zinc-200 mb-6" />
-                         <h3 className="text-2xl font-heading font-black uppercase tracking-tight mb-4">Engagement Pulse</h3>
-                         <p className="text-zinc-400 italic font-medium mb-8 max-w-sm mx-auto">Detailed audience breakdown and engagement metrics are processed every 24 hours.</p>
-                         <div className="h-40 w-full bg-zinc-100/50 rounded-sm flex items-end gap-2 p-4">
-                            {[40, 70, 45, 90, 65, 80, 50, 85, 60, 95].map((h, i) => (
-                              <div key={i} className="flex-grow bg-black/5 hover:bg-black transition-colors" style={{ height: `${h}%` }} />
-                            ))}
-                         </div>
-                         <p className="text-[8px] font-black uppercase tracking-widest text-zinc-300 mt-4">Last 10 Days Activity</p>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {activeSection === "Settings" && (
                     <div className="bg-white border border-zinc-150 p-8 md:p-12 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.02)] text-left space-y-12">
@@ -1471,9 +1492,13 @@ export default function ProfilePage() {
                             <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Author Bio (500-1000 words recommended)</span>
                             <textarea 
                               value={bio}
-                              onChange={(e) => setBio(e.target.value)}
+                              onChange={(e) => {
+                                setBio(e.target.value);
+                                e.target.style.height = "150px";
+                                e.target.style.height = `${e.target.scrollHeight}px`;
+                              }}
                               placeholder="Tell your readers about yourself, your writing journey, and what they can expect from your books..."
-                              className="w-full bg-zinc-50 border border-zinc-200 p-4 rounded-sm outline-none text-sm min-h-[150px] resize-y focus:border-black transition-colors"
+                              className="w-full bg-zinc-50 border border-zinc-200 p-4 rounded-sm outline-none text-sm min-h-[150px] overflow-hidden focus:border-black transition-colors"
                             />
                             <div className="flex justify-between items-center mt-2">
                               <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">

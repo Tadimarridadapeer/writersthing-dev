@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { ensureAuthorProfile } from "@/lib/author";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -125,6 +127,11 @@ export async function GET(req: Request) {
       data: returnData,
       hasMore,
       nextPage: hasMore ? page + 1 : null
+    }, {
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache"
+      }
     });
   } catch (error: any) {
     console.error("Fetch books error:", error);

@@ -16,9 +16,9 @@ export default function StorysPage() {
 
   const fetchStorys = async () => {
     try {
-      const res = await fetch("/api/stories?type=Story");
+      const res = await fetch("/api/stories?type=Story", { cache: 'no-store' });
       const data = await res.json();
-      setStorys(Array.isArray(data) ? data : []);
+      setStorys(data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     } catch (err) {
       console.error("Fetch storys error:", err);
     } finally {
@@ -72,7 +72,7 @@ export default function StorysPage() {
                   transition={{ delay: index * 0.1 }}
                   className="group border-b border-zinc-100 py-16 hover:bg-zinc-50/50 transition-all px-8 -mx-8"
                 >
-                  <Link href={`/storys/${story.id}`} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                  <Link href={`/stories/${story.id}`} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                     <div className="lg:col-span-3">
                       <div className="aspect-[4/3] bg-zinc-100 overflow-hidden rounded-sm">
                         <OptimizedImage 

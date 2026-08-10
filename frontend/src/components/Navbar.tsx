@@ -117,18 +117,27 @@ export default function Navbar() {
                   </>
                 ) : (
                   <div className="flex items-center gap-3 md:gap-6">
-                    <Link
-                      href="/cart"
-                      className="p-2 text-zinc-700 hover:text-black transition-colors relative flex items-center justify-center"
-                      title="Shopping Cart"
-                    >
-                      <ShoppingBag size={18} />
+                    <AnimatePresence>
                       {cartCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-black text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                          {cartCount > 99 ? "99+" : cartCount}
-                        </span>
+                        <motion.div
+                          initial={{ width: 0, opacity: 0 }}
+                          animate={{ width: "auto", opacity: 1 }}
+                          exit={{ width: 0, opacity: 0 }}
+                          className="flex items-center justify-center"
+                        >
+                          <Link
+                            href="/cart"
+                            className="p-2 text-zinc-700 hover:text-black transition-colors relative flex items-center justify-center"
+                            title="Shopping Cart"
+                          >
+                            <ShoppingBag size={18} />
+                            <span className="absolute -top-1 -right-1 bg-black text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                              {cartCount > 99 ? "99+" : cartCount}
+                            </span>
+                          </Link>
+                        </motion.div>
                       )}
-                    </Link>
+                    </AnimatePresence>
 
                     <NotificationsDropdown />
                     
