@@ -32,7 +32,7 @@ export default function WorkWithWritersSection() {
   if (writers.length === 0) return null; // Don't show section if no writers
 
   return (
-    <section className="relative w-full py-32 bg-zinc-50 border-t border-black/10">
+    <section id="hire-writers" className="relative w-full py-32 bg-zinc-50 border-t border-black/10">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-black tracking-tight text-zinc-900 uppercase" style={{ fontFamily: 'var(--font-outfit)' }}>

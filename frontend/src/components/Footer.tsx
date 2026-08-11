@@ -12,7 +12,9 @@ import {
   Briefcase,
   Newspaper,
   MessageCircle,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  Search
 } from "lucide-react";
 import { useState } from "react";
 
@@ -140,6 +142,18 @@ export default function Footer() {
                   <Link href="/community" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
                     <Users size={16} className="text-zinc-400 group-hover:text-black transition-colors" />
                     Community
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#hire-writers" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
+                    <Search size={16} className="text-zinc-400 group-hover:text-black transition-colors" />
+                    Hire a Writer
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/how-hire-writers-work" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
+                    <Sparkles size={16} className="text-zinc-400 group-hover:text-black transition-colors" />
+                    How Hire Writers Work
                   </Link>
                 </li>
                 <li>
