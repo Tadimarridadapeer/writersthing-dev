@@ -4,9 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, User, Share2, Loader2, Heart, MessageSquare, Bookmark, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import DictionaryWrapper from "@/components/DictionaryWrapper";
 import { ReviewSection } from "@/components/ReviewSection";
 import LanguageSelector from "@/components/LanguageSelector";
 import LikedByUsers, { LikedUser } from "@/components/LikedByUsers";
+import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
 
 function renderMarkdown(content: string): string {
   if (!content) return "";
@@ -88,6 +90,7 @@ function renderMarkdown(content: string): string {
 export default function BlogPost() {
   const params = useParams();
   const router = useRouter();
+  useAnalyticsTracking("blog", params.id as string);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [blog, setBlog] = useState<any>(null);
   const [followersCount, setFollowersCount] = useState(0);

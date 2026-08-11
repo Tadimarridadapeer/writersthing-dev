@@ -33,6 +33,8 @@ function getSupabase() {
 
 import { getPagination } from "@/lib/pagination";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const supabase = getSupabase();
@@ -49,7 +51,7 @@ export async function GET(req: Request) {
       let query = supabase
         .from("stories")
         .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
-        .not("body", "ilike", "[DRAFT]%")
+        .eq("status", "Published")
         .order("created_at", { ascending: false });
 
       if (search) {
@@ -90,6 +92,11 @@ export async function GET(req: Request) {
         data: mappedData,
         hasMore,
         nextPage: hasMore ? page + 1 : null
+      }, {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        }
       });
     } else {
       let query = supabase
@@ -136,6 +143,11 @@ export async function GET(req: Request) {
         data: mappedData,
         hasMore,
         nextPage: hasMore ? page + 1 : null
+      }, {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        }
       });
     }
   } catch (error: any) {
@@ -156,7 +168,7 @@ export async function POST(req: Request) {
     // Ensure author profile exists
     const authorProfile = await ensureAuthorProfile(supabase, user.id);
 
-    const { title, description, content, category, type, coverUrl } = await req.json();
+    const { title, description, content, category, type, coverUrl, status } = await req.json();
 
     if (type === "Story") {
       const slug = title
@@ -173,7 +185,7 @@ export async function POST(req: Request) {
             category: category || "General",
             cover_image: coverUrl || "",
             author_id: authorProfile.id,
-            status: req.headers.get("X-Publish") === "true" ? "Published" : "Draft"
+            status: status || (req.headers.get("X-Publish") === "true" ? "Published" : "Draft")
           }
         ])
         .select()

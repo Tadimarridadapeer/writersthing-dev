@@ -15,9 +15,9 @@ export default function BooksPage() {
 
   const fetchBooks = async () => {
     try {
-      const res = await fetch("/api/books");
+      const res = await fetch("/api/books", { cache: 'no-store' });
       const data = await res.json();
-      setBooks(Array.isArray(data) ? data : []);
+      setBooks(data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     } catch (err) {
       console.error("Fetch books error:", err);
     } finally {

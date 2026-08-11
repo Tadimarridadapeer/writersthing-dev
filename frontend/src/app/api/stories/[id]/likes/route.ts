@@ -3,6 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 function getSupabaseServer() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

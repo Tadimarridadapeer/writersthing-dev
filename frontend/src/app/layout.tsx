@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { FoundingWritersProvider } from "@/context/FoundingWritersContext";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import FounderInvitationModal from "@/components/ui/FounderInvitationModal";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -81,6 +82,7 @@ export default function RootLayout({
         <FoundingWritersProvider>
           <AuthProvider>
             <LoadingScreen />
+            <FounderInvitationModal />
             <ClientLayout>{children}</ClientLayout>
           </AuthProvider>
         </FoundingWritersProvider>

@@ -329,6 +329,7 @@ function WritePageContent() {
           category: storyCategory || "General",
           type: "Story",
           coverUrl: thumbnailUrl,
+          status: isDraft ? "Draft" : "Published",
           tags: storyTags
         })
       });
@@ -416,6 +417,7 @@ function WritePageContent() {
           category: "Blog",
           type: "Blog",
           coverUrl: bannerUrl,
+          status: isDraft ? "Draft" : "Published",
           tags: []
         })
       });
@@ -633,10 +635,14 @@ function WritePageContent() {
                 ) : (
                   <>
                     <button 
-                      onClick={() => router.push("/profile")}
+                      onClick={() => {
+                        if (selectedType === "Blog") router.push(`/blogs/${createdId}`);
+                        else if (selectedType === "Story") router.push(`/stories/${createdId}`);
+                        else router.push("/profile");
+                      }}
                       className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all"
                     >
-                      View in Profile
+                      Go to your story
                     </button>
                     <button 
                       onClick={() => setStep("selection")}
