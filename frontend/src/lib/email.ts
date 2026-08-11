@@ -170,7 +170,7 @@ export const sendHireRequestNotificationEmail = async (to: string, writerName: s
     `;
 
     await transporter.sendMail({
-      from: \`"Writersthing Notifications" <\${process.env.EMAIL_USER}>\`,
+      from: `"Writersthing Notifications" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
@@ -206,7 +206,7 @@ export const sendHireRequestAcceptedEmail = async (to: string, isToWriter: boole
     `;
 
     await transporter.sendMail({
-      from: \`"Writersthing Notifications" <\${process.env.EMAIL_USER}>\`,
+      from: `"Writersthing Notifications" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
