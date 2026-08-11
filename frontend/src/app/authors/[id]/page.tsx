@@ -14,7 +14,6 @@ import {
   FileText,
   Heart,
   X,
-  Star,
   ShieldCheck,
   CheckCircle2,
   DollarSign
@@ -23,6 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import Badge from "@/components/ui/Badge";
 import AvatarWithBadge from "@/components/AvatarWithBadge";
+import HireWriterModal from "@/components/HireWriterModal";
 
 export default function AuthorProfilePage() {
   const params = useParams();
@@ -45,6 +45,7 @@ export default function AuthorProfilePage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersList, setFollowersList] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [isHireModalOpen, setIsHireModalOpen] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -81,8 +82,6 @@ export default function AuthorProfilePage() {
         profileRes,
         followsCountRes,
         followStatusRes,
-        blogsRes,
-        storysRes,
         badgesRes,
         servicesRes,
         founderRes
@@ -93,11 +92,9 @@ export default function AuthorProfilePage() {
         supabase.from("authors").select("*").eq("user_id", resolvedUserId).maybeSingle(),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", resolvedUserId),
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
-        supabase.from("blogs").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
-        supabase.from("storys").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
         supabase.from("user_badges").select("*").eq("user_id", resolvedUserId),
         supabase.from("writer_services").select("*").eq("writer_id", resolvedUserId).order("created_at", { ascending: false }),
-        supabase.from("founding_writers").select("id").eq("user_id", resolvedUserId).eq("status", "Accepted").maybeSingle()
+        supabase.from("founding_writers").select("id").eq("user_id", resolvedUserId).ilike("status", "accepted").maybeSingle()
       ]);
 
       if (userRes.error || !userRes.data) {
@@ -108,23 +105,25 @@ export default function AuthorProfilePage() {
       setAuthorProfile(profileRes.data);
       setFollowersCount(followsCountRes.count || 0);
       setIsFollowing(!!followStatusRes.data);
-      setBlogs(blogsRes.data || []);
-      setStorys(storysRes.data || []);
       setAuthorBadges(badgesRes?.data || []);
       setWriterServices(servicesRes?.data || []);
       setIsFoundingWriter(!!founderRes?.data);
 
-      // Books query depends on author profileData ID
+      // Books, blogs and storys query depends on author profileData ID
       if (profileRes.data) {
-        const { data: booksData } = await supabase
-          .from("books")
-          .select("*")
-          .eq("author_id", profileRes.data.id)
-          .eq("status", "Published")
-          .order("created_at", { ascending: false });
-        setBooks(booksData || []);
+        const [booksDataRes, blogsDataRes, storysDataRes] = await Promise.all([
+          supabase.from("books").select("*").eq("author_id", profileRes.data.id).eq("status", "Published").order("created_at", { ascending: false }),
+          supabase.from("blogs").select("*").or(`author_id.eq.${profileRes.data.id},author_id.eq.${resolvedUserId}`).order("created_at", { ascending: false }),
+          supabase.from("stories").select("*").or(`author_id.eq.${profileRes.data.id},author_id.eq.${resolvedUserId}`).order("created_at", { ascending: false })
+        ]);
+        
+        setBooks(booksDataRes.data || []);
+        setBlogs(blogsDataRes.data || []);
+        setStorys(storysDataRes.data || []);
       } else {
         setBooks([]);
+        setBlogs([]);
+        setStorys([]);
       }
     } catch (err) {
       console.error("Error fetching author details:", err);
@@ -260,17 +259,28 @@ export default function AuthorProfilePage() {
                 </div>
               </div>
 
-              {/* Follow Action */}
-              <button 
-                onClick={handleFollow}
-                className={`px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all ${
-                  isFollowing 
-                    ? "bg-zinc-100 border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300"
-                    : "bg-zinc-950 text-white hover:bg-zinc-800"
-                }`}
-              >
-                {isFollowing ? "Following" : "Follow Author"}
-              </button>
+              {/* Actions */}
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={handleFollow}
+                  className={`px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all ${
+                    isFollowing 
+                      ? "bg-zinc-100 border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300"
+                      : "bg-zinc-950 text-white hover:bg-zinc-800"
+                  }`}
+                >
+                  {isFollowing ? "Following" : "Follow Author"}
+                </button>
+                
+                {(isFoundingWriter || authorUser.is_verified_writer || authorUser.available_for_hire) && (
+                  <button 
+                    onClick={() => setIsHireModalOpen(true)}
+                    className="px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
+                  >
+                    Hire Writer
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Author Biography */}
@@ -340,7 +350,7 @@ export default function AuthorProfilePage() {
               activeTab === "storys" ? "border-zinc-950 text-zinc-950" : "border-transparent text-zinc-400 hover:text-zinc-600"
             }`}
           >
-            Storys ({storys.length})
+            Stories ({storys.length})
           </button>
         </div>
 
@@ -443,7 +453,7 @@ export default function AuthorProfilePage() {
                 storys.map(artItem => (
                   <Link 
                     key={artItem.id} 
-                    href={`/storys/${artItem.id}`}
+                    href={`/stories/${artItem.id}`}
                     className="block bg-white border border-zinc-100 rounded-3xl p-6 hover:border-zinc-950 hover:shadow-md transition-all group"
                   >
                     <div className="flex justify-between items-start gap-4 mb-4">
@@ -529,6 +539,13 @@ export default function AuthorProfilePage() {
         )}
 
         </div>
+        
+        <HireWriterModal 
+          isOpen={isHireModalOpen} 
+          onClose={() => setIsHireModalOpen(false)} 
+          writerId={authorUser.id} 
+          writerName={authorUser.name} 
+        />
       </div>
     </div>
   );

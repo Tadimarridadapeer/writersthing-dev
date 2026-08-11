@@ -36,8 +36,7 @@ export default function HowHireWritersWorkPage() {
               How Hiring Writers Works
             </h1>
             <p className="text-lg text-zinc-500 font-serif leading-relaxed">
-              Writersthing connects you directly with top-tier storytellers, copywriters, and content creators. 
-              Our streamlined process ensures you find the perfect voice for your project securely and efficiently.
+              Writersthing isn't just a marketplace; it's a launchpad. We are the ultimate destination for the next generation of storytellers. Our mission is to connect visionary creators with undiscovered talent, turning today's unknown writers into tomorrow's icons.
             </p>
           </div>
         </div>
@@ -45,34 +44,34 @@ export default function HowHireWritersWorkPage() {
         {/* Step-by-Step Flow */}
         <div className="mb-16">
           <h2 className="text-xl font-heading font-black uppercase tracking-tight text-zinc-900 mb-8 flex items-center gap-2">
-            <Briefcase size={20} className="text-indigo-500" /> The Hiring Process
+            <Briefcase size={20} className="text-black" /> Discover & Collaborate
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white border border-zinc-100 p-8 rounded-2xl relative shadow-sm hover:border-black transition-colors">
               <div className="absolute -top-4 -left-4 w-8 h-8 bg-black text-white flex items-center justify-center rounded-full font-bold">1</div>
               <MessageCircle size={32} className="text-zinc-300 mb-6" />
-              <h3 className="text-lg font-bold text-zinc-900 mb-3">Submit a Request</h3>
+              <h3 className="text-lg font-bold text-zinc-900 mb-3">Discover the Next Icon</h3>
               <p className="text-sm text-zinc-500 leading-relaxed">
-                Found a writer you like? Click "Hire Writer" and submit your project details, including category, summary, and budget. Your contact info stays private initially.
+                Found a storyteller whose voice resonates with you? Click "Hire Writer" and submit your project vision, timeline, and budget. Your contact info remains private initially.
               </p>
             </div>
 
             <div className="bg-white border border-zinc-100 p-8 rounded-2xl relative shadow-sm hover:border-black transition-colors">
               <div className="absolute -top-4 -left-4 w-8 h-8 bg-black text-white flex items-center justify-center rounded-full font-bold">2</div>
               <Mail size={32} className="text-zinc-300 mb-6" />
-              <h3 className="text-lg font-bold text-zinc-900 mb-3">Writer Review</h3>
+              <h3 className="text-lg font-bold text-zinc-900 mb-3">Creative Review</h3>
               <p className="text-sm text-zinc-500 leading-relaxed">
-                The writer receives a professional email outlining your project. They can review your requirements and decide if it's a good fit for their schedule.
+                The writer receives a professional outline of your vision. They review your requirements to ensure it aligns perfectly with their creative journey and availability.
               </p>
             </div>
 
             <div className="bg-white border border-zinc-100 p-8 rounded-2xl relative shadow-sm hover:border-black transition-colors">
               <div className="absolute -top-4 -left-4 w-8 h-8 bg-black text-white flex items-center justify-center rounded-full font-bold">3</div>
               <Sparkles size={32} className="text-zinc-300 mb-6" />
-              <h3 className="text-lg font-bold text-zinc-900 mb-3">Connect & Collaborate</h3>
+              <h3 className="text-lg font-bold text-zinc-900 mb-3">Forge a Partnership</h3>
               <p className="text-sm text-zinc-500 leading-relaxed">
-                Once the writer accepts, both parties instantly receive each other's contact details via email to discuss the project further and begin collaboration.
+                Once the writer accepts, both of you receive contact details to bring the story to life. You're not just hiring a freelancer; you're investing in an emerging icon.
               </p>
             </div>
           </div>
@@ -81,38 +80,38 @@ export default function HowHireWritersWorkPage() {
         {/* Eligibility Section */}
         <div className="bg-zinc-900 text-white rounded-3xl p-8 md:p-12 shadow-xl mb-12">
           <h2 className="text-2xl md:text-3xl font-heading font-black uppercase tracking-tight mb-8">
-            Who Can You Hire?
+            Our Standard of Excellence
           </h2>
           <p className="text-zinc-400 font-serif leading-relaxed max-w-3xl mb-12">
-            To maintain high quality, we only allow eligible writers to accept freelance requests. 
-            A writer becomes eligible if they meet <strong className="text-white">any</strong> of the following criteria:
+            We are deeply committed to elevating raw talent. To ensure that every project is a masterpiece, we only empower our most dedicated storytellers to accept professional commissions. 
+            A writer enters our exclusive hiring pool if they meet <strong className="text-white">any</strong> of the following criteria:
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             
             {/* Automatic Eligibility */}
             <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Automatic Eligibility</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">The Vanguard</h3>
               <ul className="space-y-4">
                 <li className="flex items-start gap-4">
-                  <Star className="text-amber-500 shrink-0 mt-1" size={20} />
+                  <Star className="text-white shrink-0 mt-1" size={20} />
                   <div>
                     <h4 className="font-bold text-white">Founding Writers</h4>
-                    <p className="text-sm text-zinc-400 mt-1">Our earliest, hand-picked members.</p>
+                    <p className="text-sm text-zinc-400 mt-1">Our original trailblazers who laid the foundation of this platform.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-4">
-                  <ShieldCheck className="text-blue-500 shrink-0 mt-1" size={20} />
+                  <ShieldCheck className="text-white shrink-0 mt-1" size={20} />
                   <div>
-                    <h4 className="font-bold text-white">Verified Writers</h4>
-                    <p className="text-sm text-zinc-400 mt-1">Authors whose identity and portfolio have been vetted.</p>
+                    <h4 className="font-bold text-white">Verified Storytellers</h4>
+                    <p className="text-sm text-zinc-400 mt-1">Authors whose identity, dedication, and craft have been thoroughly vetted.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-4">
-                  <CheckCircle2 className="text-emerald-500 shrink-0 mt-1" size={20} />
+                  <CheckCircle2 className="text-white shrink-0 mt-1" size={20} />
                   <div>
-                    <h4 className="font-bold text-white">Available for Hire</h4>
-                    <p className="text-sm text-zinc-400 mt-1">Writers who explicitly toggle on their professional services.</p>
+                    <h4 className="font-bold text-white">Open for Collaboration</h4>
+                    <p className="text-sm text-zinc-400 mt-1">Visionary writers who have explicitly opened their creative doors to new partnerships.</p>
                   </div>
                 </li>
               </ul>
@@ -120,14 +119,14 @@ export default function HowHireWritersWorkPage() {
 
             {/* Performance Based */}
             <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Performance Based</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Proven Icons</h3>
               <div className="bg-zinc-800/50 p-6 rounded-2xl border border-zinc-700/50">
                 <div className="flex items-center gap-3 mb-4">
-                  <TrendingUp className="text-indigo-400" size={20} />
-                  <h4 className="font-bold text-white">High Achieving Authors</h4>
+                  <TrendingUp className="text-white" size={20} />
+                  <h4 className="font-bold text-white">High-Impact Creators</h4>
                 </div>
                 <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
-                  Writers who consistently deliver great content automatically unlock the ability to be hired.
+                  Writers who consistently captivate audiences and deliver incredible narratives automatically earn their place in the spotlight.
                 </p>
                 <ul className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-medium text-zinc-300">
                   <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" /> Rating ≥ 4.5</li>
@@ -145,7 +144,7 @@ export default function HowHireWritersWorkPage() {
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold mb-6">Ready to find your writer?</h2>
           <Link 
-            href="/#hire-writers" 
+            href="/login" 
             className="inline-flex items-center gap-2 px-8 py-4 bg-black text-white font-bold rounded-full hover:bg-zinc-800 hover:scale-105 transition-all shadow-lg"
           >
             <Sparkles size={18} />
