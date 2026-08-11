@@ -102,7 +102,10 @@ export async function GET(req: Request) {
     }
 
     if (category) {
-      query = query.eq("category", category);
+      const categories = category.split(",").map(c => c.trim()).filter(Boolean);
+      if (categories.length > 0) {
+        query = query.in("category", categories);
+      }
     }
 
     const { from, to } = getPagination(page, limit);

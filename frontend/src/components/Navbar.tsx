@@ -51,12 +51,14 @@ export default function Navbar() {
 
   const navLinks = user
     ? [
-        { name: "About", href: "/about" },
+        { name: "Freelancers", href: "/freelancers" },
         { name: "For Writers", href: "/for-writers" },
+        { name: "About", href: "/about" },
       ]
     : [
-        { name: "About", href: "/about" },
+        { name: "Freelancers", href: "/freelancers" },
         { name: "For Writers", href: "/for-writers" },
+        { name: "About", href: "/about" },
       ];
 
   return (
@@ -196,6 +198,10 @@ export default function Navbar() {
                     <Link href="/marketplace" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black">
                       <Bookmark size={20} strokeWidth={1.5} />
                       <span className="text-sm font-medium">Marketplace</span>
+                    </Link>
+                    <Link href="/freelancers" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black">
+                      <Users size={20} strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Freelancers</span>
                     </Link>
                     <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black">
                       <User size={20} strokeWidth={1.5} />

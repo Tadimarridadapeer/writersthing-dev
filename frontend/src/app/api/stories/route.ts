@@ -56,7 +56,12 @@ export async function GET(req: Request) {
         const s = `%${search}%`;
         query = query.or(`title.ilike.${s},body.ilike.${s},category.ilike.${s}`);
       }
-      if (category) query = query.eq("category", category);
+      if (category) {
+        const categories = category.split(",").map(c => c.trim()).filter(Boolean);
+        if (categories.length > 0) {
+          query = query.in("category", categories);
+        }
+      }
 
       const { data, error } = await query.range(from, to);
       if (error) throw error;
@@ -97,7 +102,12 @@ export async function GET(req: Request) {
         const s = `%${search}%`;
         query = query.or(`title.ilike.${s},content.ilike.${s}`);
       }
-      if (category) query = query.eq("category", category);
+      if (category) {
+        const categories = category.split(",").map(c => c.trim()).filter(Boolean);
+        if (categories.length > 0) {
+          query = query.in("category", categories);
+        }
+      }
 
       const { data, error } = await query.range(from, to);
       if (error) throw error;

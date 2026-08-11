@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Bookmark, MoreHorizontal, Search, X, ShoppingBag } from "lucide-react";
+import { Loader2, Bookmark, MoreHorizontal, Search, X, ShoppingBag, Filter, ChevronDown, Check } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { RecommendationsPayload } from "@/types/recommendations";
@@ -34,7 +34,14 @@ function MarketplaceContent() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
+  const AVAILABLE_CATEGORIES = [
+    "Fiction", "Non-Fiction", "Sci-Fi", "Fantasy", 
+    "Mystery", "Romance", "Technology", "Business", 
+    "Self Improvement", "Poetry", "History"
+  ];
   const { toggleBookmark, isBookmarked } = useBookmarks();
 
   useEffect(() => {
@@ -55,17 +62,19 @@ function MarketplaceContent() {
     currentPage: number, 
     currentType: "all" | "books" | "stories" | "blogs", 
     currentSearch: string, 
+    currentCategories: string[],
     isLoadMore = false
   ) => {
     if (!isLoadMore) setLoading(true);
     else setLoadingMore(true);
 
     try {
-      if (currentSearch.trim() || currentType !== "all" || languageFilter !== "all") {
+      if (currentSearch.trim() || currentType !== "all" || languageFilter !== "all" || currentCategories.length > 0) {
         // Fetch search/category specific data
         let endpoints: string[] = [];
         let params = `?page=${currentPage}&limit=20&search=${encodeURIComponent(currentSearch.trim())}`;
         if (languageFilter !== "all") params += `&lang=${languageFilter}`;
+        if (currentCategories.length > 0) params += `&category=${encodeURIComponent(currentCategories.join(','))}`;
 
         
         if (currentType === "all") {
@@ -149,16 +158,16 @@ function MarketplaceContent() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
-      fetchPaginatedData(1, feedType, searchQuery, false);
+      fetchPaginatedData(1, feedType, searchQuery, selectedCategories, false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, feedType, languageFilter, fetchPaginatedData]);
+  }, [searchQuery, feedType, languageFilter, selectedCategories, fetchPaginatedData]);
 
   const handleLoadMore = () => {
     if (!hasMore || loadingMore) return;
     const next = page + 1;
     setPage(next);
-    fetchPaginatedData(next, feedType, searchQuery, true);
+    fetchPaginatedData(next, feedType, searchQuery, selectedCategories, true);
   };
 
   const handleDelete = async (id: string, type: string) => {
@@ -394,6 +403,61 @@ function MarketplaceContent() {
                     {t}
                   </button>
                 ))}
+              </div>
+
+              {/* Filter Button */}
+              <div className="pb-3 relative">
+                <button
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-sm transition-colors ${selectedCategories.length > 0 ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                >
+                  <Filter size={14} />
+                  Filters {selectedCategories.length > 0 && `(${selectedCategories.length})`}
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                <AnimatePresence>
+                  {isFilterOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 top-full mt-2 w-64 bg-white border border-zinc-200 shadow-xl rounded-md py-3 z-[100]"
+                    >
+                      <div className="px-4 pb-2 mb-2 border-b border-zinc-100 flex justify-between items-center">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Categories</span>
+                        {selectedCategories.length > 0 && (
+                          <button 
+                            onClick={() => setSelectedCategories([])}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wider"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-64 overflow-y-auto px-2 custom-scrollbar">
+                        {AVAILABLE_CATEGORIES.map(category => (
+                          <button
+                            key={category}
+                            onClick={() => {
+                              setSelectedCategories(prev => 
+                                prev.includes(category) 
+                                  ? prev.filter(c => c !== category)
+                                  : [...prev, category]
+                              );
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm font-medium hover:bg-zinc-50 rounded-sm flex items-center justify-between group"
+                          >
+                            <span className={selectedCategories.includes(category) ? 'text-black font-bold' : 'text-zinc-600 group-hover:text-black'}>
+                              {category}
+                            </span>
+                            {selectedCategories.includes(category) && <Check size={14} className="text-black" />}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </header>
