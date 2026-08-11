@@ -221,8 +221,9 @@ function WritePageContent() {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    if (!title || !pdfFile) {
-      setErrorMessage("A Title and PDF Manuscript are required to publish a book.");
+    if (!title || !pdfFile || !category.trim()) {
+      window.alert("Please select a category first.");
+      setErrorMessage("A Title, Category, and PDF Manuscript are required to publish a book.");
       setIsSubmitting(false);
       return;
     }
@@ -286,6 +287,12 @@ function WritePageContent() {
 
     if (!isDraft && !storyContent.trim()) {
       setErrorMessage("Please write some content before publishing.");
+      return;
+    }
+
+    if (!storyCategory.trim()) {
+      window.alert("Please select a category first.");
+      setErrorMessage("Please select a category.");
       return;
     }
 
@@ -515,6 +522,12 @@ function WritePageContent() {
                   onSubmit={handleBookSubmit}
                   onSaveDraft={async () => {
                     setIsSubmitting(true);
+                    if (!category.trim()) { 
+                      window.alert("Please select a category first.");
+                      setErrorMessage("Please select a category first."); 
+                      setIsSubmitting(false); 
+                      return; 
+                    }
                     try {
                       await saveToDatabase({ type: "Book", title, description, category, content: "", coverFile, pdfFile }, false);
                     } finally { setIsSubmitting(false); }
@@ -537,12 +550,25 @@ function WritePageContent() {
                 <StoryEditorUI 
                   onSaveDraft={async () => {
                     setIsSubmitting(true);
+                    if (!category.trim()) { 
+                      window.alert("Please select a category first.");
+                      setErrorMessage("Please select a category first."); 
+                      setIsSubmitting(false); 
+                      return; 
+                    }
                     try {
                       await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, false);
                     } finally { setIsSubmitting(false); }
                   }}
                   onPublish={async () => {
                     setIsSubmitting(true);
+                    if (!category.trim()) { 
+                      window.alert("Please select a category first.");
+                      setErrorMessage("Please select a category first."); 
+                      setIsSubmitting(false); 
+                      return; 
+                    }
+                    if (!content.trim()) { setErrorMessage("Please write some content before publishing."); setIsSubmitting(false); return; }
                     try {
                       const id = await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, true);
                       setCreatedId(id); setStep("success");
@@ -716,128 +742,59 @@ function InputField({ label, placeholder, value, onChange }: any) {
   );
 }
 
-function CategoryInputField({ label, placeholder, value, onChange }: any) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  
+function CategoryInputField({ label, value, onChange }: any) {
   const CATEGORY_SUGGESTIONS = [
-    "Technology",
-    "Fiction",
-    "Education",
-    "Mystery",
-    "Sci-Fi",
-    "Thriller",
-    "Biography",
-    "Poetry",
-    "Culture",
-    "Insight",
-    "Love",
-    "Comedy",
-    "History"
+    "Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", 
+    "Education", "Self Improvement", "Poetry", "History", "Others"
   ];
-
-  const filtered = CATEGORY_SUGGESTIONS.filter(item => 
-    item.toLowerCase().includes(value.toLowerCase()) &&
-    value.trim() !== ""
-  );
 
   return (
     <div className="space-y-4 relative">
       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{label}</label>
       <div className="relative">
-        <input 
-          type="text"
+        <select 
           required
-          placeholder={placeholder}
           value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            setShowSuggestions(true);
-          }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => {
-            setTimeout(() => setShowSuggestions(false), 200);
-          }}
-          className="w-full bg-white border border-zinc-300 p-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all placeholder:text-zinc-400 text-zinc-950"
-        />
-        
-        {showSuggestions && filtered.length > 0 && (
-          <div className="absolute z-50 left-0 right-0 top-full bg-white border border-zinc-100 shadow-2xl p-2 mt-2 max-h-48 overflow-y-auto rounded-sm">
-            {filtered.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => {
-                  onChange(item);
-                  setShowSuggestions(false);
-                }}
-                className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black hover:bg-zinc-50 transition-all rounded-sm cursor-pointer border-0 bg-transparent block"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        )}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-white border border-zinc-300 p-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all text-zinc-950 appearance-none cursor-pointer"
+        >
+          <option value="" disabled>SELECT A CATEGORY...</option>
+          {CATEGORY_SUGGESTIONS.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-6 flex items-center px-2 text-zinc-400">
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
       </div>
     </div>
   );
 }
 
-function StoryCategoryInputField({ label, placeholder, value, onChange }: any) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  
+function StoryCategoryInputField({ label, value, onChange }: any) {
   const CATEGORY_SUGGESTIONS = [
-    "Love Stories",
-    "Comic",
-    "Rom-Com",
-    "Inspirations",
-    "Experiences",
-    "Confessions",
-    "Fiction",
-    "Non-Fiction"
+    "Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", 
+    "Education", "Self Improvement", "Poetry", "History", "Others"
   ];
-
-  const filtered = CATEGORY_SUGGESTIONS.filter(item => 
-    item.toLowerCase().includes(value.toLowerCase()) &&
-    value.trim() !== ""
-  );
 
   return (
     <div className="flex flex-col gap-2 flex-grow min-w-[200px] relative">
       <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{label}</label>
       <div className="relative">
-        <input 
-          type="text"
+        <select 
           required
-          placeholder={placeholder}
           value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            setShowSuggestions(true);
-          }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => {
-            setTimeout(() => setShowSuggestions(false), 200);
-          }}
-          className="bg-transparent text-sm font-bold uppercase tracking-widest outline-none border border-zinc-300 p-4 w-full focus:border-zinc-950 transition-colors placeholder:text-zinc-400 text-zinc-950"
-        />
-        
-        {showSuggestions && filtered.length > 0 && (
-          <div className="absolute z-50 left-0 right-0 top-full bg-white border border-zinc-100 shadow-2xl p-2 mt-2 max-h-48 overflow-y-auto rounded-sm">
-            {filtered.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => {
-                  onChange(item);
-                  setShowSuggestions(false);
-                }}
-                className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black hover:bg-zinc-50 transition-all rounded-sm cursor-pointer border-0 bg-transparent block"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        )}
+          onChange={(e) => onChange(e.target.value)}
+          className="bg-transparent text-sm font-bold uppercase tracking-widest outline-none border border-zinc-300 p-4 w-full focus:border-zinc-950 transition-colors text-zinc-950 appearance-none cursor-pointer"
+        >
+          <option value="" disabled>SELECT A CATEGORY...</option>
+          {CATEGORY_SUGGESTIONS.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center px-2 text-zinc-400">
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
       </div>
     </div>
   );
@@ -1062,13 +1019,16 @@ function StoryEditorUI({
               required
             />
             
-            <input 
-              type="text"
-              placeholder="Category (e.g. Fiction, Fantasy, Romance)"
+            <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full text-sm font-bold tracking-widest uppercase text-zinc-600 placeholder:text-zinc-300 bg-transparent outline-none transition-all border-none focus:ring-0"
-            />
+              className={`w-full text-sm font-bold tracking-widest uppercase ${category ? 'text-zinc-600' : 'text-zinc-300'} bg-transparent outline-none transition-all border-none focus:ring-0 appearance-none cursor-pointer p-0`}
+            >
+              <option value="" disabled>CATEGORY (E.G. FICTION, FANTASY, ROMANCE)</option>
+              {["Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", "Education", "Self Improvement", "Poetry", "History", "Others"].map(c => (
+                <option key={c} value={c} className="text-zinc-900">{c}</option>
+              ))}
+            </select>
             
             <div className="pt-4">
               <FileUploadField 

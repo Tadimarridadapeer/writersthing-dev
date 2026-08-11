@@ -22,6 +22,7 @@ function MarketplaceContent() {
                           typeParam === "Blog" ? "blogs" : "all";
                           
   const [feed, setFeed] = useState<any[]>([]);
+  const [fallbackFeed, setFallbackFeed] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -38,9 +39,9 @@ function MarketplaceContent() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   const AVAILABLE_CATEGORIES = [
-    "Fiction", "Non-Fiction", "Sci-Fi", "Fantasy", 
+    "Sci-Fi", "Fantasy", 
     "Mystery", "Romance", "Technology", "Business", 
-    "Self Improvement", "Poetry", "History"
+    "Education", "Self Improvement", "Poetry", "History", "Others"
   ];
   const { toggleBookmark, isBookmarked } = useBookmarks();
 
@@ -106,6 +107,33 @@ function MarketplaceContent() {
           setFeed(prev => [...prev, ...newFeed]);
         } else {
           setFeed(newFeed);
+          if (newFeed.length === 0) {
+            let fbEndpoints: string[] = [];
+            if (currentType === "all") {
+              fbEndpoints = [`/api/books?limit=5`, `/api/stories?limit=5&type=Story`];
+            } else if (currentType === "books") {
+              fbEndpoints = [`/api/books?limit=5`];
+            } else if (currentType === "stories") {
+              fbEndpoints = [`/api/stories?limit=5&type=Story`];
+            } else if (currentType === "blogs") {
+              fbEndpoints = [`/api/stories?limit=5&type=Blog`];
+            }
+            try {
+              const fbRes = await Promise.all(fbEndpoints.map(ep => fetch(ep, { cache: 'no-store' }).then(res => res.json())));
+              let fbFeed: any[] = [];
+              fbRes.forEach(res => {
+                if (res.data && Array.isArray(res.data)) {
+                  fbFeed = [...fbFeed, ...res.data];
+                }
+              });
+              fbFeed.sort((a, b) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
+              setFallbackFeed(fbFeed);
+            } catch (fbErr) {
+              console.error("Failed to fetch fallback feed", fbErr);
+            }
+          } else {
+            setFallbackFeed([]);
+          }
         }
         setHasMore(anyHasMore);
 
@@ -390,74 +418,80 @@ function MarketplaceContent() {
             </form>
             
             {/* Tabs and Actions */}
-            <div className="flex justify-between items-end border-b border-zinc-150 relative">
-              <div className="flex gap-8">
+            <div className="flex items-end border-b border-zinc-150 relative">
+              <div className="flex gap-8 items-center">
                 {(["all", "books", "stories", "blogs"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setFeedType(t)}
-                    className={`pb-4 text-[12px] font-bold uppercase tracking-widest transition-all ${
-                      feedType === t ? "text-black border-b-2 border-black" : "text-zinc-400 hover:text-black"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              {/* Filter Button */}
-              <div className="pb-3 relative">
-                <button
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-sm transition-colors ${selectedCategories.length > 0 ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
-                >
-                  <Filter size={14} />
-                  Filters {selectedCategories.length > 0 && `(${selectedCategories.length})`}
-                  <ChevronDown size={14} className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                <AnimatePresence>
-                  {isFilterOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute right-0 top-full mt-2 w-64 bg-white border border-zinc-200 shadow-xl rounded-md py-3 z-[100]"
+                  <div key={t} className="flex items-center">
+                    <button
+                      onClick={() => {
+                        setFeedType(t);
+                        setSelectedCategories([]);
+                      }}
+                      className={`pb-4 text-[12px] font-bold uppercase tracking-widest transition-all ${
+                        feedType === t ? "text-black border-b-2 border-black" : "text-zinc-400 hover:text-black"
+                      }`}
                     >
-                      <div className="px-4 pb-2 mb-2 border-b border-zinc-100 flex justify-between items-center">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Categories</span>
-                        {selectedCategories.length > 0 && (
-                          <button 
-                            onClick={() => setSelectedCategories([])}
-                            className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wider"
-                          >
-                            Clear
-                          </button>
-                        )}
+                      {t}
+                    </button>
+                    {/* Show filter icon right beside the active tab if it's books or stories */}
+                    {feedType === t && (t === "books" || t === "stories") && (
+                      <div className="pb-3 relative ml-2">
+                        <button
+                          onClick={() => setIsFilterOpen(!isFilterOpen)}
+                          className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-sm transition-colors ${selectedCategories.length > 0 ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                          aria-label="Filter"
+                        >
+                          <Filter size={14} />
+                          {selectedCategories.length > 0 && <span>({selectedCategories.length})</span>}
+                        </button>
+                        
+                        <AnimatePresence>
+                          {isFilterOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 10 }}
+                              className="absolute left-0 top-full mt-2 w-64 bg-white border border-zinc-200 shadow-xl rounded-md py-3 z-[100]"
+                            >
+                              <div className="px-4 pb-2 mb-2 border-b border-zinc-100 flex justify-between items-center">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Categories</span>
+                                {selectedCategories.length > 0 && (
+                                  <button 
+                                    onClick={() => setSelectedCategories([])}
+                                    className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wider"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                              <div className="max-h-64 overflow-y-auto px-2 custom-scrollbar">
+                                {AVAILABLE_CATEGORIES.map(category => (
+                                  <button
+                                    key={category}
+                                    onClick={() => {
+                                      setSelectedCategories(prev => 
+                                        prev.includes(category) 
+                                          ? prev.filter(c => c !== category)
+                                          : [...prev, category]
+                                      );
+                                      setIsFilterOpen(false);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm font-medium hover:bg-zinc-50 rounded-sm flex items-center justify-between group"
+                                  >
+                                    <span className={selectedCategories.includes(category) ? 'text-black font-bold' : 'text-zinc-600 group-hover:text-black'}>
+                                      {category}
+                                    </span>
+                                    {selectedCategories.includes(category) && <Check size={14} className="text-black" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                      <div className="max-h-64 overflow-y-auto px-2 custom-scrollbar">
-                        {AVAILABLE_CATEGORIES.map(category => (
-                          <button
-                            key={category}
-                            onClick={() => {
-                              setSelectedCategories(prev => 
-                                prev.includes(category) 
-                                  ? prev.filter(c => c !== category)
-                                  : [...prev, category]
-                              );
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm font-medium hover:bg-zinc-50 rounded-sm flex items-center justify-between group"
-                          >
-                            <span className={selectedCategories.includes(category) ? 'text-black font-bold' : 'text-zinc-600 group-hover:text-black'}>
-                              {category}
-                            </span>
-                            {selectedCategories.includes(category) && <Check size={14} className="text-black" />}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </header>
@@ -469,32 +503,21 @@ function MarketplaceContent() {
           ) : searchQuery.trim() || feedType !== "all" ? (
             <div className="flex flex-col">
               {feed.length === 0 ? (
-                <div className="py-24 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-6">
-                    <Search className="text-zinc-300" size={24} />
-                  </div>
-                  <h3 className="text-lg font-bold text-zinc-900 mb-2">No exact matches found</h3>
-                  <p className="text-zinc-500 text-sm max-w-sm mb-8">
-                    We couldn't find any {feedType === "all" ? "content" : feedType} matching your current filters. 
+                <div className="w-full text-left -mt-4">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-4">
+                    {(searchQuery.trim() || selectedCategories.length > 0) 
+                      ? "No exact matches found." 
+                      : `No ${feedType === "all" ? "content" : feedType} available yet.`}
                   </p>
-                  
-                  <div className="w-full max-w-md pt-8 border-t border-zinc-100">
-                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Because you like this, try exploring</h4>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {["Fiction", "Self Improvement", "Programming", "Technology", "History"].map(topic => (
-                        <button 
-                          key={topic}
-                          onClick={() => {
-                            setSearchQuery(topic);
-                            setFeedType("all");
-                          }}
-                          className="px-4 py-2 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 text-sm rounded-full transition-colors font-medium"
-                        >
-                          {topic}
-                        </button>
-                      ))}
+
+                  {fallbackFeed.length > 0 && (
+                    <div className="flex flex-col">
+                      <h3 className="text-lg font-black uppercase tracking-tight mb-0 border-b border-zinc-100 pb-2">Available {feedType === "all" ? "Content" : feedType}</h3>
+                      <div className="flex flex-col">
+                        {fallbackFeed.map(renderItem)}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <>

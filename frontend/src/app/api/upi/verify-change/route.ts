@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendUpiChangeNotification } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
     const { userId, email, otpCode } = await req.json();
+    const supabaseAdmin = getSupabaseAdmin();
 
     if (!userId || !email || !otpCode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     // 1. Find the latest unused OTP for this user
-    const { data: otpRecords, error: otpFetchError } = await supabase
+    const { data: otpRecords, error: otpFetchError } = await supabaseAdmin
       .from("upi_otps")
       .select("*")
       .eq("user_id", userId)
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Get current active UPI
-    const { data: user } = await supabase
+    const { data: user } = await supabaseAdmin
       .from("users")
       .select("active_upi_id")
       .eq("id", userId)
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     const ipAddress = req.headers.get("x-forwarded-for") || "unknown";
     const deviceInfo = req.headers.get("user-agent") || "unknown";
 
-    const { error: requestError } = await supabase
+    const { error: requestError } = await supabaseAdmin
       .from("upi_change_requests")
       .insert({
         user_id: userId,
@@ -66,10 +67,10 @@ export async function POST(req: Request) {
     }
 
     // 5. Mark OTP as used
-    await supabase.from("upi_otps").update({ used: true }).eq("id", otpRecord.id);
+    await supabaseAdmin.from("upi_otps").update({ used: true }).eq("id", otpRecord.id);
 
     // 6. Log audit trail
-    await supabase.from("upi_audit_logs").insert({
+    await supabaseAdmin.from("upi_audit_logs").insert({
       user_id: userId,
       action: "request_change",
       previous_upi: user?.active_upi_id || null,
