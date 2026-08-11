@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
     const { userId, email, otpCode } = await req.json();
+    const supabaseAdmin = getSupabaseAdmin();
 
     if (!userId || !email || !otpCode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     // 1. Find the latest unused OTP for this user
-    const { data: otpRecords, error: otpFetchError } = await supabase
+    const { data: otpRecords, error: otpFetchError } = await supabaseAdmin
       .from("upi_otps")
       .select("*")
       .eq("user_id", userId)
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Update user profile with active UPI
-    const { error: userUpdateError } = await supabase
+    const { error: userUpdateError } = await supabaseAdmin
       .from("users")
       .update({
         active_upi_id: otpRecord.new_upi_id,
@@ -51,10 +52,10 @@ export async function POST(req: Request) {
     }
 
     // 4. Mark OTP as used
-    await supabase.from("upi_otps").update({ used: true }).eq("id", otpRecord.id);
+    await supabaseAdmin.from("upi_otps").update({ used: true }).eq("id", otpRecord.id);
 
     // 5. Log audit trail
-    await supabase.from("upi_audit_logs").insert({
+    await supabaseAdmin.from("upi_audit_logs").insert({
       user_id: userId,
       action: "setup",
       new_upi: otpRecord.new_upi_id,
