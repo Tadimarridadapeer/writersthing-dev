@@ -11,6 +11,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import { ContinueReadingSection } from "@/components/ContinueReadingSection";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useCart } from "@/hooks/useCart";
+import HireWriterModal from "@/components/HireWriterModal";
 
 function MarketplaceContent() {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ function MarketplaceContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedWriterForHire, setSelectedWriterForHire] = useState<{ id: string, name: string } | null>(null);
   
   const AVAILABLE_CATEGORIES = [
     "Fiction", "Non-Fiction", "Sci-Fi", "Fantasy", 
@@ -197,6 +199,7 @@ function MarketplaceContent() {
       category: item.category || "General",
       cover: item.cover_url || item.cover_image || item.banner_url || item.cover || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800",
       author: item.author || item.authors?.name || item.authors?.users?.name || "Unknown",
+      author_id: item.author_id || item.authors?.user_id,
       url: item.url || (item.price !== undefined ? `/book/${item.id}` : (item.type === 'Blog' ? `/blogs/${item.id}` : `/stories/${item.id}`)),
       date: item.created_at || item.date || Date.now(),
       price: item.price || 0,
@@ -268,25 +271,45 @@ function MarketplaceContent() {
                 
                 {activeMenu === `${mappedItem.type}-${mappedItem.id}` && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 shadow-xl rounded-sm py-2 z-50 text-sm font-medium text-zinc-600">
-                    <button 
-                      onClick={(e) => { 
-                        e.preventDefault(); 
-                        e.stopPropagation(); 
-                        addToCart({
-                          id: mappedItem.id,
-                          title: mappedItem.title,
-                          price: mappedItem.price || 14.99,
-                          cover_url: mappedItem.cover,
-                          author_name: mappedItem.author
-                        });
-                        setToast({ message: `Added "${mappedItem.title}" to cart!`, type: "success" }); 
-                        setActiveMenu(null); 
-                      }} 
-                      className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors flex items-center gap-2 cursor-pointer font-bold text-black"
-                    >
-                      <ShoppingBag size={14} /> Add to Cart
-                    </button>
-                    <div className="h-px bg-zinc-100 my-1" />
+                    {mappedItem.type === "Book" && (
+                      <>
+                        <button 
+                          onClick={(e) => { 
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                            addToCart({
+                              id: mappedItem.id,
+                              title: mappedItem.title,
+                              price: mappedItem.price || 14.99,
+                              cover_url: mappedItem.cover,
+                              author_name: mappedItem.author
+                            });
+                            setToast({ message: `Added "${mappedItem.title}" to cart!`, type: "success" }); 
+                            setActiveMenu(null); 
+                          }} 
+                          className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors flex items-center gap-2 cursor-pointer font-bold text-black"
+                        >
+                          <ShoppingBag size={14} /> Add to Cart
+                        </button>
+                        <div className="h-px bg-zinc-100 my-1" />
+                      </>
+                    )}
+                    {mappedItem.author_id && !mappedItem.isAuthor && (
+                      <>
+                        <button 
+                          onClick={(e) => { 
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                            setSelectedWriterForHire({ id: mappedItem.author_id, name: mappedItem.author });
+                            setActiveMenu(null); 
+                          }} 
+                          className="w-full text-left px-4 py-2 hover:bg-indigo-50 transition-colors flex items-center gap-2 cursor-pointer font-bold text-indigo-600"
+                        >
+                          ✨ Hire Writer
+                        </button>
+                        <div className="h-px bg-zinc-100 my-1" />
+                      </>
+                    )}
                     <button 
                       onClick={(e) => { 
                         e.preventDefault(); 
@@ -591,6 +614,15 @@ function MarketplaceContent() {
           </div>
         </div>
       </div>
+
+      {selectedWriterForHire && (
+        <HireWriterModal 
+          isOpen={!!selectedWriterForHire}
+          onClose={() => setSelectedWriterForHire(null)}
+          writerId={selectedWriterForHire.id}
+          writerName={selectedWriterForHire.name}
+        />
+      )}
 
       <AnimatePresence>
         {toast && (
