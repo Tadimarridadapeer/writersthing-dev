@@ -12,9 +12,11 @@ import {
   Briefcase,
   Newspaper,
   MessageCircle,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  Search
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 
 const InstagramIcon = ({ className, strokeWidth = 2 }: { className?: string; strokeWidth?: number }) => (
@@ -54,12 +56,38 @@ const LinkedinIcon = ({ className, strokeWidth = 2 }: { className?: string; stro
 export default function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
+  useEffect(() => {
+    const isSubscribed = localStorage.getItem("wt_newsletter_subscribed");
+    if (isSubscribed === "true") {
       setSubscribed(true);
-      setEmail("");
+    }
+  }, []);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (res.ok) {
+        setSubscribed(true);
+        localStorage.setItem("wt_newsletter_subscribed", "true");
+        setEmail("");
+      } else {
+        console.error("Failed to subscribe");
+      }
+    } catch (error) {
+      console.error("Error subscribing:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,10 +131,11 @@ export default function Footer() {
                   />
                   <button 
                     type="submit"
+                    disabled={isLoading}
                     suppressHydrationWarning
-                    className="px-6 py-3 bg-black text-white text-sm font-semibold rounded-md hover:bg-zinc-800 transition-colors"
+                    className="px-6 py-3 bg-black text-white text-sm font-semibold rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50"
                   >
-                    Subscribe
+                    {isLoading ? "Subscribing..." : "Subscribe"}
                   </button>
                 </form>
               )}
@@ -140,6 +169,12 @@ export default function Footer() {
                   <Link href="/community" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
                     <Users size={16} className="text-zinc-400 group-hover:text-black transition-colors" />
                     Community
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/how-hire-writers-work" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
+                    <Sparkles size={16} className="text-zinc-400 group-hover:text-black transition-colors" />
+                    How Hire Writers Work
                   </Link>
                 </li>
                 <li>

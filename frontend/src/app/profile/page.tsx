@@ -882,21 +882,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* Borderless Reading Highlights */}
-              <div className="flex flex-wrap items-center gap-6 mt-8 pt-6 border-t border-zinc-100">
-                <div className="flex items-center gap-2">
-                  <Globe size={14} className="text-zinc-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Available in 50 Languages</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Borderless Reading Enabled</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BarChart2 size={14} className="text-zinc-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Global Readers</span>
-                </div>
-              </div>
             </div>
           </header>
 

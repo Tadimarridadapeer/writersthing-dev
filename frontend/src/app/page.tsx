@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
+import WorkWithWritersSection from "@/components/WorkWithWritersSection";
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
@@ -267,6 +268,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* =========================================
+          CHAPTER 3.5: WORK WITH WRITERS
+          ========================================= */}
+      <WorkWithWritersSection />
 
       {/* =========================================
           CHAPTER 4: THE PLEDGE (Pricing)

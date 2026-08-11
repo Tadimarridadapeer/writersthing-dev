@@ -8,6 +8,7 @@ import DictionaryWrapper from "@/components/DictionaryWrapper";
 import LanguageSelector from "@/components/LanguageSelector";
 import LikedByUsers, { LikedUser } from "@/components/LikedByUsers";
 import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
+import HireWriterModal from "@/components/HireWriterModal";
 
 function renderMarkdown(content: string): string {
   if (!content) return "";
@@ -111,6 +112,10 @@ export default function StoryPost() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedStory, setTranslatedStory] = useState<{ title?: string, content?: string } | null>(null);
 
+  // Hire Writer state
+  const [isEligibleForHire, setIsEligibleForHire] = useState(false);
+  const [isHireModalOpen, setIsHireModalOpen] = useState(false);
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
     const userObj = stored ? JSON.parse(stored) : null;
@@ -145,11 +150,27 @@ export default function StoryPost() {
       const storyUuid = params.id as string;
       fetchEngagementData(storyUuid, userObj);
 
+      if (data.authorId) {
+        checkWriterEligibility(data.authorId);
+      }
+
     } catch (err) {
       console.error("Fetch story error:", err);
       setStory(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkWriterEligibility = async (writerId: string) => {
+    try {
+      const res = await fetch(`/api/hire/check?writer_id=${writerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setIsEligibleForHire(data.eligible);
+      }
+    } catch (err) {
+      console.error("Check eligibility error:", err);
     }
   };
 
@@ -718,7 +739,28 @@ export default function StoryPost() {
             <button onClick={handleShare} className="p-2 sm:p-3.5 border border-zinc-100 hover:bg-black hover:text-white transition-all rounded-xl">
               <Share2 size={16} />
             </button>
+
+            {/* Hire Writer Button */}
+            {isEligibleForHire && !isAuthor && (
+              <button 
+                onClick={() => setIsHireModalOpen(true)}
+                className="ml-auto px-4 sm:px-6 py-2 sm:py-3.5 bg-indigo-600 text-white rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm"
+              >
+                ✨ Hire Writer
+              </button>
+            )}
           </div>
+          
+          <HireWriterModal 
+            isOpen={isHireModalOpen} 
+            onClose={() => setIsHireModalOpen(false)} 
+            writerId={story.authorId}
+            writerName={story.author && story.author !== "Writersthing Author" 
+                        ? story.author 
+                        : (currentUser?.id === story.authorId && (currentUser?.user_metadata?.name || currentUser?.user_metadata?.full_name) 
+                            ? (currentUser.user_metadata.name || currentUser.user_metadata.full_name) 
+                            : "Writersthing Author")}
+          />
 
           {/* Calculate Average Rating */}
           {(() => {

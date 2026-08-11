@@ -350,7 +350,7 @@ function WritePageContent() {
       if (isDraft) {
         router.push("/profile");
       } else {
-        router.push(`/storys/${responseData.id}`);
+        router.push(`/stories/${responseData.id}`);
       }
 
     } catch (err: any) {
