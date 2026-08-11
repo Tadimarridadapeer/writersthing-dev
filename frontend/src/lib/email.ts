@@ -138,3 +138,81 @@ export const sendCommentNotificationEmail = async (to: string, authorName: strin
   }
 };
 
+export const sendHireRequestNotificationEmail = async (to: string, writerName: string, clientName: string, projectType: string, budgetMin: number | null, budgetMax: number | null, expectedDeadline: string, description: string, acceptUrl: string) => {
+  try {
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.log(`[SIMULATED EMAIL] To: ${to}, Subject: New Hire Request`);
+      return;
+    }
+
+    const subject = "New Project Request - Writer's Thing";
+    let budgetStr = "Not specified";
+    if (budgetMin !== null && budgetMax !== null) budgetStr = `₹${budgetMin} - ₹${budgetMax}`;
+    else if (budgetMin !== null) budgetStr = `From ₹${budgetMin}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2>You have a new project request, ${writerName || 'Writer'}!</h2>
+        <p><strong>${clientName || 'A client'}</strong> has sent you a project request.</p>
+        <div style="background: #f9fafb; padding: 15px; margin: 20px 0; border-radius: 4px; border: 1px solid #eaeaea;">
+          <p><strong>Project Type:</strong> ${projectType}</p>
+          <p><strong>Budget:</strong> ${budgetStr}</p>
+          <p><strong>Expected Deadline:</strong> ${expectedDeadline || 'Not specified'}</p>
+          <p><strong>Description:</strong></p>
+          <p style="white-space: pre-wrap;">${description}</p>
+        </div>
+        <p style="font-size: 0.9em; color: #666;">Note: Contact details will be shared once you accept the request.</p>
+        <div style="margin-top: 30px;">
+          <a href="${acceptUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View in Dashboard & Accept</a>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: \`"Writersthing Notifications" <\${process.env.EMAIL_USER}>\`,
+      to,
+      subject,
+      html,
+    });
+  } catch (error) {
+    console.error("Failed to send hire request email:", error);
+  }
+};
+
+export const sendHireRequestAcceptedEmail = async (to: string, isToWriter: boolean, partnerName: string, partnerEmail: string, partnerPhone: string | null, projectType: string) => {
+  try {
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.log(`[SIMULATED EMAIL] To: ${to}, Subject: Hire Request Accepted`);
+      return;
+    }
+
+    const subject = isToWriter ? "Contact Details: Project Accepted" : "Your Hire Request was Accepted!";
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2>${isToWriter ? 'Project Accepted' : 'Request Accepted!'}</h2>
+        <p>${isToWriter 
+          ? `You have accepted the request for <strong>${projectType}</strong>. Here are the client's contact details so you can begin:` 
+          : `<strong>${partnerName}</strong> has accepted your request for <strong>${projectType}</strong>. You can now contact them directly:`}</p>
+        
+        <div style="background: #f9fafb; padding: 15px; margin: 20px 0; border-radius: 4px; border: 1px solid #eaeaea;">
+          <p><strong>Name:</strong> ${partnerName}</p>
+          <p><strong>Email:</strong> <a href="mailto:${partnerEmail}">${partnerEmail}</a></p>
+          ${partnerPhone ? `<p><strong>Phone:</strong> ${partnerPhone}</p>` : ''}
+        </div>
+        <p>You can now continue your conversation outside of Writer's Thing.</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: \`"Writersthing Notifications" <\${process.env.EMAIL_USER}>\`,
+      to,
+      subject,
+      html,
+    });
+  } catch (error) {
+    console.error("Failed to send hire accepted email:", error);
+  }
+};
+

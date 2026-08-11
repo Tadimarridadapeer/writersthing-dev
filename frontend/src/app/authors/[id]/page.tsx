@@ -13,7 +13,11 @@ import {
   Star,
   FileText,
   Heart,
-  X
+  X,
+  Star,
+  ShieldCheck,
+  CheckCircle2,
+  DollarSign
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
@@ -27,6 +31,8 @@ export default function AuthorProfilePage() {
   const [authorUser, setAuthorUser] = useState<any>(null);
   const [authorProfile, setAuthorProfile] = useState<any>(null);
   const [authorBadges, setAuthorBadges] = useState<any[]>([]);
+  const [writerServices, setWriterServices] = useState<any[]>([]);
+  const [isFoundingWriter, setIsFoundingWriter] = useState(false);
   
   const [blogs, setBlogs] = useState<any[]>([]);
   const [storys, setStorys] = useState<any[]>([]);
@@ -77,7 +83,9 @@ export default function AuthorProfilePage() {
         followStatusRes,
         blogsRes,
         storysRes,
-        badgesRes
+        badgesRes,
+        servicesRes,
+        founderRes
       ] = await Promise.all([
         directUserRes.data
           ? Promise.resolve(directUserRes)
@@ -87,7 +95,9 @@ export default function AuthorProfilePage() {
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("blogs").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
         supabase.from("storys").select("*").eq("author_id", authorId).order("created_at", { ascending: false }),
-        supabase.from("user_badges").select("*").eq("user_id", resolvedUserId)
+        supabase.from("user_badges").select("*").eq("user_id", resolvedUserId),
+        supabase.from("writer_services").select("*").eq("writer_id", resolvedUserId).order("created_at", { ascending: false }),
+        supabase.from("founding_writers").select("id").eq("user_id", resolvedUserId).eq("status", "Accepted").maybeSingle()
       ]);
 
       if (userRes.error || !userRes.data) {
@@ -101,6 +111,8 @@ export default function AuthorProfilePage() {
       setBlogs(blogsRes.data || []);
       setStorys(storysRes.data || []);
       setAuthorBadges(badgesRes?.data || []);
+      setWriterServices(servicesRes?.data || []);
+      setIsFoundingWriter(!!founderRes?.data);
 
       // Books query depends on author profileData ID
       if (profileRes.data) {
@@ -226,6 +238,26 @@ export default function AuthorProfilePage() {
                 <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1">
                   {authorUser.role || "Author"}
                 </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {isFoundingWriter && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-700 border border-amber-300 bg-amber-50 rounded">
+                      <Star size={12} className="fill-amber-500 text-amber-500" />
+                      Founding Writer
+                    </span>
+                  )}
+                  {authorUser.is_verified_writer && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-700 border border-blue-300 bg-blue-50 rounded">
+                      <ShieldCheck size={12} className="text-blue-500" />
+                      Verified Writer
+                    </span>
+                  )}
+                  {authorUser.available_for_hire && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 border border-emerald-300 bg-emerald-50 rounded">
+                      <CheckCircle2 size={12} className="text-emerald-500" />
+                      Available for Hire
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Follow Action */}
@@ -263,6 +295,26 @@ export default function AuthorProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Professional Services */}
+        {writerServices.length > 0 && (
+          <div className="mb-12 bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm">
+            <h2 className="text-lg font-heading font-black uppercase tracking-tight text-zinc-900 mb-6 flex items-center gap-2">
+              <DollarSign size={20} className="text-indigo-500" /> Professional Services
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {writerServices.map(service => (
+                <div key={service.id} className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl hover:border-black transition-colors">
+                  <h3 className="text-sm font-bold text-zinc-900 mb-2">{service.service}</h3>
+                  <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Starting Price</span>
+                    <span className="text-sm font-black text-black">₹{service.starting_price}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tab Selection */}
         <div className="flex border-b border-zinc-200/80 mb-10 flex-shrink-0">
