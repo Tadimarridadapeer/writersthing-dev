@@ -4,15 +4,18 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   reactCompiler: true,
-  experimental: {
-    externalDir: true,
-  },
   images: {
     minimumCacheTTL: 604800,
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: '*.supabase.co' }
     ],
+  },
+  experimental: {
+    externalDir: true,
+    turbopack: {
+      root: '..',
+    },
   },
 };
 
