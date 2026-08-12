@@ -13,9 +13,6 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     externalDir: true,
-    turbopack: {
-      root: '..',
-    },
   },
 };
 
