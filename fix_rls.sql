@@ -131,19 +131,15 @@ DROP POLICY IF EXISTS "books_insert_policy" ON public.books;
 DROP POLICY IF EXISTS "books_update_policy" ON public.books;
 DROP POLICY IF EXISTS "books_delete_policy" ON public.books;
 
--- SELECT: Allow anyone to view Published books, or the Author (via authors table user_id mapping) or Admin to view Drafts
 CREATE POLICY "books_select_policy" ON public.books 
 FOR SELECT USING (status = 'Published' OR author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin());
 
--- INSERT: Authors can only create books where they are the owner
 CREATE POLICY "books_insert_policy" ON public.books 
 FOR INSERT TO authenticated WITH CHECK (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()));
 
--- UPDATE: Authors (or Admins) can edit books
 CREATE POLICY "books_update_policy" ON public.books 
 FOR UPDATE TO authenticated USING (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin()) WITH CHECK (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin());
 
--- DELETE: Authors (or Admins) can delete books
 CREATE POLICY "books_delete_policy" ON public.books 
 FOR DELETE TO authenticated USING (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin());
 

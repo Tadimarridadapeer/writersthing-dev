@@ -10,7 +10,7 @@ interface RoleCacheRecord {
 const roleCache = new Map<string, RoleCacheRecord>();
 const ROLE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
              request.headers.get('x-real-ip') || 

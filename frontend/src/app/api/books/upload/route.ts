@@ -48,15 +48,25 @@ export const POST = withObservability(async (req: Request) => {
     const supabaseAdmin = getSupabaseAdmin();
 
     // Resolve Author Record
-    const { data: authorData, error: authorError } = await supabaseAdmin
+    let { data: authorData, error: authorError } = await supabaseAdmin
       .from("authors")
       .select("id")
       .eq("user_id", user.id)
       .single();
 
     if (authorError || !authorData) {
-      logger.warn("Upload rejected: Authors record missing", { userId: user.id });
-      return NextResponse.json({ message: "Authors record missing. Please create an author profile first." }, { status: 403 });
+      // Auto-create author profile for user
+      const { data: newAuthor, error: createError } = await supabaseAdmin
+        .from("authors")
+        .insert({ user_id: user.id })
+        .select("id")
+        .single();
+      
+      if (createError) {
+        logger.warn("Upload rejected: Authors record missing and could not create", { userId: user.id });
+        return NextResponse.json({ message: "Authors record missing. Please create an author profile first." }, { status: 403 });
+      }
+      authorData = newAuthor;
     }
 
     const formData = await req.formData();
@@ -90,7 +100,7 @@ export const POST = withObservability(async (req: Request) => {
 
     if (bookInsertError || !bookData) {
       logger.error("Failed to create book record", { error: bookInsertError?.message, authorId: authorData.id });
-      return NextResponse.json({ message: "Failed to create book record" }, { status: 500 });
+      return NextResponse.json({ message: "Failed to create book record: " + (bookInsertError?.message || "Unknown error") }, { status: 500 });
     }
 
     const bookId = bookData.id;
@@ -99,8 +109,8 @@ export const POST = withObservability(async (req: Request) => {
     let coverUrl = "";
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
-      const coverPath = `${authorData.id}/${bookId}-cover.${coverExt}`;
-      const { error: coverUploadError } = await supabaseAdmin.storage
+      const coverPath = `${user.id}/${bookId}-cover.${coverExt}`;
+      const { error: coverUploadError } = await supabase.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .upload(coverPath, coverFile, { upsert: true });
         
@@ -109,7 +119,7 @@ export const POST = withObservability(async (req: Request) => {
         return NextResponse.json({ message: "Cover Upload Failed" }, { status: 500 });
       }
 
-      const { data: { publicUrl } } = supabaseAdmin.storage
+      const { data: { publicUrl } } = supabase.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .getPublicUrl(coverPath);
       coverUrl = publicUrl;
@@ -118,14 +128,14 @@ export const POST = withObservability(async (req: Request) => {
     // Upload PDF securely using backend mapping
     let pdfPath = "";
     if (pdfFile) {
-      pdfPath = `${authorData.id}/${bookId}/manuscript.pdf`;
-      const { error: pdfUploadError } = await supabaseAdmin.storage
+      pdfPath = `${user.id}/${bookId}/manuscript.pdf`;
+      const { error: pdfUploadError } = await supabase.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
         .upload(pdfPath, pdfFile, { upsert: true });
 
       if (pdfUploadError) {
         logger.error("Manuscript Upload Failed", { error: pdfUploadError.message, bookId });
-        return NextResponse.json({ message: "Manuscript Upload Failed" }, { status: 500 });
+        return NextResponse.json({ message: "Manuscript Upload Failed: " + pdfUploadError.message }, { status: 500 });
       }
     }
 
@@ -173,14 +183,24 @@ export const PUT = withObservability(async (req: Request) => {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    const { data: authorData, error: authorError } = await supabaseAdmin
+    let { data: authorData, error: authorError } = await supabaseAdmin
       .from("authors")
       .select("id")
       .eq("user_id", user.id)
       .single();
 
     if (authorError || !authorData) {
-      return NextResponse.json({ message: "Authors record missing" }, { status: 403 });
+      // Auto-create author profile for user
+      const { data: newAuthor, error: createError } = await supabaseAdmin
+        .from("authors")
+        .insert({ user_id: user.id })
+        .select("id")
+        .single();
+      
+      if (createError) {
+        return NextResponse.json({ message: "Authors record missing" }, { status: 403 });
+      }
+      authorData = newAuthor;
     }
 
     const formData = await req.formData();
@@ -216,13 +236,13 @@ export const PUT = withObservability(async (req: Request) => {
     // Upload Cover if provided
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
-      const coverPath = `${authorData.id}/${id}-cover.${coverExt}`;
-      const { error: coverUploadError } = await supabaseAdmin.storage
+      const coverPath = `${user.id}/${id}-cover.${coverExt}`;
+      const { error: coverUploadError } = await supabase.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .upload(coverPath, coverFile, { upsert: true });
         
       if (!coverUploadError) {
-        const { data: { publicUrl } } = supabaseAdmin.storage
+        const { data: { publicUrl } } = supabase.storage
           .from(STORAGE_CONFIG.buckets.publicCovers)
           .getPublicUrl(coverPath);
         updatePayload.cover_url = publicUrl;
@@ -231,8 +251,8 @@ export const PUT = withObservability(async (req: Request) => {
 
     // Upload PDF if provided
     if (pdfFile) {
-      const pdfPath = `${authorData.id}/${id}/manuscript.pdf`;
-      const { error: pdfUploadError } = await supabaseAdmin.storage
+      const pdfPath = `${user.id}/${id}/manuscript.pdf`;
+      const { error: pdfUploadError } = await supabase.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
         .upload(pdfPath, pdfFile, { upsert: true });
 

@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { ReviewSection } from "@/components/ReviewSection";
 import AvatarWithBadge from "@/components/AvatarWithBadge";
+import { PaymentButton } from "@/components/ui/PaymentButton";
 import { useCart } from "@/hooks/useCart";
 import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
 
@@ -517,12 +518,28 @@ export default function BookDetailPage() {
                   <ShoppingBag size={12} />
                   {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
                 </button>
-                <button 
-                  onClick={handleBuyNow}
-                  className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
-                >
-                  Buy Now <Zap size={12} fill="currentColor" />
-                </button>
+                {user ? (
+                  <PaymentButton 
+                    amount={book.price || 100} 
+                    userId={user.id}
+                    projectId={book.id}
+                    customerName={user.name || ""}
+                    customerEmail={user.email || ""}
+                    className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                    buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
+                    onSuccess={() => {
+                      alert("Payment successful! The manuscript has been added to your library.");
+                      router.push("/marketplace"); // or another relevant page
+                    }}
+                  />
+                ) : (
+                  <button 
+                    onClick={handleBuyNow}
+                    className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                  >
+                    Buy Now <Zap size={12} fill="currentColor" />
+                  </button>
+                )}
               </div>
             </div>
 
