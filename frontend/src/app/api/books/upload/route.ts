@@ -112,7 +112,7 @@ export const POST = withObservability(async (req: Request) => {
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
       const coverPath = `${user.id}/${bookId}-cover.${coverExt}`;
-      const { error: coverUploadError } = await supabase.storage
+      const { error: coverUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .upload(coverPath, coverFile, { upsert: true });
         
@@ -121,7 +121,7 @@ export const POST = withObservability(async (req: Request) => {
         return NextResponse.json({ message: "Cover Upload Failed" }, { status: 500 });
       }
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .getPublicUrl(coverPath);
       coverUrl = publicUrl;
@@ -131,7 +131,7 @@ export const POST = withObservability(async (req: Request) => {
     let pdfPath = "";
     if (pdfFile) {
       pdfPath = `${user.id}/${bookId}/manuscript.pdf`;
-      const { error: pdfUploadError } = await supabase.storage
+      const { error: pdfUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
         .upload(pdfPath, pdfFile, { upsert: true });
 
@@ -245,12 +245,12 @@ export const PUT = withObservability(async (req: Request) => {
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
       const coverPath = `${user.id}/${id}-cover.${coverExt}`;
-      const { error: coverUploadError } = await supabase.storage
+      const { error: coverUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .upload(coverPath, coverFile, { upsert: true });
         
       if (!coverUploadError) {
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = supabaseAdmin.storage
           .from(STORAGE_CONFIG.buckets.publicCovers)
           .getPublicUrl(coverPath);
         updatePayload.cover_url = publicUrl;
@@ -260,11 +260,14 @@ export const PUT = withObservability(async (req: Request) => {
     // Upload PDF if provided
     if (pdfFile) {
       const pdfPath = `${user.id}/${id}/manuscript.pdf`;
-      const { error: pdfUploadError } = await supabase.storage
+      const { error: pdfUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
         .upload(pdfPath, pdfFile, { upsert: true });
 
-      if (!pdfUploadError) {
+      if (pdfUploadError) {
+        console.error("DEBUG pdfUploadError:", pdfUploadError);
+        throw new Error("Failed to upload manuscript: " + pdfUploadError.message);
+      } else {
         updatePayload.pdf_path = pdfPath;
         updatePayload.storage_bucket = STORAGE_CONFIG.buckets.privateManuscripts;
         updatePayload.storage_path = pdfPath;

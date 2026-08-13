@@ -70,15 +70,27 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
 
   const currentIdRef = useRef<string | null>(draftId);
   const savePromiseRef = useRef<Promise<any> | null>(null);
+  const hasPublishedRef = useRef<boolean>(false);
 
   // Keep state in sync with ref for UI
   useEffect(() => {
     currentIdRef.current = draftId;
     setCurrentId(draftId);
-  }, [draftId]);
+    hasPublishedRef.current = false;
+  }, [draftId, type]);
 
   // 4. Supabase API Save Function
   const saveToDatabase = useCallback(async (payload: DraftPayload, isPublishing: boolean = false) => {
+    // If we've already successfully published, do not process any lagging autosaves
+    if (!isPublishing && hasPublishedRef.current) {
+      return currentIdRef.current;
+    }
+
+    if (isPublishing) {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (continuousTimerRef.current) clearTimeout(continuousTimerRef.current);
+    }
+
     // If there is already a save in progress, wait for it
     if (savePromiseRef.current) {
       try { await savePromiseRef.current; } catch (e) {}
@@ -148,6 +160,7 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
         });
 
         if (isPublishing) {
+          hasPublishedRef.current = true;
           clearLocal();
           if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
           if (continuousTimerRef.current) clearTimeout(continuousTimerRef.current);
