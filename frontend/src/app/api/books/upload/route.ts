@@ -112,9 +112,10 @@ export const POST = withObservability(async (req: Request) => {
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
       const coverPath = `${user.id}/${bookId}-cover.${coverExt}`;
+      const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
       const { error: coverUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
-        .upload(coverPath, coverFile, { upsert: true });
+        .upload(coverPath, coverBuffer, { upsert: true, contentType: coverFile.type || 'image/jpeg' });
         
       if (coverUploadError) {
         logger.error("Cover Upload Failed", { error: coverUploadError.message, bookId });
@@ -131,9 +132,10 @@ export const POST = withObservability(async (req: Request) => {
     let pdfPath = "";
     if (pdfFile) {
       pdfPath = `${user.id}/${bookId}/manuscript.pdf`;
+      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
       const { error: pdfUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
-        .upload(pdfPath, pdfFile, { upsert: true });
+        .upload(pdfPath, pdfBuffer, { upsert: true, contentType: 'application/pdf' });
 
       if (pdfUploadError) {
         logger.error("Manuscript Upload Failed", { error: pdfUploadError.message, bookId });
@@ -245,9 +247,10 @@ export const PUT = withObservability(async (req: Request) => {
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
       const coverPath = `${user.id}/${id}-cover.${coverExt}`;
+      const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
       const { error: coverUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
-        .upload(coverPath, coverFile, { upsert: true });
+        .upload(coverPath, coverBuffer, { upsert: true, contentType: coverFile.type || 'image/jpeg' });
         
       if (!coverUploadError) {
         const { data: { publicUrl } } = supabaseAdmin.storage
@@ -259,10 +262,12 @@ export const PUT = withObservability(async (req: Request) => {
 
     // Upload PDF if provided
     if (pdfFile) {
+      console.log("DEBUG pdfFile.type:", pdfFile.type, "size:", pdfFile.size);
       const pdfPath = `${user.id}/${id}/manuscript.pdf`;
+      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
       const { error: pdfUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
-        .upload(pdfPath, pdfFile, { upsert: true });
+        .upload(pdfPath, pdfBuffer, { upsert: true, contentType: 'application/pdf' });
 
       if (pdfUploadError) {
         console.error("DEBUG pdfUploadError:", pdfUploadError);
