@@ -69,36 +69,26 @@ export default function ProfilePage() {
   const [isUpiModalOpen, setIsUpiModalOpen] = useState(false);
   const [upiModalMode, setUpiModalMode] = useState<'setup' | 'change'>('setup');
   
+  const [availableBalance, setAvailableBalance] = useState(0);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+
   const fetchUpiData = async () => {
     if (!user?.id) return;
     try {
-      // 1. Fetch user profile UPI data
-      const { data: userData } = await supabase
-        .from("users")
-        .select("active_upi_id, is_upi_verified, last_upi_change_at")
-        .eq("id", user.id)
-        .single();
-      
-      if (userData) {
-        setActiveUpiId(userData.active_upi_id);
-        setIsUpiVerified(userData.is_upi_verified);
-        setLastUpiChange(userData.last_upi_change_at);
+      const res = await fetch(`/api/writer/upi?userId=${user.id}`);
+      if (res.ok) {
+        const authorData = await res.json();
+        setActiveUpiId(authorData.upi_id);
+        setIsUpiVerified(authorData.upi_verified);
+        setLastUpiChange(authorData.last_upi_changed_at);
+        
+        const { data: authData } = await supabase.from('authors').select('available_balance').eq('user_id', user.id).single();
+        if (authData) setAvailableBalance(authData.available_balance || 0);
       }
-
-      // 2. Fetch pending request
-      const { data: requests } = await supabase
-        .from("upi_change_requests")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "pending");
-      
-      if (requests && requests.length > 0) {
-        setPendingUpiRequest(requests[0]);
-      } else {
-        setPendingUpiRequest(null);
-      }
+      setPendingUpiRequest(null);
     } catch (e) {
-      console.error(e);
+      console.error("Failed to fetch UPI data", e);
     }
   };
 
@@ -1643,21 +1633,125 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <UpiManagementModal
-                        isOpen={isUpiModalOpen}
-                        mode={upiModalMode}
-                        userEmail={user?.email || ""}
-                        userId={user?.id || ""}
-                        onClose={() => setIsUpiModalOpen(false)}
-                        onSuccess={() => {
-                          setIsUpiModalOpen(false);
-                          setToast({ 
-                            message: upiModalMode === 'setup' ? "UPI ID verified successfully" : "UPI change request created. Check email.", 
-                            type: "success" 
-                          });
-                          fetchUpiData();
-                        }}
-                      />
+                      <AnimatePresence>
+                        {isUpiModalOpen && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                          >
+                            <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl relative text-left">
+                              <button 
+                                onClick={() => setIsUpiModalOpen(false)}
+                                className="absolute top-4 right-4 text-zinc-400 hover:text-black"
+                              >
+                                ✕
+                              </button>
+                              <h3 className="text-xl font-black uppercase tracking-tight mb-2">Setup Payments</h3>
+                              <p className="text-sm text-zinc-500 mb-6">Enter your UPI ID. Note that you can only change this once every 30 days.</p>
+                              <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const form = e.target as HTMLFormElement;
+                                const upiInput = form.elements.namedItem('upiId') as HTMLInputElement;
+                                try {
+                                  const res = await fetch("/api/writer/upi", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ userId: user.id, upiId: upiInput.value })
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) throw new Error(data.message || "Failed to update UPI");
+                                  setIsUpiModalOpen(false);
+                                  setToast({ message: "UPI ID updated successfully", type: "success" });
+                                  fetchUpiData();
+                                } catch (err: any) {
+                                  setToast({ message: err.message, type: "error" });
+                                }
+                              }} className="space-y-4">
+                                <div>
+                                  <label className="block text-[9px] font-black uppercase tracking-widest mb-1.5">UPI ID</label>
+                                  <input 
+                                    type="text" 
+                                    name="upiId"
+                                    defaultValue={activeUpiId || ""}
+                                    placeholder="e.g. yourname@okbank"
+                                    required
+                                    className="w-full bg-zinc-50 border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:border-black rounded-lg"
+                                  />
+                                </div>
+                                <button 
+                                  type="submit" 
+                                  className="w-full bg-black text-white px-6 py-3 font-black text-[10px] uppercase tracking-widest hover:bg-zinc-800 transition-colors rounded-lg"
+                                >
+                                  Save & Continue
+                                </button>
+                              </form>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Section 2.5: Wallet Balance & Withdraw */}
+                      {activeUpiId && (
+                        <div className="space-y-6 pt-6 border-t border-zinc-100">
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2.5 Wallet Balance</h4>
+                          <div className="bg-zinc-50 border border-zinc-200 p-6 rounded-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 block">Available Balance</span>
+                              <span className="text-2xl font-black text-black">₹{availableBalance.toFixed(2)}</span>
+                            </div>
+                            <form onSubmit={async (e) => {
+                              e.preventDefault();
+                              setIsWithdrawing(true);
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (!session) throw new Error("Not authenticated");
+                                const res = await fetch("/api/writer/withdraw", {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                    "Authorization": `Bearer ${session.access_token}`
+                                  },
+                                  body: JSON.stringify({ amount: Number(withdrawAmount), upi_id: activeUpiId })
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || "Failed to request withdrawal");
+                                setToast({ message: "Withdrawal requested successfully!", type: "success" });
+                                setWithdrawAmount("");
+                                fetchUpiData(); // refresh balance
+                              } catch (err: any) {
+                                setToast({ message: err.message, type: "error" });
+                              } finally {
+                                setIsWithdrawing(false);
+                              }
+                            }} className="flex items-end gap-4">
+                              <div className="flex-1">
+                                <label className="block text-[9px] font-black uppercase tracking-widest mb-1.5 text-zinc-500">Withdraw Amount (₹)</label>
+                                <input 
+                                  type="number" 
+                                  min="1" 
+                                  max={availableBalance}
+                                  step="1"
+                                  value={withdrawAmount}
+                                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                                  placeholder="0"
+                                  required
+                                  disabled={availableBalance <= 0 || isWithdrawing}
+                                  className="w-full bg-white border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:border-black rounded-sm disabled:opacity-50"
+                                />
+                              </div>
+                              <button 
+                                type="submit" 
+                                disabled={availableBalance <= 0 || isWithdrawing || !withdrawAmount}
+                                className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm shadow-sm disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {isWithdrawing ? "Processing..." : "Withdraw Funds"}
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Section 3: Session Management */}
                       <div className="space-y-6 pt-6 border-t border-zinc-100">

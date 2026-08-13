@@ -4,14 +4,37 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, BookOpen, Feather, Loader2, Library } from "lucide-react";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { supabase } from "@/lib/supabase";
 
 export default function BooksPage() {
   const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [purchasedBookIds, setPurchasedBookIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetchBooks();
+    fetchLibrary();
   }, []);
+
+  const fetchLibrary = async () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const { data: libraryData } = await supabase
+          .from("library")
+          .select("book_id")
+          .eq("user_id", user.id);
+        
+        if (libraryData) {
+          setPurchasedBookIds(new Set(libraryData.map(item => item.book_id)));
+        }
+      }
+    } catch (err) {
+      console.error("Fetch library error:", err);
+    }
+  };
 
   const fetchBooks = async () => {
     try {
@@ -105,10 +128,16 @@ export default function BooksPage() {
                       </p>
                     </div>
 
-                    <div className="lg:col-span-2 flex justify-end">
-                      <div className="w-16 h-16 border border-zinc-200 rounded-full flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all">
-                        <ArrowRight size={24} />
-                      </div>
+                    <div className="lg:col-span-2 flex justify-end items-center">
+                      {purchasedBookIds.has(book.id) ? (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-[10px] font-black uppercase tracking-widest">
+                          <BookOpen size={14} /> Read Now
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 border border-zinc-200 rounded-full flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all">
+                          <ArrowRight size={24} />
+                        </div>
+                      )}
                     </div>
                   </Link>
                 </motion.div>

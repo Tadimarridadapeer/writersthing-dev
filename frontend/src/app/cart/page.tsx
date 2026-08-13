@@ -23,15 +23,67 @@ export default function CartPage() {
     setCheckingOut(true);
 
     try {
-      // Simulate checkout processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       const storedUser = localStorage.getItem("user");
       const userObj = storedUser ? JSON.parse(storedUser) : null;
+      if (!userObj) {
+        alert("Please login to checkout");
+        setCheckingOut(false);
+        router.push("/auth");
+        return;
+      }
 
-      // Clear cart
-      await clearCart();
-      setOrderComplete(true);
+      // 1. Create order on backend
+      const orderRes = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: grandTotal }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.error || "Failed to create order");
+
+      // 2. Open Razorpay Checkout (Requires dynamic import or existing util)
+      const { openRazorpayCheckout } = await import("@/lib/razorpay");
+
+      openRazorpayCheckout({
+        orderId: orderData.order_id,
+        amount: orderData.amount, 
+        currency: orderData.currency,
+        name: "Writer's Thing",
+        description: "Cart Checkout",
+        customerName: userObj.name || "Customer",
+        customerEmail: userObj.email || "",
+        onSuccess: async (response) => {
+          try {
+            // 3. Verify on backend
+            const verifyRes = await fetch("/api/payment/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                userId: userObj.id,
+                amount: grandTotal,
+                cartItems: cart.map(i => ({ id: i.book_id || i.id })) // Pass all items to unlock
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) throw new Error(verifyData.error || "Verification failed");
+
+            // 4. Success handling
+            await clearCart();
+            setOrderComplete(true);
+          } catch (err: unknown) {
+            console.error("Verification error:", err);
+            alert(err instanceof Error ? err.message : "Payment verification failed");
+          }
+        },
+        onError: (err) => {
+          console.error("Razorpay Error:", err);
+          alert("Payment failed or cancelled.");
+        },
+      });
+
     } catch (err) {
       console.error("Checkout error:", err);
       alert("Failed to complete checkout. Please try again.");

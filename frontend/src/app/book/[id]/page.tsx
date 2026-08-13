@@ -35,14 +35,19 @@ export default function BookDetailPage() {
   const [rating, setRating] = useState(5);
   const [user, setUser] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isPurchased, setIsPurchased] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "reviews">("overview");
   const [followersCount, setFollowersCount] = useState(0);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
-    fetchBookData();
+    let currentUser = null;
+    if (storedUser) {
+      currentUser = JSON.parse(storedUser);
+      setUser(currentUser);
+    }
+    fetchBookData(currentUser);
   }, [params.id]);
 
   useEffect(() => {
@@ -63,7 +68,8 @@ export default function BookDetailPage() {
     };
   }, [params.id]);
 
-  const fetchBookData = async () => {
+  const fetchBookData = async (currentUser?: any) => {
+    const activeUser = currentUser || user;
     try {
       // Fetch book and reviews in parallel
       const [bookRes, reviewsRes] = await Promise.all([
@@ -88,10 +94,10 @@ export default function BookDetailPage() {
       if (bookData && bookData.authors?.user_id) {
         // Fetch follower information in parallel
         const [followRes, followersCountRes] = await Promise.all([
-          user ? supabase
+          activeUser ? supabase
             .from("follows")
             .select("*")
-            .eq("follower_id", user.id)
+            .eq("follower_id", activeUser.id)
             .eq("following_id", bookData.authors.user_id)
             .maybeSingle() : Promise.resolve({ data: null }),
           supabase
@@ -102,6 +108,16 @@ export default function BookDetailPage() {
 
         if (followRes.data) setIsFollowing(true);
         setFollowersCount(followersCountRes.count || 0);
+      }
+
+      if (activeUser) {
+        const { data: libraryData } = await supabase
+          .from("library")
+          .select("id")
+          .eq("user_id", activeUser.id)
+          .eq("book_id", params.id)
+          .maybeSingle();
+        if (libraryData) setIsPurchased(true);
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -497,50 +513,58 @@ export default function BookDetailPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => {
-                    addToCart({
-                      id: book.id,
-                      title: book.title,
-                      price: book.price,
-                      cover_url: book.cover_url || book.cover_image,
-                      author_name: book.authors?.users?.name || book.author?.name || "Author"
-                    });
-                    setIsAddedToCart(true);
-                  }}
-                  className={`px-5 py-3.5 font-black text-[9px] uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-2 border rounded-xl cursor-pointer ${
-                    cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart 
-                      ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" 
-                      : "bg-transparent border-zinc-700 text-white hover:bg-zinc-900"
-                  }`}
+              {isPurchased ? (
+                <Link
+                  href={`/read/pdf?id=${book.id}`}
+                  className="px-8 py-3.5 bg-black text-white font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 rounded-xl w-full"
                 >
-                  <ShoppingBag size={12} />
-                  {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
-                </button>
-                {user ? (
-                  <PaymentButton 
-                    amount={book.price || 100} 
-                    userId={user.id}
-                    projectId={book.id}
-                    customerName={user.name || ""}
-                    customerEmail={user.email || ""}
-                    className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
-                    buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
-                    onSuccess={() => {
-                      alert("Payment successful! The manuscript has been added to your library.");
-                      router.push("/marketplace"); // or another relevant page
-                    }}
-                  />
-                ) : (
+                  Read Book <BookOpen size={12} fill="currentColor" />
+                </Link>
+              ) : (
+                <div className="flex gap-3 w-full">
                   <button 
-                    onClick={handleBuyNow}
-                    className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                    onClick={() => {
+                      addToCart({
+                        id: book.id,
+                        title: book.title,
+                        price: book.price,
+                        cover_url: book.cover_url || book.cover_image,
+                        author_name: book.authors?.users?.name || book.author?.name || "Author"
+                      });
+                      setIsAddedToCart(true);
+                    }}
+                    className={`px-5 py-3.5 font-black text-[9px] uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-2 border rounded-xl cursor-pointer ${
+                      cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart 
+                        ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" 
+                        : "bg-transparent border-zinc-700 text-white hover:bg-zinc-900"
+                    }`}
                   >
-                    Buy Now <Zap size={12} fill="currentColor" />
+                    <ShoppingBag size={12} />
+                    {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
                   </button>
-                )}
-              </div>
+                  {user ? (
+                    <PaymentButton 
+                      amount={book.price || 100} 
+                      userId={user.id}
+                      projectId={book.id}
+                      customerName={user.name || ""}
+                      customerEmail={user.email || ""}
+                      className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl flex-grow"
+                      buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
+                      onSuccess={() => {
+                        setIsPurchased(true);
+                      }}
+                    />
+                  ) : (
+                    <button 
+                      onClick={handleBuyNow}
+                      className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl flex-grow"
+                    >
+                      Buy Now <Zap size={12} fill="currentColor" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Secure Checkout Footer Text */}
