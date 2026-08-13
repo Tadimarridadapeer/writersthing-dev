@@ -102,6 +102,7 @@ function WritePageContent() {
   const draftIdParam = searchParams.get("id");
 
   const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("99");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
@@ -112,6 +113,55 @@ function WritePageContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showCreateAuthorBtn, setShowCreateAuthorBtn] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  
+  const [activeUpiId, setActiveUpiId] = useState<string | null>(null);
+  const [upiIdInput, setUpiIdInput] = useState("");
+
+  useEffect(() => {
+    async function fetchUpi() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      try {
+        const upiRes = await fetch(`/api/writer/upi?userId=${session.user.id}`);
+        if (upiRes.ok) {
+          const upiData = await upiRes.json();
+          if (upiData.upi_id) setActiveUpiId(upiData.upi_id);
+        }
+      } catch (e) {
+        console.error("Failed to fetch UPI", e);
+      }
+    }
+    fetchUpi();
+  }, []);
+
+  const requireUpiAndProceed = async (publishFn: () => Promise<void>) => {
+    setIsSubmitting(true);
+    setErrorMessage("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Authentication required. Please log in.");
+      
+      if (!activeUpiId) {
+        if (!upiIdInput.trim()) {
+          throw new Error("Please enter your Payout UPI ID.");
+        }
+        const res = await fetch("/api/writer/upi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: session.user.id, upiId: upiIdInput })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to save UPI ID");
+        setActiveUpiId(upiIdInput);
+      }
+      
+      await publishFn();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message);
+      setIsSubmitting(false);
+    }
+  };
 
   const { status: draftStatus, lastSaved, errorMessage: draftError, currentId, triggerAutoSave, saveToDatabase, recoverLocalDraft, clearLocal } = useDraftManager(selectedType, draftIdParam);
 
@@ -124,6 +174,7 @@ function WritePageContent() {
         description,
         content,
         category,
+        price,
         // Intentionally omit files from auto-save to prevent massive bandwidth usage
       });
     }
@@ -218,25 +269,13 @@ function WritePageContent() {
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage("");
-
     if (!title || !pdfFile || !category.trim()) {
       window.alert("Please select a category first.");
       setErrorMessage("A Title, Category, and PDF Manuscript are required to publish a book.");
-      setIsSubmitting(false);
       return;
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        throw new Error("Authentication required. Please log in.");
-      }
-
-      // Backend API handles the rest (auth validation, author lookup, storage upload, metadata insert)
+    requireUpiAndProceed(async () => {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
@@ -249,6 +288,7 @@ function WritePageContent() {
         title,
         description,
         category,
+        price,
         content: "",
         coverFile,
         pdfFile
@@ -256,18 +296,7 @@ function WritePageContent() {
 
       setCreatedId(publishedId);
       setStep("success");
-
-    } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err.message);
-      if (err.message && err.message.includes("Authors record missing")) {
-        setShowCreateAuthorBtn(true);
-      } else {
-        setShowCreateAuthorBtn(false);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleStorySubmit = async (
@@ -296,9 +325,7 @@ function WritePageContent() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
+    const publishLogic = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
@@ -335,39 +362,42 @@ function WritePageContent() {
           content: isDraft ? `[DRAFT]\n${storyContent}` : storyContent,
           category: storyCategory || "General",
           type: "Story",
-          coverUrl: thumbnailUrl,
-          status: isDraft ? "Draft" : "Published",
-          tags: storyTags
+          cover_image: thumbnailUrl || undefined,
+          tags: storyTags,
+          author_id: authorProfile.id,
+          price: 0
         })
       });
 
+      const data = await res.json();
+      
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || res.statusText);
+        throw new Error(data.message || "Failed to publish story.");
       }
 
-      const responseData = await res.json();
-      if (isDraft) {
-        router.push("/profile");
-      } else {
-        router.push(`/stories/${responseData.id}`);
-      }
+      setCreatedId(data.story.id);
+      setStep("success");
+    };
 
-    } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err.message);
-      if (err.message && err.message.includes("Authors record missing")) {
-        setShowCreateAuthorBtn(true);
-      } else {
-        setShowCreateAuthorBtn(false);
+    if (isDraft) {
+      setIsSubmitting(true);
+      try {
+        await publishLogic();
+      } catch (err: any) {
+        console.error(err);
+        setErrorMessage(err.message);
+      } finally {
+        setIsSubmitting(false);
       }
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      requireUpiAndProceed(publishLogic);
     }
   };
 
   const handleBlogSubmit = async (
     blogTitle: string,
+    blogCategory: string,
+    blogTags: string[],
     blogBanner: File | null,
     blogContent: string,
     isDraft: boolean = false
@@ -384,9 +414,7 @@ function WritePageContent() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
+    const publishLogic = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
@@ -421,36 +449,42 @@ function WritePageContent() {
           title: blogTitle,
           description: blogContent.replace(/<[^>]*>?/gm, '').substring(0, 160) + "...",
           content: isDraft ? `[DRAFT]\n${blogContent}` : blogContent,
-          category: "Blog",
+          category: blogCategory || "General",
           type: "Blog",
-          coverUrl: bannerUrl,
-          status: isDraft ? "Draft" : "Published",
-          tags: []
+          cover_image: bannerUrl || undefined,
+          tags: blogTags,
+          author_id: authorProfile.id,
+          price: 0
         })
       });
 
+      const data = await res.json();
+      
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || res.statusText);
+        throw new Error(data.message || "Failed to publish blog.");
       }
 
-      const responseData = await res.json();
-      if (isDraft) {
-        router.push("/profile");
-      } else {
-        router.push(`/blogs/${responseData.id}`);
-      }
+      setCreatedId(data.story.id);
+      setStep("success");
+    };
 
-    } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err.message);
-      if (err.message && err.message.includes("Authors record missing")) {
-        setShowCreateAuthorBtn(true);
-      } else {
-        setShowCreateAuthorBtn(false);
+    if (isDraft) {
+      setIsSubmitting(true);
+      try {
+        await publishLogic();
+      } catch (err: any) {
+        console.error(err);
+        setErrorMessage(err.message);
+        if (err.message && err.message.includes("Authors record missing")) {
+          setShowCreateAuthorBtn(true);
+        } else {
+          setShowCreateAuthorBtn(false);
+        }
+      } finally {
+        setIsSubmitting(false);
       }
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      requireUpiAndProceed(publishLogic);
     }
   };
 
@@ -529,11 +563,12 @@ function WritePageContent() {
                       return; 
                     }
                     try {
-                      await saveToDatabase({ type: "Book", title, description, category, content: "", coverFile, pdfFile }, false);
+                      await saveToDatabase({ type: "Book", title, description, category, price, content: "", coverFile, pdfFile }, false);
                     } finally { setIsSubmitting(false); }
                   }}
                   title={title} setTitle={setTitle}
                   category={category} setCategory={setCategory}
+                  price={price} setPrice={setPrice}
                   description={description} setDescription={setDescription}
                   onCoverChange={(e: any) => setCoverFile(e.target.files?.[0] || null)}
                   onPdfChange={(e: any) => setPdfFile(e.target.files?.[0] || null)}
@@ -543,6 +578,9 @@ function WritePageContent() {
                   onCreateAuthor={handleCreateAuthor}
                   draftStatus={draftStatus}
                   lastSaved={lastSaved}
+                  activeUpiId={activeUpiId}
+                  upiIdInput={upiIdInput}
+                  setUpiIdInput={setUpiIdInput}
                 />
               )}
 
@@ -561,14 +599,13 @@ function WritePageContent() {
                     } finally { setIsSubmitting(false); }
                   }}
                   onPublish={async () => {
-                    setIsSubmitting(true);
                     if (!category.trim()) { 
                       window.alert("Please select a category first.");
                       setErrorMessage("Please select a category first."); 
-                      setIsSubmitting(false); 
                       return; 
                     }
-                    if (!content.trim()) { setErrorMessage("Please write some content before publishing."); setIsSubmitting(false); return; }
+                    if (!content.trim()) { setErrorMessage("Please write some content before publishing."); return; }
+                    setIsSubmitting(true);
                     try {
                       const id = await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, true);
                       setCreatedId(id); setStep("success");
@@ -636,10 +673,12 @@ function WritePageContent() {
               <div className="w-24 h-24 bg-black flex items-center justify-center mx-auto mb-12 rounded-full">
                 <CheckCircle2 size={48} className="text-white" />
               </div>
-              <h2 className="text-6xl font-heading font-black uppercase tracking-tight mb-8">Masterpiece Initialized</h2>
+              <h2 className="text-6xl font-heading font-black uppercase tracking-tight mb-8">
+                {selectedType === "Book" ? "Masterpiece Published" : "Masterpiece Initialized"}
+              </h2>
               <p className="text-zinc-500 font-medium italic text-xl mb-16 max-w-xl mx-auto">
                 {selectedType === "Book" 
-                  ? "Your book is being processed and will be available in the Marketplace shortly."
+                  ? "Your book has been published successfully and is now available in the Marketplace!"
                   : `Your ${selectedType?.toLowerCase()} has been created. Let's start writing!`}
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
@@ -737,6 +776,33 @@ function InputField({ label, placeholder, value, onChange }: any) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-white border border-zinc-300 p-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all placeholder:text-zinc-400 text-zinc-950"
+      />
+    </div>
+  );
+}
+
+function UpiInputField({ activeUpiId, upiIdInput, setUpiIdInput }: any) {
+  if (activeUpiId) {
+    return (
+      <div className="space-y-4">
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">PAYOUT UPI ID</label>
+        <div className="w-full bg-zinc-50 border border-zinc-200 p-6 text-sm font-bold uppercase tracking-widest text-zinc-500 rounded-sm">
+          {activeUpiId.replace(/^(.{2}).*(@.*)$/, "$1***$2")}
+          <span className="block mt-2 text-[8px] tracking-widest font-medium text-zinc-400">Can be changed in your profile</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">PAYOUT UPI ID (REQUIRED)</label>
+      <input 
+        type="text"
+        required
+        placeholder="e.g. yourname@okbank"
+        value={upiIdInput}
+        onChange={(e) => setUpiIdInput(e.target.value)}
+        className="w-full bg-white border border-zinc-300 p-6 text-sm font-bold tracking-widest outline-none focus:border-zinc-950 transition-all placeholder:text-zinc-400 text-zinc-950"
       />
     </div>
   );
@@ -908,11 +974,13 @@ function BookUploadUI({
   onSaveDraft,
   title, setTitle, 
   category, setCategory, 
+  price, setPrice,
   description, setDescription, 
   onCoverChange, onPdfChange, 
   isSubmitting, errorMessage,
   showCreateAuthorBtn, onCreateAuthor,
-  draftStatus, lastSaved
+  draftStatus, lastSaved,
+  activeUpiId, upiIdInput, setUpiIdInput
 }: any) {
   return (
     <div className="space-y-12 bg-white p-6 md:p-8 border border-zinc-100 rounded-sm">
@@ -942,6 +1010,8 @@ function BookUploadUI({
           <div className="space-y-8">
             <InputField label="Book Title" placeholder="The title of your manuscript..." value={title} onChange={setTitle} />
             <CategoryInputField label="Category" placeholder="e.g. Fiction, Education, Technology..." value={category} onChange={setCategory} />
+            <InputField label="Book Price (₹)" placeholder="e.g. 99" type="number" min="1" value={price} onChange={setPrice} />
+            <UpiInputField activeUpiId={activeUpiId} upiIdInput={upiIdInput} setUpiIdInput={setUpiIdInput} />
             <TextAreaField label="Synopsis" placeholder="A brief summary of your work..." value={description} onChange={setDescription} />
           </div>
           

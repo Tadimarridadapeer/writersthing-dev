@@ -73,6 +73,8 @@ export const POST = withObservability(async (req: Request) => {
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const category = formData.get("category") as string;
+    const priceStr = formData.get("price") as string;
+    const price = priceStr && !isNaN(Number(priceStr)) && Number(priceStr) > 0 ? Number(priceStr) : 99;
     const coverFile = formData.get("coverFile") as File | null;
     const pdfFile = formData.get("pdfFile") as File | null;
 
@@ -92,7 +94,7 @@ export const POST = withObservability(async (req: Request) => {
         description,
         category: finalCategory,
         author_id: authorData.id,
-        price: 99,
+        price: price,
         status: "Draft",
       })
       .select("id")
@@ -208,6 +210,8 @@ export const PUT = withObservability(async (req: Request) => {
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const category = formData.get("category") as string;
+    const priceStr = formData.get("price") as string;
+    const price = priceStr && !isNaN(Number(priceStr)) && Number(priceStr) > 0 ? Number(priceStr) : undefined;
     const coverFile = formData.get("coverFile") as File | null;
     const pdfFile = formData.get("pdfFile") as File | null;
 
@@ -231,6 +235,10 @@ export const PUT = withObservability(async (req: Request) => {
 
     if (category) {
       updatePayload.category = `Book - ${category}`;
+    }
+
+    if (price !== undefined) {
+      updatePayload.price = price;
     }
 
     // Upload Cover if provided

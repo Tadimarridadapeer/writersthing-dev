@@ -308,9 +308,9 @@ export default function Home() {
               viewport={{ once: true }}
               className="space-y-4"
             >
-              <h3 className="text-sm font-bold uppercase tracking-[0.2em] border-b border-black pb-4">Flat Pricing</h3>
+              <h3 className="text-sm font-bold uppercase tracking-[0.2em] border-b border-black pb-4">Dynamic Pricing</h3>
               <p className="text-zinc-600 font-light text-sm leading-relaxed pt-2">
-                Every manuscript on the platform is priced at a fixed ₹99. No subscriptions, no hidden fees. Just honest economics between you and your reader.
+                Writers set their own prices for manuscripts. No subscriptions, no hidden fees. Just honest economics between you and your reader.
               </p>
             </motion.div>
 
@@ -336,7 +336,7 @@ export default function Home() {
             >
               <h3 className="text-sm font-bold uppercase tracking-[0.2em] border-b border-black pb-4">Author Direct</h3>
               <p className="text-zinc-600 font-light text-sm leading-relaxed pt-2">
-                We take a minimal commission. The vast majority of your ₹99 goes directly into your pocket, exactly where it belongs.
+                We take a minimal commission. The vast majority of your book sales goes directly into your pocket, exactly where it belongs.
               </p>
             </motion.div>
 

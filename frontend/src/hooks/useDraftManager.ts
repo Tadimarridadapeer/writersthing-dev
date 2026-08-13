@@ -13,6 +13,7 @@ export interface DraftPayload {
   coverFile?: File | null;
   pdfFile?: File | null;
   tags?: string[];
+  price?: string;
 }
 
 export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | null, draftId: string | null) {
@@ -102,6 +103,7 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
           formData.append("title", payload.title);
           formData.append("description", payload.description || "");
           formData.append("category", payload.category);
+          if (payload.price) formData.append("price", payload.price);
           if (payload.coverFile) formData.append("coverFile", payload.coverFile);
           if (payload.pdfFile) formData.append("pdfFile", payload.pdfFile);
           body = formData;
@@ -145,7 +147,11 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
           category: payload.category
         });
 
-        if (isPublishing) clearLocal();
+        if (isPublishing) {
+          clearLocal();
+          if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+          if (continuousTimerRef.current) clearTimeout(continuousTimerRef.current);
+        }
 
         return data.id || data.bookId || currentIdRef.current;
 

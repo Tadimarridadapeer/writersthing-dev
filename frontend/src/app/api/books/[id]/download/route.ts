@@ -5,18 +5,12 @@ import { STORAGE_CONFIG } from "@/config/storage";
 import { logger } from "@/lib/logger";
 import { withObservability } from "@/lib/api-logger";
 
+import { createClient } from "@supabase/supabase-js";
+
 function getSupabaseAdmin() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async get(name: string) {
-          const cookieStore = await cookies();
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+    process.env.SUPABASE_SERVICE_ROLE_KEY as string
   );
 }
 
@@ -64,25 +58,38 @@ export const GET = withObservability(async (
     const { id: bookId } = await params;
     const supabase = getSupabase();
     const supabaseAdmin = getSupabaseAdmin();
+    
+    console.log("Download requested for bookId:", bookId);
 
     // 1. Authenticate User
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    let user;
+    const token = req.headers.get("Authorization")?.split("Bearer ")[1]?.trim();
+    if (token) {
+      const { data } = await supabaseAdmin.auth.getUser(token);
+      user = data.user;
+    }
+    
+    if (!user) {
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 });
     }
 
     // 2. Fetch Book details
     const { data: book, error: bookError } = await supabaseAdmin
       .from("books")
-      .select("id, author_id, price, status, storage_path, pdf_path")
+      .select("id, author_id, price, status, pdf_path")
       .eq("id", bookId)
       .single();
 
     if (bookError || !book) {
+      console.error("DEBUG: bookError:", bookError);
       logger.warn("Download rejected: Book not found", { bookId });
       await logDownload(supabaseAdmin, user.id, bookId, "NOT_FOUND", ip);
-      return NextResponse.json({ message: "Book not found" }, { status: 404 });
+      return NextResponse.json({ message: "Book not found", debug_error: bookError, debug_id: bookId }, { status: 404 });
     }
 
     if (book.status !== "Published") {
@@ -107,26 +114,29 @@ export const GET = withObservability(async (
     } 
     // C. Has the user purchased it? (Check Library)
     else {
-      const { data: access } = await supabaseAdmin
+      const { data: access, error: accessError } = await supabaseAdmin
         .from("library")
-        .select("id")
+        .select("book_id")
         .eq("user_id", user.id)
         .eq("book_id", bookId)
         .single();
         
       if (access) {
         isAuthorized = true;
+      } else {
+        // debug
+        console.error("DEBUG Access Error:", accessError, "user.id:", user.id, "bookId:", bookId);
       }
     }
 
     if (!isAuthorized) {
       logger.security("Download rejected: Access denied", { userId: user.id, bookId });
       await logDownload(supabaseAdmin, user.id, bookId, "FORBIDDEN", ip);
-      return NextResponse.json({ message: "Access denied. Please purchase the book." }, { status: 403 });
+      return NextResponse.json({ message: "Access denied. Please purchase the book.", debug_user_id: user.id, debug_book_id: bookId }, { status: 403 });
     }
 
-    // 4. Resolve the Path (Checking new storage_path first, fallback to legacy pdf_path)
-    const filePath = book.storage_path || book.pdf_path;
+    // 4. Resolve the Path (fallback to legacy pdf_path)
+    const filePath = book.pdf_path;
 
     if (!filePath) {
       await logDownload(supabaseAdmin, user.id, bookId, "NOT_FOUND", ip);
@@ -145,7 +155,7 @@ export const GET = withObservability(async (
     if (signError || !signedData?.signedUrl) {
       logger.error("Failed to generate secure access link", { error: signError?.message, bookId });
       await logDownload(supabaseAdmin, user.id, bookId, "ERROR", ip);
-      return NextResponse.json({ message: "Failed to generate secure access link" }, { status: 500 });
+      return NextResponse.json({ message: "Failed to generate secure access link", debug_error: signError }, { status: 500 });
     }
 
     // 7. Log Success

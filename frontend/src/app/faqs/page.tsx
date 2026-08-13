@@ -31,7 +31,7 @@ export default function FAQsPage() {
     },
     {
       question: "How much does publishing cost?",
-      answer: "We charge a flat ₹99 Publishing Fee per book. There are no recurring subscriptions or hidden costs."
+      answer: "Publishing is free. You set your own book price, and we take a minimal commission on sales."
     },
     {
       question: "Can I earn money from my books?",
