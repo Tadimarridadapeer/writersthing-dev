@@ -112,16 +112,17 @@ export const POST = withObservability(async (req: Request) => {
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
       const coverPath = `${user.id}/${bookId}-cover.${coverExt}`;
-      const { error: coverUploadError } = await supabase.storage
+      const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
+      const { error: coverUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
-        .upload(coverPath, coverFile, { upsert: true });
+        .upload(coverPath, coverBuffer, { upsert: true, contentType: coverFile.type || 'image/jpeg' });
         
       if (coverUploadError) {
         logger.error("Cover Upload Failed", { error: coverUploadError.message, bookId });
         return NextResponse.json({ message: "Cover Upload Failed" }, { status: 500 });
       }
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
         .getPublicUrl(coverPath);
       coverUrl = publicUrl;
@@ -131,9 +132,10 @@ export const POST = withObservability(async (req: Request) => {
     let pdfPath = "";
     if (pdfFile) {
       pdfPath = `${user.id}/${bookId}/manuscript.pdf`;
-      const { error: pdfUploadError } = await supabase.storage
+      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
+      const { error: pdfUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
-        .upload(pdfPath, pdfFile, { upsert: true });
+        .upload(pdfPath, pdfBuffer, { upsert: true, contentType: 'application/pdf' });
 
       if (pdfUploadError) {
         logger.error("Manuscript Upload Failed", { error: pdfUploadError.message, bookId });
@@ -245,12 +247,13 @@ export const PUT = withObservability(async (req: Request) => {
     if (coverFile) {
       const coverExt = coverFile.name.split(".").pop();
       const coverPath = `${user.id}/${id}-cover.${coverExt}`;
-      const { error: coverUploadError } = await supabase.storage
+      const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
+      const { error: coverUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.publicCovers)
-        .upload(coverPath, coverFile, { upsert: true });
+        .upload(coverPath, coverBuffer, { upsert: true, contentType: coverFile.type || 'image/jpeg' });
         
       if (!coverUploadError) {
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = supabaseAdmin.storage
           .from(STORAGE_CONFIG.buckets.publicCovers)
           .getPublicUrl(coverPath);
         updatePayload.cover_url = publicUrl;
@@ -259,12 +262,17 @@ export const PUT = withObservability(async (req: Request) => {
 
     // Upload PDF if provided
     if (pdfFile) {
+      console.log("DEBUG pdfFile.type:", pdfFile.type, "size:", pdfFile.size);
       const pdfPath = `${user.id}/${id}/manuscript.pdf`;
-      const { error: pdfUploadError } = await supabase.storage
+      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
+      const { error: pdfUploadError } = await supabaseAdmin.storage
         .from(STORAGE_CONFIG.buckets.privateManuscripts)
-        .upload(pdfPath, pdfFile, { upsert: true });
+        .upload(pdfPath, pdfBuffer, { upsert: true, contentType: 'application/pdf' });
 
-      if (!pdfUploadError) {
+      if (pdfUploadError) {
+        console.error("DEBUG pdfUploadError:", pdfUploadError);
+        throw new Error("Failed to upload manuscript: " + pdfUploadError.message);
+      } else {
         updatePayload.pdf_path = pdfPath;
         updatePayload.storage_bucket = STORAGE_CONFIG.buckets.privateManuscripts;
         updatePayload.storage_path = pdfPath;
