@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { sendCommentNotificationEmail } from "@/lib/email";
+import { emailService } from "@/services/email.service";
 
 
 function getSupabaseServer() {
@@ -215,7 +215,7 @@ export async function POST(req: Request) {
                 const commentTextSafe = comment_text?.trim() || "Rated your story.";
                 
                 // Do not await this so it can run in background, but wrap in try/catch
-                sendCommentNotificationEmail(
+                emailService.sendCommentNotificationEmail(
                   authorData.email,
                   authorData.name,
                   newComment.users?.name || 'A reader',

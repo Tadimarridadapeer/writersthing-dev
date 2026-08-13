@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { emailService } from "@/services/email.service";
 
 export async function POST(req: Request) {
   try {
@@ -15,57 +15,25 @@ export async function POST(req: Request) {
     const why = formData.get("why") as string;
     const resume = formData.get("resume") as File | null;
     
-    // Check if email credentials exist
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.warn("SMTP credentials missing. Form submitted but email not sent.");
-      return NextResponse.json({ success: true, message: "Simulated success" }, { status: 200 });
-    }
+    let resumeBuffer: Buffer | undefined;
+    let resumeName: string | undefined;
+    let resumeType: string | undefined;
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const attachments = [];
     if (resume) {
-      const buffer = Buffer.from(await resume.arrayBuffer());
-      attachments.push({
-        filename: resume.name,
-        content: buffer,
-        contentType: resume.type || 'application/pdf'
-      });
+      resumeBuffer = Buffer.from(await resume.arrayBuffer());
+      resumeName = resume.name;
+      resumeType = resume.type || 'application/pdf';
     }
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: "thewritersthing@gmail.com",
-      replyTo: email,
-      subject: `New Career Application - Writer's Thing`,
-      text: `New application from ${name}.\nEmail: ${email}\nMobile: ${mobile}\nCity: ${city}`,
-      html: `
-        <h3>New Career Application</h3>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Mobile:</strong> ${mobile}</p>
-        <p><strong>City:</strong> ${city}</p>
-        <p><strong>Portfolio:</strong> ${portfolio || "N/A"}</p>
-        <p><strong>Drive Link:</strong> <a href="${driveLink}">${driveLink}</a></p>
-        <br/>
-        <h4>About:</h4>
-        <p>${about.replace(/\n/g, "<br>")}</p>
-        <br/>
-        <h4>Why Writer's Thing:</h4>
-        <p>${why.replace(/\n/g, "<br>")}</p>
-      `,
-      attachments
-    };
+    const data = { name, mobile, city, portfolio, driveLink, about, why };
+    
+    const success = await emailService.sendCareerEmail(email, data, resumeBuffer, resumeName, resumeType);
 
-    await transporter.sendMail(mailOptions);
-
-    return NextResponse.json({ success: true, message: "Application submitted successfully" }, { status: 200 });
+    if (success) {
+      return NextResponse.json({ success: true, message: "Application submitted successfully" }, { status: 200 });
+    } else {
+      return NextResponse.json({ success: false, error: "Failed to submit application" }, { status: 500 });
+    }
   } catch (error) {
     console.error("Failed to process careers form:", error);
     return NextResponse.json({ success: false, error: "Failed to submit application" }, { status: 500 });

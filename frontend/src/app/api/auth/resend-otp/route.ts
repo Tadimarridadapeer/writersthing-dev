@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { emailService } from "@/lib/email/email.service";
+import { emailService } from "@/services/email.service";
 import { otpService } from "@/lib/otp/otp.service";
 import { createApiResponse, createApiError } from "@/lib/utils/api";
 

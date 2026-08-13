@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { sendHireRequestAcceptedEmail } from "@/lib/email";
+import { emailService } from "@/services/email.service";
 
 function getSupabase() {
   return createServerClient(
@@ -59,29 +59,30 @@ export async function POST(req: Request) {
     const { data: writerData } = await supabase
       .from("users")
       .select("name, email")
+      .select("name, email, mobile")
       .eq("id", hireReq.writer_id)
       .single();
 
     // Now send emails sharing contact details to both parties
     if (writerData && writerData.email) {
       // 1. Send email to writer with client details
-      await sendHireRequestAcceptedEmail(
+      await emailService.sendHireRequestAcceptedEmail(
         writerData.email,
         true,
-        hireReq.full_name,
-        hireReq.email_address,
-        hireReq.phone_number,
-        hireReq.project_category
+        hireReq.full_name || "Client",
+        hireReq.email_address || "",
+        hireReq.phone_number || null,
+        hireReq.project_category || "Writing Project"
       );
       
       // 2. Send email to client with writer details
-      await sendHireRequestAcceptedEmail(
+      await emailService.sendHireRequestAcceptedEmail(
         hireReq.email_address,
         false,
-        writerData.name || 'Your Writer',
-        writerData.email,
-        null, // Writers don't have phone numbers in users table yet, or we don't expose it
-        hireReq.project_category
+        writerData.name || "Writer",
+        writerData.email || "",
+        writerData.mobile || null,
+        hireReq.project_category || "Writing Project"
       );
     }
 

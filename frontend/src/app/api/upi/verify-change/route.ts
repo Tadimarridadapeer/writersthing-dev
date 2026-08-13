@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendUpiChangeNotification } from "@/lib/email";
+import { emailService } from "@/services/email.service";
 
 export async function POST(req: Request) {
   try {
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     });
 
     // 7. Send Security Notification Email
-    await sendUpiChangeNotification(
+    await emailService.sendUpiChangeNotification(
       email, 
       user?.active_upi_id || null, 
       otpRecord.new_upi_id, 

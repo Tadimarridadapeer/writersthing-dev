@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@react-email/components": "^1.0.12",
     "@sentry/nextjs": "^10.65.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
@@ -25,11 +26,12 @@
     "lucide-react": "^1.8.0",
     "mongoose": "^9.4.1",
     "next": "16.2.3",
-    "nodemailer": "^9.0.5",
     "postcss": "^8.5.26",
     "razorpay": "^2.9.8",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-email": "^6.9.2",
+    "resend": "^6.19.0",
     "tailwind-merge": "^3.5.0",
     "uuid": "^14.0.1"
   },
@@ -38,7 +40,6 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
-    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",

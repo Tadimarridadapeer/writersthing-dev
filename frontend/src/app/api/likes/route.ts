@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
-import { sendLikeNotificationEmail } from "@/lib/email";
+import { emailService } from "@/services/email.service";
 
 
 function getSupabaseServer() {
@@ -204,16 +204,17 @@ export async function POST(req: Request) {
                   .eq('id', activeUserId)
                   .maybeSingle();
                 
+                const activeUserName = readerData?.name || 'A reader';
                 const storyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/read/${validUuid}`;
                 
                 // Do not await this so it can run in background, but wrap in try/catch
-                sendLikeNotificationEmail(
+                emailService.sendLikeNotificationEmail(
                   authorData.email,
                   authorData.name,
-                  readerData?.name || 'A reader',
+                  activeUserName,
                   contentInfo.title || 'A story',
                   storyUrl
-                ).catch(e => console.error("Email send failed:", e));
+                ).catch(e => console.error("Like email error:", e));
               }
             }
           }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { sendHireRequestNotificationEmail } from "@/lib/email";
+import { emailService } from "@/services/email.service";
 
 function getSupabase() {
   return createServerClient(
@@ -80,14 +80,14 @@ export async function POST(req: Request) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
       const acceptUrl = `${baseUrl}/dashboard/requests/${requestData.id}`;
       
-      await sendHireRequestNotificationEmail(
+      await emailService.sendHireRequestNotificationEmail(
         writerData.email,
-        writerData.name || 'Writer',
-        full_name,
+        writerData.name || "Writer",
+        full_name || "A Client",
         project_category,
-        budget_min ? parseFloat(budget_min) : null,
-        budget_max ? parseFloat(budget_max) : null,
-        expected_deadline || 'Not specified',
+        budget_min,
+        budget_max,
+        expected_deadline,
         project_summary,
         acceptUrl
       );
