@@ -359,6 +359,111 @@ export default function Home() {
         </div>
       </section>
 
+      {/* =========================================
+          CHAPTER 5: FEATURES
+          ========================================= */}
+      <section className="relative w-full min-h-screen flex flex-col justify-center items-center bg-zinc-50 text-black px-6 py-24 md:py-32 border-t border-black/10">
+        <div className="max-w-6xl w-full mx-auto">
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1 }}
+            className="text-center mb-16 md:mb-24"
+          >
+            <h2 className="text-sm font-bold tracking-[0.3em] text-zinc-400 uppercase mb-4" style={{ fontFamily: 'var(--font-outfit)' }}>
+              MORE THAN A PLACE TO WRITE
+            </h2>
+            <p className="text-3xl md:text-5xl lg:text-[4rem] font-black tracking-tight leading-[1.1] text-zinc-900 uppercase" style={{ fontFamily: 'var(--font-outfit)' }}>
+              Everything you need <br className="hidden md:block" />
+              <span className="italic font-normal text-zinc-400 lowercase" style={{ fontFamily: 'var(--font-eb-garamond)' }}>to go further.</span>
+            </p>
+          </motion.div>
+
+          <div className="flex flex-col gap-6 md:gap-8">
+            
+            {/* Main Feature: Hire a Writer */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.2 }}
+              className="w-full bg-[#0f172a] text-white rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center md:items-start justify-between group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] transition-all duration-500 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-bl-full transform translate-x-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform duration-700" />
+              
+              <div className="max-w-xl relative z-10 text-center md:text-left mb-10 md:mb-0">
+                <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-6 text-zinc-500">Hire a Writer</div>
+                <h3 className="text-3xl md:text-5xl font-black tracking-tight mb-6" style={{ fontFamily: 'var(--font-outfit)' }}>NEED A WRITER?</h3>
+                <p className="text-zinc-400 leading-relaxed text-lg md:text-xl" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
+                  Your idea deserves someone who knows how to turn it into something meaningful.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center md:items-end justify-center relative z-10 md:mt-12">
+                <Link 
+                  href="/freelancers" 
+                  className="px-10 py-5 bg-white text-black hover:bg-zinc-200 transition-colors duration-300 uppercase tracking-[0.2em] text-xs font-bold rounded-none flex items-center gap-3 mb-4"
+                >
+                  HIRE A WRITER <span>→</span>
+                </Link>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest text-center md:text-right">
+                  Experienced writers · Freelance
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Supporting Features Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1, delay: 0.3 }}
+                className="bg-white border border-zinc-100 rounded-3xl p-8 md:p-10 flex flex-col group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-500"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-8 text-zinc-400">Capability</div>
+                <h3 className="text-xl md:text-2xl font-black tracking-tight mb-4 text-zinc-900" style={{ fontFamily: 'var(--font-outfit)' }}>25+ LANGUAGES</h3>
+                <p className="text-zinc-500 leading-relaxed text-sm" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
+                  Write, read and explore across more than 25 languages.
+                </p>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1, delay: 0.4 }}
+                className="bg-white border border-zinc-100 rounded-3xl p-8 md:p-10 flex flex-col group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-500"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-8 text-zinc-400">Capability</div>
+                <h3 className="text-xl md:text-2xl font-black tracking-tight mb-4 text-zinc-900" style={{ fontFamily: 'var(--font-outfit)' }}>TRANSLATOR</h3>
+                <p className="text-zinc-500 leading-relaxed text-sm" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
+                  Take your words beyond one language while keeping their meaning and context intact.
+                </p>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1, delay: 0.5 }}
+                className="bg-white border border-zinc-100 rounded-3xl p-8 md:p-10 flex flex-col group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-500"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-8 text-zinc-400">Capability</div>
+                <h3 className="text-xl md:text-2xl font-black tracking-tight mb-4 text-zinc-900" style={{ fontFamily: 'var(--font-outfit)' }}>DICTIONARY</h3>
+                <p className="text-zinc-500 leading-relaxed text-sm" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
+                  Find the right meaning, synonym, or word when you need it.
+                </p>
+              </motion.div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

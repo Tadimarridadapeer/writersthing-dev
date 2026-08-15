@@ -1,8 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Feather, Users, Zap, BarChart3, Globe, ShieldCheck } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import { PenTool, Languages, Globe, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import Breadcrumbs from "@/components/Breadcrumbs";
@@ -44,7 +43,7 @@ export default function AboutPage() {
               transition={{ delay: 0.2 }}
               className="text-zinc-500 text-2xl font-medium leading-relaxed max-w-2xl italic"
             >
-              Writersthing is a premium ecosystem designed to bridge the gap between hidden talent and the global stage. We aren't just a platform; we are an analytical engine for the literary world.
+              Writersthing is a premium literary ecosystem designed to bridge the gap between hidden talent and the global stage. We provide the quiet room, the professional tools, and the network to ensure your narrative thrives.
             </motion.p>
           </div>
         </section>
@@ -54,25 +53,25 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
             <div className="space-y-12">
               <div className="space-y-6">
-                <h2 className="text-4xl font-heading font-black tracking-tight uppercase">What We Are Doing Here</h2>
+                <h2 className="text-4xl font-heading font-black tracking-tight uppercase">Elevating the Craft</h2>
                 <p className="text-zinc-600 leading-relaxed text-lg">
                   We are building a decentralized literary meritocracy. In the traditional publishing world, great voices are often silenced by gatekeepers. Here, the only thing that matters is the strength of your words. 
                 </p>
                 <p className="text-zinc-600 leading-relaxed text-lg">
-                  By integrating advanced analysis tools and direct creator-to-reader pathways, we ensure that every manuscript uploaded is given the attention it deserves.
+                  By integrating advanced creator tools—from contextual dictionaries to seamless global translation—and establishing direct creator-to-reader pathways, we ensure that every manuscript is given the stage it deserves.
                 </p>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="p-8 bg-zinc-50 rounded-sm border border-zinc-100 hover:border-black transition-all group">
-                  <BarChart3 className="mb-6 text-zinc-400 group-hover:text-black transition-colors" size={32} />
-                  <h3 className="text-sm font-black uppercase tracking-widest mb-4">Deep Analysis</h3>
-                  <p className="text-xs text-zinc-500 leading-relaxed">We provide authors with reader engagement metrics and content analysis to help refine their craft.</p>
+                  <Languages className="mb-6 text-zinc-400 group-hover:text-black transition-colors" size={32} />
+                  <h3 className="text-sm font-black uppercase tracking-widest mb-4">25+ Languages</h3>
+                  <p className="text-xs text-zinc-500 leading-relaxed">Write, read and explore across diverse linguistic landscapes, breaking down geographical barriers.</p>
                 </div>
                 <div className="p-8 bg-black text-white rounded-sm shadow-2xl group">
                   <ShieldCheck className="mb-6 text-zinc-500 group-hover:text-white transition-colors" size={32} />
                   <h3 className="text-sm font-black uppercase tracking-widest mb-4">Integrity First</h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed italic">Once published, content is permanently archived to protect the integrity of the platform and reader ownership.</p>
+                  <p className="text-xs text-zinc-400 leading-relaxed italic">You retain 100% of your copyright. Your work is permanently archived to protect your ownership.</p>
                 </div>
               </div>
             </div>
@@ -109,19 +108,29 @@ export default function AboutPage() {
                    <div className="space-y-4">
                       <div className="w-12 h-1 bg-white mb-6" />
                       <h4 className="text-lg font-bold uppercase tracking-tight">Marketplace Logic</h4>
-                      <p className="text-zinc-500 text-sm leading-relaxed">A seamless transaction engine where readers can support authors directly, ensuring 90% of revenue goes to the creator.</p>
+                      <p className="text-zinc-500 text-sm leading-relaxed">A seamless transaction engine where readers can support authors directly, ensuring the vast majority of revenue goes to the creator.</p>
                    </div>
                    <div className="space-y-4">
                       <div className="w-12 h-1 bg-zinc-800 mb-6" />
-                      <h4 className="text-lg font-bold uppercase tracking-tight">Community Synthesis</h4>
-                      <p className="text-zinc-500 text-sm leading-relaxed">Connecting writers from across India and the globe, supporting regional languages like Hindi, Telugu, and Tamil alongside English.</p>
+                      <h4 className="text-lg font-bold uppercase tracking-tight">Hire a Writer</h4>
+                      <p className="text-zinc-500 text-sm leading-relaxed">Your idea deserves someone who knows how to turn it into something meaningful. Connect with experienced freelance writers.</p>
+                   </div>
+                   <div className="space-y-4">
+                      <div className="w-12 h-1 bg-zinc-800 mb-6" />
+                      <h4 className="text-lg font-bold uppercase tracking-tight">Contextual Translator</h4>
+                      <p className="text-zinc-500 text-sm leading-relaxed">Take your words beyond one language while keeping their meaning, tone, and emotional context perfectly intact.</p>
+                   </div>
+                   <div className="space-y-4">
+                      <div className="w-12 h-1 bg-zinc-800 mb-6" />
+                      <h4 className="text-lg font-bold uppercase tracking-tight">Integrated Dictionary</h4>
+                      <p className="text-zinc-500 text-sm leading-relaxed">Never break your flow. Find the right meaning, synonym, or perfect word exactly when you need it within the editor.</p>
                    </div>
                 </div>
               </div>
               
-              <div className="flex flex-col justify-center">
+              <div className="flex flex-col justify-center mt-12 lg:mt-0">
                 <div className="p-10 border border-zinc-800 rounded-sm bg-zinc-900/50 backdrop-blur-xl">
-                  <Zap className="text-yellow-500 mb-8" size={40} />
+                  <PenTool className="text-zinc-300 mb-8" size={40} />
                   <h3 className="text-xl font-heading font-black uppercase mb-4">Start Writing</h3>
                   <p className="text-zinc-500 text-sm mb-8 leading-relaxed">Join thousands of unknown writers who are turning their manuscripts into a legacy.</p>
                   <Link 
