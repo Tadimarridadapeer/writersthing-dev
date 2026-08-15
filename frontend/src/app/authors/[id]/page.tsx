@@ -89,7 +89,7 @@ export default function AuthorProfilePage() {
       ] = await Promise.all([
         directUserRes.data
           ? Promise.resolve(directUserRes)
-          : supabase.from("users").select("*").eq("id", resolvedUserId).single(),
+          : supabase.from("users").select("*").eq("id", resolvedUserId).maybeSingle(),
         supabase.from("authors").select("*").eq("user_id", resolvedUserId).maybeSingle(),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", resolvedUserId),
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
@@ -98,8 +98,9 @@ export default function AuthorProfilePage() {
         supabase.from("founding_writers").select("id, founder_number").eq("user_id", resolvedUserId).ilike("status", "accepted").maybeSingle()
       ]);
 
-      if (userRes.error || !userRes.data) {
-        throw new Error("Author user not found");
+      if (!userRes.data) {
+        setAuthorUser(null);
+        return;
       }
       
       setAuthorUser(userRes.data);
@@ -191,8 +192,15 @@ export default function AuthorProfilePage() {
 
   if (!authorUser) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center font-outfit text-zinc-400">
-        Author Profile Not Found
+      <div className="min-h-[70vh] bg-white flex flex-col items-center justify-center font-outfit text-zinc-900 px-6 py-20 text-center">
+        <h2 className="text-2xl font-black uppercase tracking-tight mb-2">Author Profile Not Found</h2>
+        <p className="text-zinc-500 text-sm max-w-sm mb-8">This author profile doesn't exist or has been removed.</p>
+        <Link 
+          href="/marketplace" 
+          className="px-8 py-3.5 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors rounded-none"
+        >
+          Explore Stories
+        </Link>
       </div>
     );
   }
