@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -46,6 +47,12 @@ export async function POST(req: Request) {
 
     if (dbError) {
       console.error("Database sync error:", dbError.message);
+    }
+
+    try {
+      await sendWelcomeEmail(email, name || "Writer");
+    } catch (error) {
+      console.error("Welcome email failed", error);
     }
 
     const response = NextResponse.json(

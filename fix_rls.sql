@@ -132,16 +132,16 @@ DROP POLICY IF EXISTS "books_update_policy" ON public.books;
 DROP POLICY IF EXISTS "books_delete_policy" ON public.books;
 
 CREATE POLICY "books_select_policy" ON public.books 
-FOR SELECT USING (status = 'Published' OR author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin());
+FOR SELECT USING (status = 'Published' OR author_id = auth.uid() OR public.is_admin());
 
 CREATE POLICY "books_insert_policy" ON public.books 
-FOR INSERT TO authenticated WITH CHECK (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()));
+FOR INSERT TO authenticated WITH CHECK (author_id = auth.uid());
 
 CREATE POLICY "books_update_policy" ON public.books 
-FOR UPDATE TO authenticated USING (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin()) WITH CHECK (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin());
+FOR UPDATE TO authenticated USING (author_id = auth.uid() OR public.is_admin()) WITH CHECK (author_id = auth.uid() OR public.is_admin());
 
 CREATE POLICY "books_delete_policy" ON public.books 
-FOR DELETE TO authenticated USING (author_id IN (SELECT id FROM public.authors WHERE user_id = auth.uid()) OR public.is_admin());
+FOR DELETE TO authenticated USING (author_id = auth.uid() OR public.is_admin());
 
 
 -- ----------------------------------------------------------

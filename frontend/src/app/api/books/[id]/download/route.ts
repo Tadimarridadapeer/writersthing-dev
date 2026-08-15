@@ -10,11 +10,11 @@ import { createClient } from "@supabase/supabase-js";
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    process.env.SUPABASE_SERVICE_ROLE_KEY as string
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) as string
   );
 }
 
-function getSupabase() {
+function getSupabase(req: Request) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,6 +23,11 @@ function getSupabase() {
         async get(name: string) {
           const cookieStore = await cookies();
           return cookieStore.get(name)?.value;
+        },
+      },
+      global: {
+        headers: {
+          Authorization: req.headers.get("Authorization") || "",
         },
       },
     }
@@ -56,7 +61,7 @@ export const GET = withObservability(async (
   
   try {
     const { id: bookId } = await params;
-    const supabase = getSupabase();
+    const supabase = getSupabase(req);
     const supabaseAdmin = getSupabaseAdmin();
     
     console.log("Download requested for bookId:", bookId);
@@ -64,14 +69,15 @@ export const GET = withObservability(async (
     // 1. Authenticate User
     let user;
     const token = req.headers.get("Authorization")?.split("Bearer ")[1]?.trim();
+    
     if (token) {
       const { data } = await supabaseAdmin.auth.getUser(token);
-      user = data.user;
+      user = data?.user;
     }
     
     if (!user) {
       const { data } = await supabase.auth.getUser();
-      user = data.user;
+      user = data?.user;
     }
 
     if (!user) {
@@ -81,7 +87,7 @@ export const GET = withObservability(async (
     // 2. Fetch Book details
     const { data: book, error: bookError } = await supabaseAdmin
       .from("books")
-      .select("id, author_id, price, status, pdf_path")
+      .select("id, author_id, price, status, pdf_path, authors:author_id(user_id)")
       .eq("id", bookId)
       .single();
 
@@ -93,8 +99,9 @@ export const GET = withObservability(async (
     }
 
     if (book.status !== "Published") {
+      const authorId = Array.isArray(book.authors) ? book.authors[0]?.user_id : (book.authors as any)?.user_id;
       // Allow author to read draft, but block others
-      if (book.author_id !== user.id) {
+      if (authorId !== user.id) {
         logger.security("Download rejected: Book is not published", { userId: user.id, bookId });
         await logDownload(supabaseAdmin, user.id, bookId, "FORBIDDEN", ip);
         return NextResponse.json({ message: "Book is not published" }, { status: 403 });
@@ -109,22 +116,22 @@ export const GET = withObservability(async (
       isAuthorized = true;
     } 
     // B. Is the user the author?
-    else if (book.author_id === user.id) {
+    else if ((Array.isArray(book.authors) ? book.authors[0]?.user_id : (book.authors as any)?.user_id) === user.id) {
       isAuthorized = true;
     } 
     // C. Has the user purchased it? (Check Library)
     else {
-      const { data: access, error: accessError } = await supabaseAdmin
+      const { data: access, error: accessError } = await supabase
         .from("library")
         .select("book_id")
         .eq("user_id", user.id)
         .eq("book_id", bookId)
-        .single();
+        .limit(1)
+        .maybeSingle();
         
       if (access) {
         isAuthorized = true;
       } else {
-        // debug
         console.error("DEBUG Access Error:", accessError, "user.id:", user.id, "bookId:", bookId);
       }
     }
@@ -147,6 +154,12 @@ export const GET = withObservability(async (
     // Bypassing existence check if we want to save an API call, but let's do it for strict correctness
     // Or we can just generate signed url and let the client handle 404 from supabase.
     
+    // 5.5 Validate PDF Path exists
+    if (!filePath) {
+      logger.error("Book has no manuscript attached", { bookId });
+      return NextResponse.json({ message: "This book does not have a manuscript file attached." }, { status: 404 });
+    }
+
     // 6. Generate Signed URL
     const { data: signedData, error: signError } = await supabaseAdmin.storage
       .from(STORAGE_CONFIG.buckets.privateManuscripts)
@@ -155,7 +168,7 @@ export const GET = withObservability(async (
     if (signError || !signedData?.signedUrl) {
       logger.error("Failed to generate secure access link", { error: signError?.message, bookId });
       await logDownload(supabaseAdmin, user.id, bookId, "ERROR", ip);
-      return NextResponse.json({ message: "Failed to generate secure access link", debug_error: signError }, { status: 500 });
+      return NextResponse.json({ message: "Failed to generate secure access link", debug_error: signError, debug_id: bookId }, { status: 500 });
     }
 
     // 7. Log Success

@@ -30,15 +30,6 @@ export default function AvatarWithBadge({ userId, avatarUrl, name, className = "
           {(name || "U").charAt(0).toUpperCase()}
         </div>
       )}
-
-      {isFoundingWriter && (
-        <FoundingBadge 
-          isFoundingWriter={isFoundingWriter} 
-          founderNumber={founderNumber} 
-          className="absolute -bottom-1 -right-1" 
-          size={Math.max(16, parseInt(className.match(/w-\[(\d+)px\]/)?.[1] || "24") * 0.4)}
-        />
-      )}
     </div>
   );
 }

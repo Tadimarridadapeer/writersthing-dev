@@ -1,0 +1,9 @@
+// @ts-nocheck
+import * as React from'react';
+import { Section, Text, Heading, Container } from'@react-email/components';
+import { BaseLayout as EmailLayout } from'./layouts/BaseLayout';
+import { EmailCard } from'./components/EmailCard';
+import { SocialLinks } from'./components/SocialLinks'; interface OTPVerificationEmailProps { name?: string; otp?: string; expiryMinutes?: number;
+} export const OTPVerificationEmail = ({ name ='Writer', otp ='000000', expiryMinutes = 10,
+}: OTPVerificationEmailProps) => { return ( <EmailLayout previewText={`Your Writersthing Verification Code: ${otp}`}> <Section> <Heading className="text-black text-[24px] font-semibold text-center p-0 my-[24px] mx-0"> Authentication Required </Heading> <Text className="text-gray-700 text-[16px] leading-[26px]"> Hi {name}, </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> Use the following verification code to complete your secure login process. </Text> </Section> <Section className="text-center mt-[32px] mb-[32px]"> <Container className="bg-gray-100 border border-gray-300 rounded-lg py-[24px] px-[40px] mx-auto w-auto inline-block shadow-sm"> <Text className="text-black text-[36px] font-bold tracking-[8px] font-mono m-0 text-center"> {otp} </Text> </Container> </Section> <EmailCard title="Security Notice"> <Text className="text-gray-700 text-[15px] leading-[24px] mt-0"> This verification code will expire in {expiryMinutes} minutes. <strong className="text-black font-semibold">Never share your OTP with anyone.</strong> </Text> <Text className="text-gray-500 text-[14px] leading-[22px] mt-[12px] mb-0 italic"> Writersthing will never ask you for this code outside of our secure login page. If you did not attempt to sign in, please immediately ignore this email and verify your account security. </Text> </EmailCard> <SocialLinks /> </EmailLayout> );
+}; export default OTPVerificationEmail;

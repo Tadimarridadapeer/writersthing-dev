@@ -33,6 +33,13 @@ export default function ReaderPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id;
+  
+  console.log("=== USER REQUESTED DEBUG ===");
+  console.log("params object:", params);
+  console.log("params.bookId:", params?.bookId);
+  console.log("params.id:", params?.id);
+  console.log("============================");
+
   const isArtOfPrompt = id === "the-art-of-prompt";
 
   // Engagement states

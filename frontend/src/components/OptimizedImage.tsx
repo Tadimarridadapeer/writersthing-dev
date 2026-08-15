@@ -46,7 +46,7 @@ export function OptimizedImage({
         fill
         sizes={variantSizes[variant]}
         priority={priority}
-        unoptimized={unoptimized}
+        unoptimized={unoptimized || !!(src && src.includes('supabase.co'))}
         className={`object-cover transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"} ${imageClassName || ""}`}
         onLoad={() => setLoading(false)}
         onError={() => {

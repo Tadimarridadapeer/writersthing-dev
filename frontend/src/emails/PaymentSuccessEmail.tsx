@@ -1,56 +1,11 @@
-import { Button, Text, Section } from '@react-email/components';
-import * as React from 'react';
-import { EmailLayout } from './components/EmailLayout';
-
-interface PaymentSuccessEmailProps {
-  name: string;
-  amount: string;
-  transactionId: string;
-}
-
-export const PaymentSuccessEmail = ({ name, amount, transactionId }: PaymentSuccessEmailProps) => {
-  return (
-    <EmailLayout previewText="Payment Successful" heading="Payment Successful">
-      <Text style={text}>
-        Hi {name},
-      </Text>
-      <Text style={text}>
-        We have successfully processed your payment of <strong>{amount}</strong>. Thank you for your purchase!
-      </Text>
-      <Text style={text}>
-        Transaction ID: {transactionId}
-      </Text>
-      <Section style={btnContainer}>
-        <Button style={button} href="https://writersthing.com/dashboard/billing">
-          View Billing History
-        </Button>
-      </Section>
-    </EmailLayout>
-  );
-};
-
-const text = {
-  color: '#333',
-  fontSize: '16px',
-  lineHeight: '26px',
-};
-
-const btnContainer = {
-  textAlign: 'center' as const,
-  marginTop: '32px',
-  marginBottom: '32px',
-};
-
-const button = {
-  backgroundColor: '#000000',
-  borderRadius: '4px',
-  color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: '600',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
-  display: 'inline-block',
-  padding: '12px 24px',
-};
-
-export default PaymentSuccessEmail;
+// @ts-nocheck
+import * as React from'react';
+import { Section, Text, Heading, Row, Column } from'@react-email/components';
+import { BaseLayout as EmailLayout } from'./layouts/BaseLayout';
+import { Button as EmailButton } from'./components/Button';
+import { EmailCard } from'./components/EmailCard';
+import { Divider } from'./components/Divider';
+import { SocialLinks } from'./components/SocialLinks'; interface PaymentSuccessEmailProps { name?: string; amount?: string; transactionId?: string; paymentDate?: string; paymentMethod?: string;
+} export const PaymentSuccessEmail = ({ name ='Writer', amount ='₹0.00', transactionId ='txn_123456789', paymentDate = new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric', }), paymentMethod ='Credit Card',
+}: PaymentSuccessEmailProps) => { return ( <EmailLayout previewText={`Your payment of ${amount} was successful`}> <Section> <Heading className="text-black text-[28px] font-bold text-center p-0 my-[24px] mx-0"> Payment Successful </Heading> <Text className="text-gray-700 text-[16px] leading-[26px]"> Hi {name}, </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> Thank you for your purchase. We have successfully processed your payment. You can find your receipt details below. </Text> </Section> <EmailCard title="Payment Summary"> <Row className="mb-[12px]"> <Column> <Text className="text-gray-500 m-0 text-[15px]">Transaction ID</Text> </Column> <Column align="right"> <Text className="text-black font-medium font-mono m-0 text-[15px]">{transactionId}</Text> </Column> </Row> <Row className="mb-[12px]"> <Column> <Text className="text-gray-500 m-0 text-[15px]">Date</Text> </Column> <Column align="right"> <Text className="text-black font-medium m-0 text-[15px]">{paymentDate}</Text> </Column> </Row> <Row className="mb-[12px]"> <Column> <Text className="text-gray-500 m-0 text-[15px]">Payment Method</Text> </Column> <Column align="right"> <Text className="text-black font-medium m-0 text-[15px]">{paymentMethod}</Text> </Column> </Row> <Divider dashed /> <Row> <Column> <Text className="text-gray-700 font-bold m-0 text-[18px]">Total Paid</Text> </Column> <Column align="right"> <Text className="text-black font-bold m-0 text-[18px]">{amount}</Text> </Column> </Row> </EmailCard> <EmailButton href="https://writersthing.com/dashboard"> Visit Dashboard </EmailButton> <SocialLinks /> </EmailLayout> );
+}; export default PaymentSuccessEmail;

@@ -17,6 +17,7 @@ import {
   Plus,
   Feather,
   ChevronRight,
+  ArrowRight,
   Sparkles,
   ShieldCheck,
   MessageCircle,
@@ -364,7 +365,7 @@ function WritePageContent() {
           type: "Story",
           cover_image: thumbnailUrl || undefined,
           tags: storyTags,
-          author_id: authorProfile.id,
+          author_id: authorProfile.user.id,
           price: 0
         })
       });
@@ -453,7 +454,7 @@ function WritePageContent() {
           type: "Blog",
           cover_image: bannerUrl || undefined,
           tags: blogTags,
-          author_id: authorProfile.id,
+          author_id: authorProfile.user.id,
           price: 0
         })
       });
@@ -490,8 +491,8 @@ function WritePageContent() {
 
 
   return (
-    <div className="bg-white pb-20">
-      <div className="unified-axis max-w-4xl pt-4">
+    <div className="bg-white min-h-screen flex flex-col">
+      <div className="unified-axis max-w-4xl pt-4 flex-1 flex flex-col">
         <AnimatePresence mode="wait">
           {step === "selection" && (
             <motion.div
@@ -499,34 +500,38 @@ function WritePageContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="text-center"
+              className="w-full flex flex-col justify-center min-h-[calc(100vh-140px)] py-10"
             >
-              <h1 className="text-h1 tracking-ultra-tight uppercase mb-4 md:mb-8">Share your story</h1>
-              <p className="text-zinc-500 font-medium text-lg md:text-xl mb-12 md:mb-20 italic">What kind of masterpiece are you bringing to the world today?</p>
+              <div className="flex flex-col items-center justify-center text-center mb-6 md:mb-10">
+                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-4 md:mb-6 border-b border-zinc-200 pb-2">Creator Studio</span>
+                <h1 className="text-4xl md:text-6xl font-heading tracking-tight capitalize text-black leading-none mb-2 md:mb-4">
+                  Select <span className="italic font-light text-zinc-400">Format</span>
+                </h1>
+              </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-2 border-t border-l border-black max-w-3xl mx-auto shadow-2xl">
                 <TypeCard 
                   title="Book" 
                   description="Publish full-length manuscripts and novels. Complete PDF support." 
-                  icon={<Book size={32} />} 
+                  icon={<Book size={24} strokeWidth={1.5} />} 
                   onClick={() => handleTypeSelect("Book")} 
                 />
                 <TypeCard 
                   title="Blog" 
                   description="Share personal thoughts, quick updates, and engaging moments." 
-                  icon={<Layout size={32} />} 
+                  icon={<Layout size={24} strokeWidth={1.5} />} 
                   onClick={() => handleTypeSelect("Blog")} 
                 />
                 <TypeCard 
                   title="Story" 
                   description="Craft in-depth narratives, professional insights, and deep analysis." 
-                  icon={<FileText size={32} />} 
+                  icon={<FileText size={24} strokeWidth={1.5} />} 
                   onClick={() => handleTypeSelect("Story")} 
                 />
                 <TypeCard 
                   title="Magazine" 
                   description="Curate visual collections, serial issues, and editorial pieces." 
-                  icon={<Library size={32} />} 
+                  icon={<Library size={24} strokeWidth={1.5} />} 
                   onClick={() => {}} 
                   disabled={true}
                 />
@@ -739,28 +744,29 @@ function TypeCard({ title, description, icon, onClick, disabled }: any) {
     <button 
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`group p-12 bg-zinc-50 border border-zinc-100 rounded-sm text-left transition-all relative ${
+      className={`group w-full flex flex-col items-center justify-center p-6 md:p-10 border-r border-b border-black transition-all duration-500 relative text-center bg-white aspect-[4/3] md:aspect-square md:max-h-[320px] ${
         disabled 
-          ? "opacity-70 cursor-not-allowed grayscale" 
-          : "hover:bg-black hover:text-white hover:shadow-2xl hover:scale-[1.02]"
+          ? "bg-zinc-50 opacity-50 cursor-not-allowed" 
+          : "hover:bg-black hover:text-white"
       }`}
     >
+      <div className={`shrink-0 w-10 h-10 md:w-16 md:h-16 flex items-center justify-center border rounded-full transition-all duration-500 mb-4 md:mb-6 ${disabled ? 'border-zinc-300 text-zinc-400' : 'border-black group-hover:border-white group-hover:bg-white group-hover:text-black group-hover:-translate-y-2'}`}>
+        {icon}
+      </div>
+      
+      <h3 className="text-lg md:text-3xl font-heading tracking-widest uppercase font-black mb-2 md:mb-4">
+        {title}
+      </h3>
+      
+      <p className={`hidden sm:block text-[9px] md:text-[10px] uppercase tracking-widest font-bold max-w-[200px] leading-relaxed transition-colors duration-500 ${disabled ? 'text-zinc-400' : 'text-zinc-400 group-hover:text-zinc-500'}`}>
+        {description}
+      </p>
+
       {disabled && (
-        <div className="absolute top-8 right-8 bg-zinc-200 text-zinc-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-sm">
+        <div className="absolute top-4 right-4 bg-zinc-200 text-zinc-500 px-2 py-1 text-[8px] font-black uppercase tracking-widest">
           Soon
         </div>
       )}
-      <div className={`w-16 h-16 border border-zinc-200 flex items-center justify-center mb-8 transition-all ${
-        disabled ? "" : "group-hover:border-white/20 group-hover:bg-white/10"
-      }`}>
-        {icon}
-      </div>
-      <h3 className="text-3xl font-heading font-black uppercase tracking-tight mb-4 flex items-center gap-4">
-        {title}
-      </h3>
-      <p className={`text-sm font-medium italic leading-relaxed ${
-        disabled ? "text-zinc-400" : "text-zinc-400 group-hover:text-zinc-300"
-      }`}>{description}</p>
     </button>
   );
 }

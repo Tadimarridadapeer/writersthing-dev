@@ -28,7 +28,7 @@ export default function BooksPage() {
           .eq("user_id", user.id);
         
         if (libraryData) {
-          setPurchasedBookIds(new Set(libraryData.map(item => item.book_id)));
+          setPurchasedBookIds(new Set(libraryData.map((item: any) => item.book_id)));
         }
       }
     } catch (err) {
@@ -100,6 +100,7 @@ export default function BooksPage() {
                         <OptimizedImage 
                           src={book.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800"} 
                           alt={book.title}
+                          className="w-full h-full"
                           variant="book-cover"
                           imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700"
                         />

@@ -69,19 +69,17 @@ export const POST = withObservability(async (req: Request) => {
       authorData = newAuthor;
     }
 
-    const formData = await req.formData();
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const category = formData.get("category") as string;
-    const priceStr = formData.get("price") as string;
+    const bodyJson = await req.json();
+    const title = bodyJson.title as string;
+    const description = bodyJson.description as string;
+    const category = bodyJson.category as string;
+    const priceStr = bodyJson.price;
     const price = priceStr && !isNaN(Number(priceStr)) && Number(priceStr) > 0 ? Number(priceStr) : 99;
-    const coverFile = formData.get("coverFile") as File | null;
-    const pdfFile = formData.get("pdfFile") as File | null;
-
+    
     const isPublishing = req.headers.get("X-Publish") === "true";
 
-    if (!title || (isPublishing && !pdfFile)) {
-      return NextResponse.json({ message: "Title and PDF Manuscript are required to publish" }, { status: 400 });
+    if (!title || (isPublishing && !bodyJson.requestPresignedUrls)) {
+      return NextResponse.json({ message: "Title is required" }, { status: 400 });
     }
 
     const finalCategory = category ? `Book - ${category}` : "Book";
@@ -107,57 +105,48 @@ export const POST = withObservability(async (req: Request) => {
 
     const bookId = bookData.id;
 
-    // Upload Cover
-    let coverUrl = "";
-    if (coverFile) {
-      const coverExt = coverFile.name.split(".").pop();
-      const coverPath = `${user.id}/${bookId}-cover.${coverExt}`;
-      const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
-      const { error: coverUploadError } = await supabaseAdmin.storage
-        .from(STORAGE_CONFIG.buckets.publicCovers)
-        .upload(coverPath, coverBuffer, { upsert: true, contentType: coverFile.type || 'image/jpeg' });
+    if (bodyJson.requestPresignedUrls) {
+      let coverUrl = "";
+      let pdfUrl = "";
+      let coverPath = "";
+      let pdfPath = "";
+      
+      if (bodyJson.coverName) {
+        const coverExt = bodyJson.coverName.split(".").pop();
+        // Use a unique timestamp to completely avoid "The resource already exists" error
+        const uniqueSuffix = Date.now();
+        coverPath = `${user.id}/${bookId}-cover-${uniqueSuffix}.${coverExt}`;
         
-      if (coverUploadError) {
-        logger.error("Cover Upload Failed", { error: coverUploadError.message, bookId });
-        return NextResponse.json({ message: "Cover Upload Failed" }, { status: 500 });
+        const { data: coverData, error: coverError } = await supabaseAdmin.storage
+          .from(STORAGE_CONFIG.buckets.publicCovers)
+          .createSignedUploadUrl(coverPath);
+        if (coverError) throw new Error("Failed to generate cover upload URL: " + coverError.message);
+        coverUrl = coverData?.signedUrl || "";
       }
-
-      const { data: { publicUrl } } = supabaseAdmin.storage
-        .from(STORAGE_CONFIG.buckets.publicCovers)
-        .getPublicUrl(coverPath);
-      coverUrl = publicUrl;
+      
+      if (bodyJson.pdfName) {
+        const uniqueSuffix = Date.now();
+        pdfPath = `${user.id}/${bookId}/manuscript-${uniqueSuffix}.pdf`;
+        
+        const { data: pdfData, error: pdfError } = await supabaseAdmin.storage
+          .from(STORAGE_CONFIG.buckets.privateManuscripts)
+          .createSignedUploadUrl(pdfPath);
+        if (pdfError) throw new Error("Failed to generate manuscript upload URL: " + pdfError.message);
+        pdfUrl = pdfData?.signedUrl || "";
+      }
+      
+      return NextResponse.json({ 
+        message: "Draft saved, ready for upload", 
+        bookId, 
+        uploadUrls: { cover: coverUrl, pdf: pdfUrl },
+        coverPath,
+        pdfPath
+      }, { status: 200 });
     }
 
-    // Upload PDF securely using backend mapping
-    let pdfPath = "";
-    if (pdfFile) {
-      pdfPath = `${user.id}/${bookId}/manuscript.pdf`;
-      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
-      const { error: pdfUploadError } = await supabaseAdmin.storage
-        .from(STORAGE_CONFIG.buckets.privateManuscripts)
-        .upload(pdfPath, pdfBuffer, { upsert: true, contentType: 'application/pdf' });
-
-      if (pdfUploadError) {
-        logger.error("Manuscript Upload Failed", { error: pdfUploadError.message, bookId });
-        return NextResponse.json({ message: "Manuscript Upload Failed: " + pdfUploadError.message }, { status: 500 });
-      }
-    }
-
-    // Update Book with Storage Metadata and publish
     const updatePayload: any = {
-      cover_url: coverUrl,
-      status: isPublishing ? "Published" : "Draft"
+      status: "Draft"
     };
-
-    if (pdfFile && pdfPath) {
-      updatePayload.pdf_path = pdfPath; // Legacy support
-      updatePayload.storage_bucket = STORAGE_CONFIG.buckets.privateManuscripts;
-      updatePayload.storage_path = pdfPath;
-      updatePayload.file_size = pdfFile.size;
-      updatePayload.mime_type = pdfFile.type;
-      updatePayload.original_file_name = pdfFile.name;
-      updatePayload.uploaded_at = new Date().toISOString();
-    }
 
     const { error: updateError } = await supabaseAdmin
       .from("books")
@@ -207,15 +196,13 @@ export const PUT = withObservability(async (req: Request) => {
       authorData = newAuthor;
     }
 
-    const formData = await req.formData();
-    const id = formData.get("id") as string;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const category = formData.get("category") as string;
-    const priceStr = formData.get("price") as string;
+    const bodyJson = await req.json();
+    const id = bodyJson.id;
+    const title = bodyJson.title as string;
+    const description = bodyJson.description as string;
+    const category = bodyJson.category as string;
+    const priceStr = bodyJson.price;
     const price = priceStr && !isNaN(Number(priceStr)) && Number(priceStr) > 0 ? Number(priceStr) : undefined;
-    const coverFile = formData.get("coverFile") as File | null;
-    const pdfFile = formData.get("pdfFile") as File | null;
 
     if (!id) {
       return NextResponse.json({ message: "Book ID is required for update" }, { status: 400 });
@@ -223,9 +210,7 @@ export const PUT = withObservability(async (req: Request) => {
 
     const isPublishing = req.headers.get("X-Publish") === "true";
 
-    if (!title || (isPublishing && !pdfFile)) {
-      // For updates, the PDF might already exist. We should really check the DB if it exists.
-      // But for now, just enforce title.
+    if (!title || (isPublishing && !bodyJson.requestPresignedUrls && !bodyJson.finalize)) {
       if (!title) return NextResponse.json({ message: "Title is required" }, { status: 400 });
     }
 
@@ -243,43 +228,54 @@ export const PUT = withObservability(async (req: Request) => {
       updatePayload.price = price;
     }
 
-    // Upload Cover if provided
-    if (coverFile) {
-      const coverExt = coverFile.name.split(".").pop();
-      const coverPath = `${user.id}/${id}-cover.${coverExt}`;
-      const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
-      const { error: coverUploadError } = await supabaseAdmin.storage
-        .from(STORAGE_CONFIG.buckets.publicCovers)
-        .upload(coverPath, coverBuffer, { upsert: true, contentType: coverFile.type || 'image/jpeg' });
+    if (bodyJson.requestPresignedUrls) {
+      let coverUrl = "";
+      let pdfUrl = "";
+      let coverPath = "";
+      let pdfPath = "";
+      
+      if (bodyJson.coverName) {
+        const coverExt = bodyJson.coverName.split(".").pop();
+        // Use a unique timestamp to completely avoid "The resource already exists" error
+        const uniqueSuffix = Date.now();
+        coverPath = `${user.id}/${id}-cover-${uniqueSuffix}.${coverExt}`;
         
-      if (!coverUploadError) {
-        const { data: { publicUrl } } = supabaseAdmin.storage
+        const { data: coverData, error: coverError } = await supabaseAdmin.storage
           .from(STORAGE_CONFIG.buckets.publicCovers)
-          .getPublicUrl(coverPath);
-        updatePayload.cover_url = publicUrl;
+          .createSignedUploadUrl(coverPath);
+        if (coverError) throw new Error("Failed to generate cover upload URL: " + coverError.message);
+        coverUrl = coverData?.signedUrl || "";
       }
+      
+      if (bodyJson.pdfName) {
+        const uniqueSuffix = Date.now();
+        pdfPath = `${user.id}/${id}/manuscript-${uniqueSuffix}.pdf`;
+        
+        const { data: pdfData, error: pdfError } = await supabaseAdmin.storage
+          .from(STORAGE_CONFIG.buckets.privateManuscripts)
+          .createSignedUploadUrl(pdfPath);
+        if (pdfError) throw new Error("Failed to generate manuscript upload URL: " + pdfError.message);
+        pdfUrl = pdfData?.signedUrl || "";
+      }
+      
+      return NextResponse.json({ 
+        message: "Draft updated, ready for upload", 
+        bookId: id, 
+        uploadUrls: { cover: coverUrl, pdf: pdfUrl },
+        coverPath,
+        pdfPath
+      }, { status: 200 });
     }
 
-    // Upload PDF if provided
-    if (pdfFile) {
-      console.log("DEBUG pdfFile.type:", pdfFile.type, "size:", pdfFile.size);
-      const pdfPath = `${user.id}/${id}/manuscript.pdf`;
-      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
-      const { error: pdfUploadError } = await supabaseAdmin.storage
-        .from(STORAGE_CONFIG.buckets.privateManuscripts)
-        .upload(pdfPath, pdfBuffer, { upsert: true, contentType: 'application/pdf' });
-
-      if (pdfUploadError) {
-        console.error("DEBUG pdfUploadError:", pdfUploadError);
-        throw new Error("Failed to upload manuscript: " + pdfUploadError.message);
-      } else {
-        updatePayload.pdf_path = pdfPath;
-        updatePayload.storage_bucket = STORAGE_CONFIG.buckets.privateManuscripts;
-        updatePayload.storage_path = pdfPath;
-        updatePayload.file_size = pdfFile.size;
-        updatePayload.mime_type = pdfFile.type;
-        updatePayload.original_file_name = pdfFile.name;
-        updatePayload.uploaded_at = new Date().toISOString();
+    if (bodyJson.finalize) {
+      if (bodyJson.coverPath) {
+        const { data: { publicUrl } } = supabaseAdmin.storage
+          .from(STORAGE_CONFIG.buckets.publicCovers)
+          .getPublicUrl(bodyJson.coverPath);
+        updatePayload.cover_url = publicUrl;
+      }
+      if (bodyJson.pdfPath) {
+        updatePayload.pdf_path = bodyJson.pdfPath;
       }
     }
 

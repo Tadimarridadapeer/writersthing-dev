@@ -16,6 +16,7 @@ import {
   X,
   ShieldCheck,
   CheckCircle2,
+  Check,
   DollarSign
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +24,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import Badge from "@/components/ui/Badge";
 import AvatarWithBadge from "@/components/AvatarWithBadge";
 import HireWriterModal from "@/components/HireWriterModal";
+import FoundingBadge from "@/components/ui/FoundingBadge";
 
 export default function AuthorProfilePage() {
   const params = useParams();
@@ -32,8 +34,7 @@ export default function AuthorProfilePage() {
   const [authorProfile, setAuthorProfile] = useState<any>(null);
   const [authorBadges, setAuthorBadges] = useState<any[]>([]);
   const [writerServices, setWriterServices] = useState<any[]>([]);
-  const [isFoundingWriter, setIsFoundingWriter] = useState(false);
-  
+  const [foundingWriterNumber, setFoundingWriterNumber] = useState<number | null>(null);
   const [blogs, setBlogs] = useState<any[]>([]);
   const [storys, setStorys] = useState<any[]>([]);
   const [books, setBooks] = useState<any[]>([]);
@@ -94,7 +95,7 @@ export default function AuthorProfilePage() {
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from("user_badges").select("*").eq("user_id", resolvedUserId),
         supabase.from("writer_services").select("*").eq("writer_id", resolvedUserId).order("created_at", { ascending: false }),
-        supabase.from("founding_writers").select("id").eq("user_id", resolvedUserId).ilike("status", "accepted").maybeSingle()
+        supabase.from("founding_writers").select("id, founder_number").eq("user_id", resolvedUserId).ilike("status", "accepted").maybeSingle()
       ]);
 
       if (userRes.error || !userRes.data) {
@@ -107,7 +108,7 @@ export default function AuthorProfilePage() {
       setIsFollowing(!!followStatusRes.data);
       setAuthorBadges(badgesRes?.data || []);
       setWriterServices(servicesRes?.data || []);
-      setIsFoundingWriter(!!founderRes?.data);
+      setFoundingWriterNumber(founderRes.data?.founder_number || null);
 
       // Books, blogs and storys query depends on author profileData ID
       if (profileRes.data) {
@@ -216,13 +217,34 @@ export default function AuthorProfilePage() {
           <div className="absolute top-0 right-0 w-24 h-24 bg-zinc-50/50 -z-10 rounded-bl-full" />
           
           {/* Avatar Display */}
-          <div className="w-24 h-24 rounded-full overflow-hidden flex-shrink-0 shadow-inner">
-            <AvatarWithBadge 
-              userId={authorUser.id}
-              avatarUrl={authorUser.avatar_url}
-              name={authorUser.name}
-              className="w-full h-full"
-            />
+          <div className="relative">
+            {foundingWriterNumber !== null && (
+              <div className="absolute inset-0 z-20 pointer-events-none" style={{ margin: '-24px' }}>
+                <svg viewBox="0 0 200 200" className="w-full h-full animate-[spin_20s_linear_infinite]">
+                  <path 
+                    id="curvePathAuthor" 
+                    d="M 100 100 m -90 0 a 90 90 0 1 1 180 0 a 90 90 0 1 1 -180 0" 
+                    fill="transparent" 
+                  />
+                  <text className="text-[12px] font-black uppercase tracking-[0.2em] fill-black">
+                    <textPath href="#curvePathAuthor" startOffset="25%" textAnchor="middle">
+                      FOUNDING WRITER
+                    </textPath>
+                    <textPath href="#curvePathAuthor" startOffset="75%" textAnchor="middle">
+                      #{String(foundingWriterNumber).padStart(5, '0')}
+                    </textPath>
+                  </text>
+                </svg>
+              </div>
+            )}
+            <div className="w-24 h-24 bg-zinc-50 border-4 border-white rounded-full overflow-hidden flex-shrink-0 shadow-xl relative z-10">
+              <AvatarWithBadge 
+                userId={authorUser.id}
+                avatarUrl={authorUser.avatar_url}
+                name={authorUser.name}
+                className="w-full h-full"
+              />
+            </div>
           </div>
 
           {/* Profile Text Details */}
@@ -230,31 +252,24 @@ export default function AuthorProfilePage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900">
+                  <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900 flex items-center gap-2">
                     {authorUser.name}
+                    {authorUser.is_verified_writer && (
+                      <span className="inline-flex items-center justify-center bg-black text-white rounded-full w-5 h-5 flex-shrink-0" title="Verified Author">
+                        <Check size={12} strokeWidth={4} />
+                      </span>
+                    )}
                   </h1>
                 </div>
                 <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1">
                   {authorUser.role || "Author"}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {isFoundingWriter && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-700 border border-amber-300 bg-amber-50 rounded">
-                      <Star size={12} className="fill-amber-500 text-amber-500" />
-                      Founding Writer
-                    </span>
-                  )}
-                  {authorUser.is_verified_writer && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-700 border border-blue-300 bg-blue-50 rounded">
-                      <ShieldCheck size={12} className="text-blue-500" />
-                      Verified Writer
-                    </span>
-                  )}
                   {authorUser.available_for_hire && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 border border-emerald-300 bg-emerald-50 rounded">
-                      <CheckCircle2 size={12} className="text-emerald-500" />
+                    <div className="flex items-center gap-2 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 border border-emerald-200 bg-emerald-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Available for Hire
-                    </span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -272,7 +287,7 @@ export default function AuthorProfilePage() {
                   {isFollowing ? "Following" : "Follow Author"}
                 </button>
                 
-                {(isFoundingWriter || authorUser.is_verified_writer || authorUser.available_for_hire) && (
+                {(foundingWriterNumber !== null || authorUser.is_verified_writer || authorUser.available_for_hire) && (
                   <button 
                     onClick={() => setIsHireModalOpen(true)}
                     className="px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"

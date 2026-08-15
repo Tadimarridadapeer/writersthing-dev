@@ -51,7 +51,7 @@ export function withObservability(handler: ApiHandler, routeName: string): ApiHa
 
       return NextResponse.json(
         { 
-          message: "Internal Server Error", 
+          message: error.message || "Internal Server Error", 
           requestId // Return Request ID for easier support tracking
         }, 
         { status: 500 }

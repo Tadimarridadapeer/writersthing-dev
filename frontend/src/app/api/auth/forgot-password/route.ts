@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authValidators } from "@/lib/validators/auth.validator";
+import { sendForgotPasswordEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,14 +17,18 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY! // Need admin privileges to generate link
     );
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    // Call the official Supabase Auth method
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${baseUrl}/reset-password`,
+    // Call the official Supabase Auth admin method to generate the link without triggering their email
+    const { data, error } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: `${baseUrl}/reset-password`,
+      }
     });
 
     if (error) {
@@ -32,6 +37,15 @@ export async function POST(req: NextRequest) {
         { success: false, message: error.message },
         { status: error.status || 400 }
       );
+    }
+
+    // Now send the link via our centralized Resend email service
+    if (data?.properties?.action_link) {
+      try {
+        await sendForgotPasswordEmail(email, data.properties.action_link);
+      } catch (error) {
+        console.error("Forgot password email failed", error);
+      }
     }
 
     return NextResponse.json(

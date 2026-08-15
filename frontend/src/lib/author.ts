@@ -43,6 +43,27 @@ export async function ensureAuthorProfile(supabase: SupabaseClient, userId: stri
     // 2. Profile missing, create it automatically
     console.log(`[ensureAuthorProfile] Insert attempt for user ${userId}...`);
     
+    // Safety check: ensure user exists in public.users to prevent FK violation
+    const { data: userCheck } = await supabase.from('users').select('id').eq('id', userId).maybeSingle();
+    if (!userCheck) {
+      console.log(`[ensureAuthorProfile] User ${userId} missing from public.users. Attempting to create...`);
+      
+      // Try to fetch auth user to get metadata
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const metadata = authUser?.user_metadata || {};
+      
+      const { error: userInsertError } = await supabase.from('users').insert({
+        id: userId,
+        email: authUser?.email || '',
+        name: metadata.name || metadata.full_name || 'Author',
+        role: metadata.role || 'Author'
+      });
+      
+      if (userInsertError) {
+        console.error(`[ensureAuthorProfile] Failed to create public.user:`, userInsertError);
+      }
+    }
+    
     const { data: newAuthor, error: insertError } = await supabase
       .from("authors")
       .insert([{ user_id: userId }])

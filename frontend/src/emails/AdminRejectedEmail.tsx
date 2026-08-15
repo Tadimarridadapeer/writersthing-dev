@@ -1,0 +1,10 @@
+// @ts-nocheck
+import * as React from'react';
+import { Section, Text, Heading } from'@react-email/components';
+import { BaseLayout as EmailLayout } from'./layouts/BaseLayout';
+import { Button as EmailButton } from'./components/Button';
+import { EmailCard } from'./components/EmailCard';
+import { SocialLinks } from'./components/SocialLinks'; interface AdminRejectedEmailProps { name?: string; reason?: string; reapplyUrl?: string;
+} export const AdminRejectedEmail = ({ name ='Writer', reason ='While your writing shows promise, we are looking for a slightly different stylistic fit at this time.', reapplyUrl ='https://writersthing.com/settings/profile',
+}: AdminRejectedEmailProps) => { return ( <EmailLayout previewText="Update regarding your Writersthing application"> <Section> <Text className="text-gray-500 text-[14px] font-semibold text-center uppercase tracking-widest mb-[8px] mt-[16px]"> Application Update </Text> <Heading className="text-black text-[28px] font-bold text-center p-0 my-[16px] mx-0 font-serif"> Thank You For Applying </Heading> <Text className="text-gray-700 text-[16px] leading-[26px]"> Hi {name}, </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> We deeply appreciate the time and effort you invested in applying to join Writersthing. It is always inspiring to review the work of passionate writers. </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> At this time, we are unable to move forward with your application. Our review team provided the following feedback: </Text> </Section> <EmailCard title=""> <Text className="text-gray-700 text-[15px] leading-[26px] mt-0 mb-0 italic">"{reason}" </Text> </EmailCard> <Section> <Text className="text-gray-700 text-[16px] leading-[26px] mt-[24px]"> We know this isn't the news you were hoping for, but we encourage you to continue refining your portfolio. We would love to see how your work evolves, and we welcome you to update your profile and apply again in the future! </Text> </Section> <EmailButton href={reapplyUrl}> Update Profile </EmailButton> <SocialLinks /> </EmailLayout> );
+}; export default AdminRejectedEmail;

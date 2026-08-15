@@ -1,0 +1,11 @@
+// @ts-nocheck
+import * as React from'react';
+import { Section, Text, Heading } from'@react-email/components';
+import { BaseLayout as EmailLayout } from'./layouts/BaseLayout';
+import { Button as EmailButton } from'./components/Button';
+import { EmailCard } from'./components/EmailCard';
+import { FeatureGrid } from'./components/FeatureGrid';
+import { SocialLinks } from'./components/SocialLinks'; interface FounderInviteEmailProps { name?: string; inviteUrl?: string;
+} export const FounderInviteEmail = ({ name ='Writer', inviteUrl ='https://writersthing.com/founding-writers/accept',
+}: FounderInviteEmailProps) => { const benefits = [ { title:'Early Access', description:'Get access to beta features before anyone else.' }, { title:'Priority Support', description:'Direct line to the founding team.' }, { title:'Founder Badge', description:'Exclusive profile verification badge.' }, { title:'Community', description:'Join a private circle of top writers.' }, ]; return ( <EmailLayout previewText="You're invited to the Writersthing Founding Writers Program!"> <Section> <Text className="text-gray-500 text-[14px] font-semibold text-center uppercase tracking-widest mb-[8px] mt-[16px]"> Exclusive Invitation </Text> <Heading className="text-black text-[28px] font-bold text-center p-0 my-[16px] mx-0 font-serif"> Welcome to the Founding Writers </Heading> <Text className="text-gray-700 text-[16px] leading-[26px]"> Hi {name}, </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> We have been following your journey and are incredibly impressed by your work. We would like to formally invite you to join Writersthing as a Founding Writer. </Text> </Section> <EmailCard title="Founding Member Benefits" className="bg-black text-white border-black"> {/* We override standard FeatureGrid colors slightly via custom wrapper to support dark mode context */} {benefits.map((feature, index) => ( <Text key={index} className="text-gray-300 text-[15px] leading-[24px] my-[12px]"> <strong className="text-white">✓ {feature.title}:</strong> {feature.description} </Text> ))} </EmailCard> <EmailButton href={inviteUrl}> Accept Invitation </EmailButton> <SocialLinks /> </EmailLayout> );
+}; export default FounderInviteEmail;

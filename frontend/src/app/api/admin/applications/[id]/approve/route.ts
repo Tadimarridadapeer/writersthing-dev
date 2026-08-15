@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendAdminApprovalEmail } from '@/lib/email';
 
 const getAdminSupabase = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -99,6 +100,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // 6. Update Program Count & App Status
     await supabase.from('programs').update({ current_count: newFounderNumber }).eq('id', program.id);
     await supabase.from('program_applications').update({ status: 'Approved' }).eq('id', appId);
+
+    try {
+      await sendAdminApprovalEmail(application.email, application.full_name);
+    } catch (error) {
+      console.error("Approval email failed", error);
+    }
 
     return NextResponse.json({ success: true, founderNumber: newFounderNumber }, { status: 200 });
   } catch (error: any) {

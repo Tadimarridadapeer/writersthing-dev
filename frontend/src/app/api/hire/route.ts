@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { emailService } from "@/services/email.service";
+import { sendHireRequestEmail } from "@/lib/email";
 
 function getSupabase() {
   return createServerClient(
@@ -77,20 +77,18 @@ export async function POST(req: Request) {
 
     if (writerData && writerData.email) {
       // Send notification email to writer
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-      const acceptUrl = `${baseUrl}/dashboard/requests/${requestData.id}`;
-      
-      await emailService.sendHireRequestNotificationEmail(
-        writerData.email,
-        writerData.name || "Writer",
-        full_name || "A Client",
-        project_category,
-        budget_min,
-        budget_max,
-        expected_deadline,
-        project_summary,
-        acceptUrl
-      );
+      try {
+        const res = await sendHireRequestEmail(
+          writerData.email,
+          writerData.name || "Writer",
+          full_name || "A Client",
+          project_category,
+          project_summary
+        );
+        if (!res.success) console.error("Failed to send hire request email:", res.error);
+      } catch (emailErr) {
+        console.error("Hire request email exception:", emailErr);
+      }
     }
 
     return NextResponse.json({ success: true, data: requestData }, { status: 201 });

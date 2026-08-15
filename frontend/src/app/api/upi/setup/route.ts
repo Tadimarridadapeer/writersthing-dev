@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { emailService } from "@/services/email.service";
+import { sendOTPEmail } from "@/lib/email";
 
 // Simple 6 digit OTP generator
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -52,7 +52,11 @@ export async function POST(req: Request) {
     }
 
     // 4. Send Email
-    await emailService.sendUpiOtpEmail(email, otpCode, "setup");
+    try {
+      await sendOTPEmail(email, otpCode);
+    } catch (error) {
+      console.error("OTP email failed", error);
+    }
 
     return NextResponse.json({ success: true, message: "OTP sent to email" });
   } catch (error: any) {

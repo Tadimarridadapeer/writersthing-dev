@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendFounderInviteEmail } from "@/lib/email";
 
 // Helper for admin client
 const getAdminSupabase = () => {
@@ -77,6 +78,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "This email has already been invited." }, { status: 400 });
       }
       throw error;
+    }
+
+    try {
+      await sendFounderInviteEmail(email, name);
+    } catch (error) {
+      console.error("Founder invite email exception:", error);
     }
 
     return NextResponse.json({ success: true, data });

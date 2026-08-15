@@ -66,7 +66,7 @@ export default async function HistoryPage() {
       title: metadata?.title || "Unknown Content",
       cover: metadata?.cover,
       category: metadata?.category,
-      link: p.content_type === 'book' ? `/read/${p.content_id}` : `/${p.content_type}s/${p.content_id}`
+      link: p.content_type === 'book' ? `/read/pdf?id=${p.content_id}` : `/${p.content_type}s/${p.content_id}`
     };
   });
 

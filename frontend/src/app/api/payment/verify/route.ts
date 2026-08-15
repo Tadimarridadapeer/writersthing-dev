@@ -1,15 +1,48 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { sendPaymentSuccessEmail, sendPurchaseReceipt, sendWriterSaleNotification } from "@/lib/email";
 
-// Initialize Supabase admin client for secure backend operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-);
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) as string
+    );
+
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+        global: {
+          headers: {
+            Authorization: req.headers.get("Authorization") || "",
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    console.log("===== AUTH DEBUG =====");
+    console.log("User:", user);
+    console.log("User ID:", user?.id);
+    console.log("Auth Error:", authError);
+    console.log("======================");
+
     const body = await req.json();
     const {
       razorpay_order_id,
@@ -37,7 +70,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify signature
     const generated_signature = crypto
       .createHmac("sha256", secret)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
@@ -52,47 +84,78 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Idempotency Check: Prevent duplicate payments
-    const { data: existingPayment, error: checkError } = await supabaseAdmin
-      .from("payments")
-      .select("id")
-      .eq("payment_id", razorpay_payment_id)
-      .single();
-
-    if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 means no rows returned, which is expected for new payments
-      console.error("Error checking existing payment:", checkError);
-      return NextResponse.json(
-        { error: "Database error during duplicate check" },
-        { status: 500 }
-      );
+    // QUERY 1: idempotency check
+    console.log("STEP A");
+    console.log({ payment_id: razorpay_payment_id });
+    console.log(userId);
+    console.log(projectId);
+    console.log(razorpay_payment_id);
+    console.log(razorpay_order_id);
+    console.log(amount);
+    console.log("Executing query...");
+    let existingPayment;
+    try {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("id")
+        .eq("payment_id", razorpay_payment_id)
+        .single();
+      
+      if (error && error.code !== "PGRST116") {
+        console.error(error.message);
+        console.error(error.details);
+        console.error(error.hint);
+        console.error(error.code);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      existingPayment = data;
+      console.log("Query successful");
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
 
     if (existingPayment) {
-      // Payment already processed (e.g., webhook and client both fired)
       return NextResponse.json({ success: true, message: "Payment already verified" });
     }
 
-    // Payment is valid and new.
-
-    // 2. Determine if it's a multi-item cart or single item
     const itemsToProcess = cartItems || (projectId ? [{ id: projectId }] : []);
     
     let totalVerifiedAmount = 0;
     const orderItemsToInsert = [];
     const libraryInserts = [];
+    let books: any[] = [];
 
-    // 3. Fetch verified book prices and authors from DB
     if (itemsToProcess.length > 0) {
       const bookIds = itemsToProcess.map((i: any) => i.id);
-      const { data: books, error: booksError } = await supabaseAdmin
-        .from("books")
-        .select("id, price, author_id")
-        .in("id", bookIds);
 
-      if (booksError || !books) {
-        console.error("Error fetching books for verification:", booksError);
-        return NextResponse.json({ error: "Failed to verify book details" }, { status: 500 });
+      // QUERY 2: fetch books
+      console.log("STEP A");
+      console.log({ bookIds });
+      console.log(userId);
+      console.log(projectId);
+      console.log(razorpay_payment_id);
+      console.log(razorpay_order_id);
+      console.log(amount);
+      console.log("Executing query...");
+      try {
+        const { data, error } = await supabase
+          .from("books")
+          .select("id, title, price, author_id")
+          .in("id", bookIds);
+
+        if (error) {
+          console.error(error.message);
+          console.error(error.details);
+          console.error(error.hint);
+          console.error(error.code);
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        books = data || [];
+        console.log("Query successful");
+      } catch (error) {
+        console.error(error);
+        throw error;
       }
 
       for (const book of books) {
@@ -120,13 +183,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Use passed amount as fallback if no items (e.g. donations/subscriptions later)
     const finalAmount = totalVerifiedAmount > 0 ? totalVerifiedAmount : Number(amount);
     const totalCommission = finalAmount * 0.10;
     const totalWriterAmount = finalAmount * 0.90;
 
-    // 4. Store parent transaction in Supabase Payments table
-    const { data: paymentRecord, error: insertError } = await supabaseAdmin.from("payments").insert({
+    // QUERY 3: insert payments
+    const paymentInsertData = {
       user_id: userId,
       order_id: razorpay_order_id,
       payment_id: razorpay_payment_id,
@@ -137,58 +199,194 @@ export async function POST(req: Request) {
       writer_amount: totalWriterAmount,
       project_id: projectId || null,
       payout_status: "NOT_RELEASED",
-    }).select().single();
+    };
 
-    if (insertError || !paymentRecord) {
-      console.error("Error inserting payment record:", insertError);
-      return NextResponse.json(
-        { error: "Payment verified but failed to record in database" },
-        { status: 500 }
-      );
+    console.log("STEP A");
+    console.log(paymentInsertData);
+    console.log(userId);
+    console.log(projectId);
+    console.log(razorpay_payment_id);
+    console.log(razorpay_order_id);
+    console.log(amount);
+    console.log("Executing query...");
+    let paymentRecord;
+    try {
+      const response = await supabase.from("payments").insert(paymentInsertData).select().single();
+      const { data, error } = response;
+      if (error) {
+        console.error(error.message);
+        console.error(error.details);
+        console.error(error.hint);
+        console.error(error.code);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      if (!data) {
+        console.log(response);
+      }
+      paymentRecord = data;
+      console.log("Query successful");
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
 
-    // 5. Store individual author splits in order_items and update wallets
+    // QUERY 4: insert order_items
     if (orderItemsToInsert.length > 0) {
       const splitsWithPaymentId = orderItemsToInsert.map(item => ({
         ...item,
-        payment_id: paymentRecord.id
+        payment_id: paymentRecord?.id
       }));
       
-      const { error: splitError } = await supabaseAdmin.from("order_items").insert(splitsWithPaymentId);
-      if (splitError) {
-        console.error("Error inserting order_items (commission splits):", splitError);
+      console.log("STEP A");
+      console.log(splitsWithPaymentId);
+      console.log(userId);
+      console.log(projectId);
+      console.log(razorpay_payment_id);
+      console.log(razorpay_order_id);
+      console.log(amount);
+      console.log("Executing query...");
+      try {
+        const response = await supabase.from("order_items").insert(splitsWithPaymentId);
+        const { error } = response;
+        if (error) {
+          console.error(error.message);
+          console.error(error.details);
+          console.error(error.hint);
+          console.error(error.code);
+        }
+        if (!error && !response.data) {
+          console.log(response);
+        }
+        console.log("Query successful");
+      } catch (error) {
+        console.error(error);
+        throw error;
       }
 
-      // Update the available_balance for each author
+      // QUERY 5: rpc increment_author_balance
       for (const item of orderItemsToInsert) {
-        const { error: walletError } = await supabaseAdmin.rpc('increment_author_balance', {
+        const rpcData = {
           author_uuid: item.author_id,
           amount_to_add: item.writer_amount
-        });
-        if (walletError) {
-          console.error(`Error updating wallet for author ${item.author_id}:`, walletError);
+        };
+        console.log("STEP A");
+        console.log(rpcData);
+        console.log(userId);
+        console.log(projectId);
+        console.log(razorpay_payment_id);
+        console.log(razorpay_order_id);
+        console.log(amount);
+        console.log("Executing query...");
+        try {
+          const { error } = await supabase.rpc('increment_author_balance', rpcData);
+          if (error) {
+            console.error(error.message);
+            console.error(error.details);
+            console.error(error.hint);
+            console.error(error.code);
+          }
+          console.log("Query successful");
+        } catch (error) {
+          console.error(error);
+          throw error;
         }
       }
     }
 
-    // 6. Book Unlocking: Add to user's library
+    // QUERY 6: insert library
     if (libraryInserts.length > 0) {
-      const { error: libraryError } = await supabaseAdmin
-        .from("library")
-        .upsert(libraryInserts, { onConflict: 'user_id,book_id' });
-
-      if (libraryError) {
-        console.error("Error adding books to library:", libraryError);
+      console.log("STEP A");
+      console.log(libraryInserts);
+      console.log(userId);
+      console.log(projectId);
+      console.log(razorpay_payment_id);
+      console.log(razorpay_order_id);
+      console.log(amount);
+      console.log("Executing query...");
+      try {
+        const response = await supabase
+          .from("library")
+          .upsert(libraryInserts, { onConflict: 'user_id,book_id' });
+        const { error } = response;
+        if (error) {
+          console.error(error.message);
+          console.error(error.details);
+          console.error(error.hint);
+          console.error(error.code);
+        }
+        if (!error && !response.data) {
+          console.log(response);
+        }
+        console.log("Query successful");
+      } catch (error) {
+        console.error(error);
+        throw error;
       }
     }
 
+    // 7. Send Emails (Awaited to prevent serverless suspension)
+    await (async () => {
+      try {
+        // QUERY 7: select buyer
+        console.log("STEP A");
+        console.log({ select: 'email, name', eq: userId });
+        console.log(userId);
+        console.log(projectId);
+        console.log(razorpay_payment_id);
+        console.log(razorpay_order_id);
+        console.log(amount);
+        console.log("Executing query...");
+        const { data: buyer, error: buyerError } = await supabaseAdmin.from('users').select('email, name').eq('id', userId).single();
+        if (buyerError) {
+          console.error(buyerError.message);
+          console.error(buyerError.details);
+          console.error(buyerError.hint);
+          console.error(buyerError.code);
+        }
+        console.log("Query successful");
+
+        if (buyer?.email) {
+          await sendPaymentSuccessEmail(buyer.email, finalAmount.toString());
+
+          if (books && books.length > 0) {
+            for (const book of books) {
+              await sendPurchaseReceipt(buyer.email, book.title || 'Your Book', book.price?.toString() || '0');
+              
+              // QUERY 8: select writer
+              console.log("STEP A");
+              console.log({ select: 'email, name', eq: book.author_id });
+              console.log(userId);
+              console.log(projectId);
+              console.log(razorpay_payment_id);
+              console.log(razorpay_order_id);
+              console.log(amount);
+              console.log("Executing query...");
+              const { data: writer, error: writerError } = await supabaseAdmin.from('users').select('email, name').eq('id', book.author_id).single();
+              if (writerError) {
+                console.error(writerError.message);
+                console.error(writerError.details);
+                console.error(writerError.hint);
+                console.error(writerError.code);
+              }
+              console.log("Query successful");
+
+              if (writer?.email) {
+                await sendWriterSaleNotification(writer.email, writer.name || 'Writer', book.title || 'A Book', book.price?.toString() || '0');
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to send post-payment emails:", err);
+      }
+    })();
+
     return NextResponse.json({ success: true, message: "Payment verified successfully" });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error verifying payment:", error);
     return NextResponse.json(
-      { error: "Failed to verify payment due to unexpected server error" },
+      { error: error?.message || "Failed to verify payment due to unexpected server error" },
       { status: 500 }
     );
   }
 }
-

@@ -1,0 +1,4 @@
+import * as React from'react';
+import { Section, Text, Img, Button } from'@react-email/components'; export interface AuthorCardProps { avatarUrl: string; name: string; bio: string; ctaText: string; ctaUrl: string;
+} export const AuthorCard = ({ avatarUrl, name, bio, ctaText, ctaUrl }: AuthorCardProps) => { return ( <Section className="bg-gray-50 border border-gray-200 rounded-lg p-[24px] mb-[16px] text-center"> <Img src={avatarUrl} width="80" height="80" alt={name} className="rounded-full mx-auto object-cover border border-gray-300" /> <Text className="text-black font-bold text-[18px] m-0 mt-[16px]">{name}</Text> <Text className="text-gray-600 text-[14px] leading-[22px] mt-[8px] mb-[16px] max-w-[400px] mx-auto"> {bio} </Text> <Button href={ctaUrl} className="bg-white border border-gray-300 text-black text-[14px] font-semibold rounded py-[8px] px-[20px] text-center w-auto no-underline" > {ctaText} </Button> </Section> );
+}; export default AuthorCard;

@@ -80,6 +80,12 @@ export default function SignupPage() {
           console.error("DB Sync error:", dbError.message);
         } else {
           console.log("DB Sync success: User profile created.");
+          // Trigger welcome email
+          fetch('/api/auth/welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: formData.email, name: formData.name })
+          }).catch(console.error);
         }
         
         // 3. Set local storage user for fallback

@@ -261,12 +261,10 @@ export default function ProfilePage() {
   };
 
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  const handleUpgradeToAuthor = async () => {
+  const confirmUpgradeToAuthor = async () => {
     if (!user) return;
-    if (!confirm("Are you sure you want to upgrade your profile to Author & Reader? This will allow you to publish books, stories, and blogs.")) {
-      return;
-    }
     
     setIsUpgrading(true);
     setToast(null);
@@ -276,6 +274,10 @@ export default function ProfilePage() {
         data: { role: "Author" }
       });
       if (authError) throw authError;
+
+      // 1.5 Update public.users table
+      const { error: dbError } = await supabase.from('users').update({ role: "Author" }).eq('id', user.id);
+      if (dbError) console.error("Failed to update public.users role:", dbError);
 
       // 2. Ensure author profile in database
       await ensureAuthorProfile(supabase, user.id);
@@ -289,6 +291,7 @@ export default function ProfilePage() {
       }
 
       setToast({ message: "Successfully upgraded to Author & Reader! Unlocking features...", type: "success" });
+      setShowUpgradeModal(false);
       
       // Reload page after a delay to refresh Navbar and state layout cleanly
       setTimeout(() => {
@@ -490,15 +493,16 @@ export default function ProfilePage() {
       // Update from database to get latest info including bio
       supabase.from('users').select('*').eq('id', parsedUser.id).single().then(({ data }: any) => {
         if (data) {
-          setUser(data);
-          localStorage.setItem("user", JSON.stringify(data));
+          const mergedUser = { ...parsedUser, ...data, role: data.role || parsedUser.role };
+          setUser(mergedUser);
+          localStorage.setItem("user", JSON.stringify(mergedUser));
           if (data.bio) setBio(data.bio);
         }
       });
 
       // Fetch stats and library in parallel
       const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes, founderRes] = await Promise.all([
-        supabase.from("library").select("*, books(*, authors:author_id(*, users:user_id(name)))").eq("user_id", parsedUser.id),
+        supabase.from("library").select("*, books(*, users:author_id(name))").eq("user_id", parsedUser.id),
         supabase.from("authors").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("books").select("*").eq("author_id", parsedUser.id),
         supabase.from("saves").select("*").eq("user_id", parsedUser.id),
@@ -506,7 +510,7 @@ export default function ProfilePage() {
         supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false }),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", parsedUser.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", parsedUser.id),
-        supabase.from("founding_writers").select("*").eq("user_id", parsedUser.id).eq("status", "accepted").maybeSingle()
+        supabase.from("founding_writers").select("*").or(`user_id.eq.${parsedUser.id},email_address.eq.${parsedUser.email}`).ilike("status", "accepted").maybeSingle()
       ]);
 
       if (founderRes.data) setFounderInvite(founderRes.data);
@@ -514,8 +518,11 @@ export default function ProfilePage() {
       if (libRes.error) {
         console.warn("Library table error:", libRes.error.message);
         if (libRes.error.code === "PGRST205") setHasLibraryError(true);
-      } else if (libRes.data) {
-        setPurchasedBooks(libRes.data.map((l: any) => l.books).filter(Boolean));
+      }      if (libRes.data) {
+        setPurchasedBooks(libRes.data.map((l: any) => ({
+          ...l.books,
+          purchase_date: l.created_at
+        })).filter(Boolean));
       }
 
       if (manuscriptRes.data) {
@@ -705,14 +712,34 @@ export default function ProfilePage() {
         <div className="unified-axis max-w-6xl">
           {/* Profile Header */}
           <header className="flex flex-col md:flex-row items-center gap-8 mb-8 pb-8 border-b border-zinc-100">
-            <div className="relative" style={{ userSelect: 'none' }}>
-              {/* Avatar circle */}
-              <div className="w-32 h-32 md:w-36 md:h-36 bg-zinc-50 border border-zinc-100 rounded-full flex items-center justify-center text-4xl font-bold text-zinc-300 overflow-hidden shadow-xl relative">
-                {user.user_metadata?.avatar_url || user.avatar_url ? (
-                  <OptimizedImage src={user.user_metadata?.avatar_url || user.avatar_url} alt="Profile" variant="profile" className="w-full h-full" />
-                ) : (
-                  (user.user_metadata?.name || user.name || user.email || 'U').charAt(0).toUpperCase()
+              <div className="relative" style={{ userSelect: 'none' }}>
+                {/* SVG Curved Text for Founding Writer */}
+                {founderInvite?.status?.toLowerCase() === "accepted" && founderInvite?.founder_number && (
+                  <div className="absolute inset-0 z-20 pointer-events-none" style={{ margin: '-24px' }}>
+                    <svg viewBox="0 0 200 200" className="w-full h-full animate-[spin_20s_linear_infinite]">
+                      <path 
+                        id="curvePathProfile" 
+                        d="M 100 100 m -90 0 a 90 90 0 1 1 180 0 a 90 90 0 1 1 -180 0" 
+                        fill="transparent" 
+                      />
+                      <text className="text-[12px] font-black uppercase tracking-[0.2em] fill-black">
+                        <textPath href="#curvePathProfile" startOffset="25%" textAnchor="middle">
+                          FOUNDING WRITER
+                        </textPath>
+                        <textPath href="#curvePathProfile" startOffset="75%" textAnchor="middle">
+                          #{String(founderInvite.founder_number).padStart(5, '0')}
+                        </textPath>
+                      </text>
+                    </svg>
+                  </div>
                 )}
+                {/* Avatar circle */}
+                <div className="w-32 h-32 md:w-36 md:h-36 bg-zinc-50 border-4 border-white rounded-full flex items-center justify-center text-4xl font-bold text-zinc-300 overflow-hidden shadow-xl relative z-10">
+                  {user.user_metadata?.avatar_url || user.avatar_url ? (
+                    <OptimizedImage src={user.user_metadata?.avatar_url || user.avatar_url} alt="Profile" variant="profile" className="w-full h-full" />
+                  ) : (
+                    (user.user_metadata?.name || user.name || user.email || 'U').charAt(0).toUpperCase()
+                  )}
                 {uploading && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                     <Loader2 className="animate-spin text-white mb-2" size={24} />
@@ -742,6 +769,7 @@ export default function ProfilePage() {
                     transition={{ duration: 0.18 }}
                     className="absolute bottom-0 left-full ml-4 z-20 bg-white border border-zinc-200 shadow-2xl rounded-sm overflow-hidden w-48"
                   >
+
                     {/* close strip */}
                     <div className="flex justify-between items-center px-4 py-2.5 border-b border-zinc-100">
                       <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Change Photo</span>
@@ -798,7 +826,14 @@ export default function ProfilePage() {
             
             <div className="flex-grow text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 select-none">
-                <h1 className="text-2xl md:text-4xl font-heading font-bold tracking-tight text-zinc-900">{user.name}</h1>
+                <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900 flex items-center gap-2">
+                  {user?.user_metadata?.name || user?.name || user?.user_metadata?.full_name || "Author"}
+                  {user?.is_verified_writer && (
+                    <span className="inline-flex items-center justify-center bg-black text-white rounded-full w-5 h-5 flex-shrink-0" title="Verified Author">
+                      <Check size={12} strokeWidth={4} />
+                    </span>
+                  )}
+                </h1>
                 
                 {reputation && (
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-full w-fit mx-auto md:mx-0">
@@ -821,13 +856,11 @@ export default function ProfilePage() {
               
               {/* Founding Writer Card */}
               {founderInvite && (
-                <div className="flex items-center gap-4 p-4 mb-6 bg-zinc-50 border border-zinc-100 rounded-sm shadow-inner max-w-xl mx-auto md:mx-0 select-none">
-                  <FoundingBadge founderNumber={founderInvite.founder_number ? parseInt(founderInvite.founder_number.replace('#', '')) : null} isFoundingWriter={true} className="relative scale-110" size={48} />
-                  <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Founding Writer</p>
-                    <p className="text-sm font-bold text-zinc-800">Founder {founderInvite.founder_number}</p>
-                    <p className="text-[10px] text-zinc-500 mt-1">One of the earliest members of Writersthing. Accepted on {new Date(founderInvite.accepted_at).toLocaleDateString()}</p>
-                  </div>
+                <div className="flex items-center gap-3 mb-8 opacity-70 hover:opacity-100 transition-opacity max-w-xl mx-auto md:mx-0 select-none">
+                  <div className="w-1.5 h-1.5 rounded-full bg-black" />
+                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">
+                    Founding Writer <span className="font-black text-zinc-800">#{String(founderInvite.founder_number).padStart(5, '0')}</span>
+                  </p>
                 </div>
               )}
               <div className="flex justify-center md:justify-start gap-8 mt-4 mb-8 text-sm select-none">
@@ -856,9 +889,9 @@ export default function ProfilePage() {
                 <button onClick={() => setActiveSection("Settings")} className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2 cursor-pointer">
                   <Settings size={14} /> Edit Profile
                 </button>
-                {user?.role === "Reader" ? (
+                {(!user?.role && !user?.user_metadata?.role) || user?.role === "Reader" || user?.user_metadata?.role === "Reader" ? (
                   <button
-                    onClick={handleUpgradeToAuthor}
+                    onClick={() => setShowUpgradeModal(true)}
                     disabled={isUpgrading}
                     className="px-8 py-3 bg-zinc-900 text-white hover:bg-zinc-800 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
@@ -941,34 +974,41 @@ export default function ProfilePage() {
                         )}
 
                         {/* Filter Pills */}
-                        <div className="flex flex-wrap gap-2 mb-8 select-none">
-                          {[
-                            { value: "all", label: "All Content" },
-                            { value: "book", label: "Books" },
-                            { value: "story", label: "Stories" },
-                            { value: "blog", label: "Blogs" }
-                          ].map((f) => (
-                            <button
-                              key={f.value}
-                              onClick={() => setLibraryFilter(f.value as any)}
-                              className={`px-4 py-2 text-[8px] font-black uppercase tracking-widest transition-all border rounded-full cursor-pointer ${
-                                libraryFilter === f.value
-                                  ? "bg-black border-black text-white"
-                                  : "bg-white border-zinc-200 text-zinc-400 hover:text-black hover:border-black"
-                              }`}
-                            >
-                              {f.label}
-                            </button>
-                          ))}
-                        </div>
+                        {libraryPerspective !== "reader" && (
+                          <div className="flex flex-wrap gap-2 mb-8 select-none">
+                            {[
+                              { value: "all", label: "All Content" },
+                              { value: "book", label: "Books" },
+                              { value: "story", label: "Stories" },
+                              { value: "blog", label: "Blogs" }
+                            ].map((f) => (
+                              <button
+                                key={f.value}
+                                onClick={() => setLibraryFilter(f.value as any)}
+                                className={`px-4 py-2 text-[8px] font-black uppercase tracking-widest transition-all border rounded-full cursor-pointer ${
+                                  libraryFilter === f.value
+                                    ? "bg-black border-black text-white"
+                                    : "bg-white border-zinc-200 text-zinc-400 hover:text-black hover:border-black"
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
                         {/* List Render */}
                         {(() => {
-                          const itemsToShow = libraryPerspective === "reader" ? readedItems : publishedItems;
-                          const filtered = itemsToShow.filter(item => {
-                            if (libraryFilter === "all") return true;
-                            return item.content_type === libraryFilter;
-                          });
+                          const itemsToShow = libraryPerspective === "reader" 
+                            ? purchasedBooks.map((b: any) => ({ content_type: "book", details: b })) 
+                            : publishedItems;
+                          
+                          const filtered = libraryPerspective === "reader" 
+                            ? itemsToShow 
+                            : itemsToShow.filter(item => {
+                                if (libraryFilter === "all") return true;
+                                return item.content_type === libraryFilter;
+                              });
 
                           if (filtered.length > 0) {
                             if (libraryPerspective === "reader") {
@@ -1006,21 +1046,19 @@ export default function ProfilePage() {
                                           <div>
                                             <h3 className="font-heading font-bold text-xl mb-1 uppercase tracking-tight leading-none line-clamp-2">{details.title}</h3>
                                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {getAuthorName(details)}</p>
+                                            {details.purchase_date && (
+                                              <p className="text-[9px] text-zinc-400 mt-2 italic">Purchased on {new Date(details.purchase_date).toLocaleDateString()}</p>
+                                            )}
                                           </div>
-                                          <div className="flex gap-2">
+                                          <div className="flex gap-2 mt-4">
                                             <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
-                                              Read Now
+                                              Read Book
                                             </Link>
                                           </div>
                                         </div>
                                       </div>
                                     );
                                   })}
-
-                                  <Link href="/marketplace" className="border-2 border-dashed border-zinc-200 rounded-sm flex flex-col items-center justify-center p-12 text-zinc-300 hover:border-black hover:text-black transition-all gap-4 min-h-[160px]">
-                                    <Book size={32} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Explore Marketplace</span>
-                                  </Link>
                                 </div>
                               );
                             } else {
@@ -1113,20 +1151,12 @@ export default function ProfilePage() {
                               <div className="py-20 text-center bg-zinc-50 border border-zinc-100 rounded-sm border-dashed flex flex-col items-center justify-center p-12">
                                 <p className="text-zinc-400 font-medium italic mb-6">
                                   {libraryPerspective === "reader" 
-                                    ? `Your library has no ${libraryFilter === "all" ? "content" : libraryFilter + "s"} yet.` 
+                                    ? `You haven't purchased any books yet.` 
                                     : `You haven't published any ${libraryFilter === "all" ? "works" : libraryFilter + "s"} yet.`}
                                 </p>
                                 {libraryPerspective === "reader" ? (
                                   <div className="flex flex-wrap gap-4 justify-center">
-                                    {(libraryFilter === "all" || libraryFilter === "book") && (
-                                      <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Explore Marketplace</Link>
-                                    )}
-                                    {(libraryFilter === "all" || libraryFilter === "story") && (
-                                      <Link href="/stories" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Stories</Link>
-                                    )}
-                                    {(libraryFilter === "all" || libraryFilter === "blog") && (
-                                      <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
-                                    )}
+                                    <Link href="/marketplace" className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">Browse Books</Link>
                                   </div>
                                 ) : (
                                   <Link href="/editor" className="px-10 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:opacity-90 transition-all">
@@ -1976,6 +2006,54 @@ export default function ProfilePage() {
             <div className={`w-2.5 h-2.5 rounded-full ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`} />
             <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Upgrade to Author Modal */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]"
+              onClick={() => !isUpgrading && setShowUpgradeModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md bg-white p-8 md:p-10 z-[201] shadow-2xl rounded-sm"
+            >
+              <div className="flex flex-col text-center items-center">
+                <div className="w-16 h-16 bg-black text-white rounded-full flex items-center justify-center mb-6">
+                  <Feather size={28} strokeWidth={1.5} />
+                </div>
+                <h3 className="text-2xl font-black font-heading uppercase tracking-tight mb-4">Become an Author</h3>
+                <p className="text-sm font-medium text-zinc-500 mb-10 leading-relaxed">
+                  Are you sure you want to upgrade your profile to Author & Reader? This will instantly unlock the ability to publish your own books, stories, and blogs to the platform.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <button
+                    onClick={() => setShowUpgradeModal(false)}
+                    disabled={isUpgrading}
+                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black border border-zinc-200 hover:border-black transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmUpgradeToAuthor}
+                    disabled={isUpgrading}
+                    className="flex-1 py-4 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                  >
+                    {isUpgrading ? <Loader2 size={14} className="animate-spin" /> : <Feather size={14} />}
+                    {isUpgrading ? "Upgrading..." : "Confirm Upgrade"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

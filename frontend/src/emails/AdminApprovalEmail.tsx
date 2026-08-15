@@ -1,0 +1,9 @@
+// @ts-nocheck
+import * as React from'react';
+import { Section, Text, Heading, Container } from'@react-email/components';
+import { BaseLayout as EmailLayout } from'./layouts/BaseLayout';
+import { Button as EmailButton } from'./components/Button';
+import { SocialLinks } from'./components/SocialLinks'; interface AdminApprovalEmailProps { name?: string; dashboardUrl?: string;
+} export const AdminApprovalEmail = ({ name ='Writer', dashboardUrl ='https://writersthing.com/dashboard',
+}: AdminApprovalEmailProps) => { return ( <EmailLayout previewText="Congratulations! Your application to Writersthing has been approved."> {/* Celebration Icon */} <Section className="text-center mt-[32px] mb-[16px]"> <Container className="bg-gray-100 rounded-full w-[64px] h-[64px] mx-auto text-center inline-block shadow-sm"> <Text className="text-[32px] m-0 leading-[64px] text-center"> 🎉 </Text> </Container> </Section> {/* Approval Header */} <Section> <Text className="text-green-600 text-[14px] font-semibold text-center uppercase tracking-widest mb-[8px]"> Application Approved </Text> <Heading className="text-black text-[28px] font-bold text-center p-0 my-[16px] mx-0 font-serif"> Congratulations! </Heading> <Text className="text-gray-700 text-[16px] leading-[26px]"> Hi {name}, </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> We are thrilled to inform you that your application to join Writersthing has been formally approved by our review team. </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> Your account is now fully active, and you have complete access to all publishing and community features. We cannot wait to see what you create. </Text> </Section> {/* CTA Button */} <EmailButton href={dashboardUrl}> Go to Dashboard </EmailButton> <SocialLinks /> </EmailLayout> );
+}; export default AdminApprovalEmail;

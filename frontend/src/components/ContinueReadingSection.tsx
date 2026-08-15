@@ -62,7 +62,7 @@ export function ContinueReadingSection() {
                 title: meta?.title || "Unknown",
                 cover: meta?.cover,
                 author: meta?.author || "Unknown Author",
-                link: p.content_type === 'book' ? `/read/${p.content_id}` : `/${p.content_type}s/${p.content_id}`
+                link: p.content_type === 'book' ? `/read/pdf?id=${p.content_id}` : `/${p.content_type}s/${p.content_id}`
               };
             });
 

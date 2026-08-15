@@ -17,6 +17,7 @@ import Navbar from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { ReviewSection } from "@/components/ReviewSection";
+import { useFoundingWriters } from "@/context/FoundingWritersContext";
 import AvatarWithBadge from "@/components/AvatarWithBadge";
 import { PaymentButton } from "@/components/ui/PaymentButton";
 import { useCart } from "@/hooks/useCart";
@@ -27,6 +28,7 @@ export default function BookDetailPage() {
   const router = useRouter();
   useAnalyticsTracking("book", params.id as string);
   const { addToCart, cart } = useCart();
+  const { founderMap } = useFoundingWriters();
   const [book, setBook] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [isAddedToCart, setIsAddedToCart] = useState(false);
@@ -80,8 +82,9 @@ export default function BookDetailPage() {
           .single(),
         supabase
           .from("reviews")
-          .select("*, users:user_id(name, avatar_url)")
-          .eq("book_id", params.id)
+          .select("*, actor:user_id(name, avatar_url)")
+          .eq("content_id", params.id)
+          .eq("content_type", "book")
           .order("created_at", { ascending: false })
       ]);
 
@@ -113,7 +116,7 @@ export default function BookDetailPage() {
       if (activeUser) {
         const { data: libraryData } = await supabase
           .from("library")
-          .select("id")
+          .select("book_id")
           .eq("user_id", activeUser.id)
           .eq("book_id", params.id)
           .maybeSingle();
@@ -162,57 +165,63 @@ export default function BookDetailPage() {
     if (!user) return;
     try {
       if (editingReviewId) {
-        const { error } = await supabase
-          .from("reviews")
-          .update({
-            rating,
-            comment: reviewText
-          })
-          .eq("id", editingReviewId);
+        const res = await fetch('/api/reviews', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ review_id: editingReviewId, rating, review_text: reviewText })
+        });
         
-        if (!error) {
+        if (res.ok) {
           setEditingReviewId(null);
           setReviewText("");
           setRating(5);
           fetchBookData();
+        } else {
+          const errData = await res.json();
+          alert("Failed to update review: " + (errData.error || "Unknown error"));
         }
       } else {
-        const { error } = await supabase.from("reviews").insert({
-          book_id: book.id,
-          user_id: user.id,
-          rating,
-          comment: reviewText
+        const res = await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content_id: book.id, content_type: "book", rating, review_text: reviewText })
         });
-        if (!error) {
+        
+        if (res.ok) {
           setReviewText("");
           setRating(5);
           fetchBookData();
+        } else {
+          const errData = await res.json();
+          alert("Failed to submit review: " + (errData.error || "Unknown error"));
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Review error:", err);
+      alert("Error: " + err.message);
     }
   };
 
   const handleDeleteReview = async (reviewId: string) => {
     try {
-      const { error } = await supabase
-        .from("reviews")
-        .delete()
-        .eq("id", reviewId);
+      const res = await fetch(`/api/reviews?review_id=${reviewId}`, { method: 'DELETE' });
       
-      if (!error) {
+      if (res.ok) {
         fetchBookData();
+      } else {
+        const errData = await res.json();
+        alert("Failed to delete review: " + (errData.error || "Unknown error"));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Delete review error:", err);
+      alert("Error: " + err.message);
     }
   };
 
   const handleStartEdit = (review: any) => {
     setEditingReviewId(review.id);
     setRating(review.rating);
-    setReviewText(review.comment || "");
+    setReviewText(review.review_text || "");
   };
 
   const handleCancelEdit = () => {
@@ -280,11 +289,11 @@ export default function BookDetailPage() {
       <div className="flex-grow w-full max-w-7xl mx-auto h-full flex flex-col lg:flex-row overflow-hidden relative p-4 lg:p-6 gap-6 lg:gap-8">
         
         {/* Left Side: Cover Display */}
-        <div className="lg:w-5/12 flex flex-col justify-between h-full relative bg-white border border-zinc-100 rounded-3xl p-6 lg:p-8 overflow-hidden shadow-sm flex-shrink-0">
+        <div className="lg:w-5/12 flex flex-col justify-between h-full relative bg-white border border-zinc-100 rounded-3xl p-6 lg:p-8 overflow-y-auto overflow-x-hidden custom-scrollbar shadow-sm flex-shrink-0">
           {/* Ambient Glow Background */}
           <div 
             className="absolute inset-0 bg-cover bg-center blur-3xl opacity-20 pointer-events-none scale-110 transition-all duration-1000"
-            style={{ backgroundImage: `url(${book.cover_url || "/placeholder-cover.jpg"})` }}
+            style={{ backgroundImage: `url(${book.cover_url || book.cover_image || "/placeholder-cover.jpg"})` }}
           />
 
           {/* Breadcrumb Header */}
@@ -299,7 +308,7 @@ export default function BookDetailPage() {
           </div>
 
           {/* Cover Container */}
-          <div className="flex-grow flex items-center justify-center relative my-6 z-10">
+          <div className="flex-grow flex items-center justify-center relative my-6 z-10 min-h-[300px]">
             <motion.div 
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -307,10 +316,11 @@ export default function BookDetailPage() {
               className="aspect-[3/4.5] w-full max-w-[280px] lg:max-w-[320px] bg-zinc-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] relative group overflow-hidden border border-zinc-100 rounded-lg"
             >
               <OptimizedImage 
-                src={book.cover_url || "/placeholder-cover.jpg"} 
+                src={book.cover_url || book.cover_image || "/placeholder-cover.jpg"} 
                 alt={book.title}
                 variant="book-cover"
                 priority={true}
+                className="w-full h-full"
                 imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
               />
               <div className="absolute inset-0 ring-1 ring-inset ring-black/5 pointer-events-none" />
@@ -318,14 +328,16 @@ export default function BookDetailPage() {
           </div>
 
           {/* PDF Action Button */}
-          <div className="relative z-10 w-full mt-auto">
-            <Link 
-              href={`/read/pdf?id=${book.id}&title=${encodeURIComponent(book.title)}`}
-              className="w-full py-4 border border-zinc-900 text-zinc-950 font-bold text-[10px] uppercase tracking-[0.3em] hover:bg-zinc-950 hover:text-white transition-all flex items-center justify-center gap-3 rounded-xl group"
-            >
-              <BookOpen size={14} className="group-hover:scale-110 transition-transform" /> Read PDF Manuscript
-            </Link>
-          </div>
+          {(isPurchased || (user && user.id === book.authors?.user_id)) && (
+            <div className="relative z-10 w-full mt-auto">
+              <Link 
+                href={`/read/pdf?id=${book.id}&title=${encodeURIComponent(book.title)}`}
+                className="w-full py-4 border border-zinc-900 text-zinc-950 font-bold text-[10px] uppercase tracking-[0.3em] hover:bg-zinc-950 hover:text-white transition-all flex items-center justify-center gap-3 rounded-xl group"
+              >
+                <BookOpen size={14} className="group-hover:scale-110 transition-transform" /> Read PDF Manuscript
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Details, Tabs, Reviews, Purchase */}
@@ -415,7 +427,15 @@ export default function BookDetailPage() {
                     />
                   </div>
                   <div className="flex-grow">
-                    <h3 className="text-md font-heading font-black uppercase tracking-tight text-zinc-900">{book.authors?.users?.name}</h3>
+                    <h3 className="text-md font-heading font-black uppercase tracking-tight text-zinc-900 flex items-center gap-2">
+                      {book.authors?.users?.name}
+                      {book.authors?.user_id && founderMap[book.authors.user_id] && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black text-white text-[8px] font-black uppercase tracking-widest leading-none mt-0.5">
+                          <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                          #{String(founderMap[book.authors.user_id]).padStart(5, '0')}
+                        </span>
+                      )}
+                    </h3>
                     <p className="text-xs text-zinc-400 font-medium italic mb-2">{book.authors?.bio || book.authors?.users?.bio || "Author of digital manuscripts"}</p>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{followersCount} Followers</span>
@@ -504,74 +524,83 @@ export default function BookDetailPage() {
 
           {/* Checkout/Purchase Footer Card */}
           <div className="border-t border-zinc-100 pt-4 flex-shrink-0">
-            <div className="bg-zinc-950 text-white p-5 flex items-center justify-between gap-6 rounded-2xl shadow-xl">
-              <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-1">Flat Rate Access</p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-heading font-black tracking-tighter">₹{book.price}</span>
-                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Digital Copy</span>
+            {(isPurchased || (user && user.id === book.authors?.user_id)) ? (
+              <div className="bg-zinc-950 text-white p-5 flex items-center justify-between gap-6 rounded-2xl shadow-xl">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-emerald-400">
+                    <span>✅</span> {user?.id === book.authors?.user_id ? "Your Book" : "Purchased"}
+                  </div>
+                  <Link
+                    href={`/read/pdf?id=${book.id}&title=${encodeURIComponent(book.title)}`}
+                    className="px-10 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl flex-grow md:max-w-xs"
+                  >
+                    Read Manuscript <BookOpen size={12} fill="currentColor" />
+                  </Link>
                 </div>
               </div>
+            ) : (
+              <>
+                <div className="bg-zinc-950 text-white p-5 flex flex-col md:flex-row md:items-center justify-between gap-6 rounded-2xl shadow-xl">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-1">Flat Rate Access</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-heading font-black tracking-tighter">₹{book.price}</span>
+                      <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Digital Copy</span>
+                    </div>
+                  </div>
 
-              {isPurchased ? (
-                <Link
-                  href={`/read/pdf?id=${book.id}`}
-                  className="px-8 py-3.5 bg-black text-white font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 rounded-xl w-full"
-                >
-                  Read Book <BookOpen size={12} fill="currentColor" />
-                </Link>
-              ) : (
-                <div className="flex gap-3 w-full">
-                  <button 
-                    onClick={() => {
-                      addToCart({
-                        id: book.id,
-                        title: book.title,
-                        price: book.price,
-                        cover_url: book.cover_url || book.cover_image,
-                        author_name: book.authors?.users?.name || book.author?.name || "Author"
-                      });
-                      setIsAddedToCart(true);
-                    }}
-                    className={`px-5 py-3.5 font-black text-[9px] uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-2 border rounded-xl cursor-pointer ${
-                      cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart 
-                        ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" 
-                        : "bg-transparent border-zinc-700 text-white hover:bg-zinc-900"
-                    }`}
-                  >
-                    <ShoppingBag size={12} />
-                    {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
-                  </button>
-                  {user ? (
-                    <PaymentButton 
-                      amount={book.price || 100} 
-                      userId={user.id}
-                      projectId={book.id}
-                      customerName={user.name || ""}
-                      customerEmail={user.email || ""}
-                      className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl flex-grow"
-                      buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
-                      onSuccess={() => {
-                        setIsPurchased(true);
-                      }}
-                    />
-                  ) : (
+                  <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                     <button 
-                      onClick={handleBuyNow}
-                      className="px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl flex-grow"
+                      onClick={() => {
+                        addToCart({
+                          id: book.id,
+                          title: book.title,
+                          price: book.price,
+                          cover_url: book.cover_url || book.cover_image,
+                          author_name: book.authors?.users?.name || book.author?.name || "Author"
+                        });
+                        setIsAddedToCart(true);
+                      }}
+                      className={`px-5 py-3.5 font-black text-[9px] uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-2 border rounded-xl cursor-pointer w-full sm:w-auto ${
+                        cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart 
+                          ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" 
+                          : "bg-transparent border-zinc-700 text-white hover:bg-zinc-900"
+                      }`}
                     >
-                      Buy Now <Zap size={12} fill="currentColor" />
+                      <ShoppingBag size={12} />
+                      {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
                     </button>
-                  )}
+                    {user ? (
+                      <PaymentButton 
+                        amount={book.price || 100} 
+                        userId={user.id}
+                        projectId={book.id}
+                        customerName={user.name || ""}
+                        customerEmail={user.email || ""}
+                        className="w-full sm:w-auto sm:flex-grow px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                        buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
+                        onSuccess={() => {
+                          setIsPurchased(true);
+                        }}
+                      />
+                    ) : (
+                      <button 
+                        onClick={handleBuyNow}
+                        className="w-full sm:w-auto sm:flex-grow px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                      >
+                        Buy Now <Zap size={12} fill="currentColor" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Secure Checkout Footer Text */}
-            <div className="mt-3 flex items-center justify-center gap-2 text-zinc-400">
-              <Info size={11} />
-              <p className="text-[8px] font-black uppercase tracking-[0.2em]">Secure Checkout powered by Razorpay</p>
-            </div>
+                
+                {/* Secure Checkout Footer Text */}
+                <div className="mt-3 flex items-center justify-center gap-2 text-zinc-400">
+                  <Info size={11} />
+                  <p className="text-[8px] font-black uppercase tracking-[0.2em]">Secure Checkout powered by Razorpay</p>
+                </div>
+              </>
+            )}
           </div>
 
         </div>
@@ -581,7 +610,7 @@ export default function BookDetailPage() {
 }
 
 function ReviewItem({ review, currentUser, onEdit, onDelete }: any) {
-  const reviewer = review.users || {};
+  const reviewer = review.actor || review.users || {};
   const isOwner = currentUser && currentUser.id === review.user_id;
 
   return (
@@ -635,7 +664,7 @@ function ReviewItem({ review, currentUser, onEdit, onDelete }: any) {
           )}
         </div>
       </div>
-      <p className="text-xs font-medium text-zinc-600 leading-relaxed italic">"{review.comment}"</p>
+      <p className="text-xs font-medium text-zinc-600 leading-relaxed italic">"{review.review_text}"</p>
     </div>
   );
 }

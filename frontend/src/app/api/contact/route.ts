@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { emailService } from "@/services/email.service";
+import { sendContactEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
     
-    const success = await emailService.sendContactEmail(data.email, data.name, data.message);
+    const result = await sendContactEmail(data.name, data.email, data.message);
 
-    if (success) {
+    if (result.success) {
       return NextResponse.json({ success: true, message: "Email sent successfully" }, { status: 200 });
     } else {
       return NextResponse.json({ success: false, error: "Failed to send email" }, { status: 500 });

@@ -104,6 +104,18 @@ export default function LoginPage() {
         const searchParams = new URLSearchParams(window.location.search);
         let redirectTo = searchParams.get("redirect") || "/marketplace";
         
+        // Recover legacy params if middleware had the old bug
+        if (redirectTo.startsWith("/read/pdf") && !redirectTo.includes("id=")) {
+          const legacyId = searchParams.get("id");
+          const legacyTitle = searchParams.get("title");
+          if (legacyId) {
+            redirectTo += `?id=${legacyId}`;
+            if (legacyTitle) {
+              redirectTo += `&title=${encodeURIComponent(legacyTitle)}`;
+            }
+          }
+        }
+        
         if (!profile?.onboarding_completed) {
           redirectTo = "/onboarding";
         }

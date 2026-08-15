@@ -1,102 +1,11 @@
-import { Button, Text, Section, Hr } from '@react-email/components';
-import * as React from 'react';
-import { EmailLayout } from './components/EmailLayout';
-
-interface PurchaseReceiptEmailProps {
-  name: string;
-  bookTitle: string;
-  authorName: string;
-  amount: string;
-  readLink: string;
-}
-
-export const PurchaseReceiptEmail = ({ name, bookTitle, authorName, amount, readLink }: PurchaseReceiptEmailProps) => {
-  return (
-    <EmailLayout previewText={`Your receipt for ${bookTitle}`} heading="Purchase Receipt">
-      <Text style={text}>
-        Hi {name},
-      </Text>
-      <Text style={text}>
-        Thank you for purchasing <strong>{bookTitle}</strong> by {authorName}. Your support means the world to our writers!
-      </Text>
-      
-      <Section style={receiptContainer}>
-        <Text style={receiptRow}>
-          <span>Item</span>
-          <span>{bookTitle}</span>
-        </Text>
-        <Hr style={hr} />
-        <Text style={receiptRowTotal}>
-          <span>Total</span>
-          <span>{amount}</span>
-        </Text>
-      </Section>
-
-      <Text style={text}>
-        You can start reading your new book right away.
-      </Text>
-
-      <Section style={btnContainer}>
-        <Button style={button} href={readLink}>
-          Read Now
-        </Button>
-      </Section>
-    </EmailLayout>
-  );
-};
-
-const text = {
-  color: '#333',
-  fontSize: '16px',
-  lineHeight: '26px',
-};
-
-const receiptContainer = {
-  backgroundColor: '#f9fafb',
-  border: '1px solid #eaeaea',
-  borderRadius: '4px',
-  padding: '20px',
-  margin: '20px 0',
-};
-
-const receiptRow = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  margin: '0 0 10px',
-  color: '#333',
-  fontSize: '16px',
-};
-
-const receiptRowTotal = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  margin: '10px 0 0',
-  color: '#000',
-  fontSize: '18px',
-  fontWeight: 'bold',
-};
-
-const hr = {
-  borderColor: '#eaeaea',
-  margin: '10px 0',
-};
-
-const btnContainer = {
-  textAlign: 'center' as const,
-  marginTop: '32px',
-  marginBottom: '32px',
-};
-
-const button = {
-  backgroundColor: '#000000',
-  borderRadius: '4px',
-  color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: '600',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
-  display: 'inline-block',
-  padding: '12px 24px',
-};
-
-export default BookPurchaseReceipt;
+// @ts-nocheck
+import * as React from'react';
+import { Section, Text, Heading, Row, Column, Img, Container } from'@react-email/components';
+import { BaseLayout as EmailLayout } from'./layouts/BaseLayout';
+import { Button as EmailButton } from'./components/Button';
+import { EmailCard } from'./components/EmailCard';
+import { Divider } from'./components/Divider';
+import { SocialLinks } from'./components/SocialLinks'; interface PurchaseReceiptEmailProps { name?: string; bookTitle?: string; bookCoverUrl?: string; orderId?: string; purchaseDate?: string; amount?: string; downloadUrl?: string;
+} export const PurchaseReceiptEmail = ({ name ='Reader', bookTitle ='The Art of Storytelling', bookCoverUrl ='https://placehold.co/400x600/e2e8f0/1e293b?text=Book+Cover', orderId ='ORD-987654321', purchaseDate = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', }), amount ='₹0.00', downloadUrl ='https://writersthing.com/library',
+}: PurchaseReceiptEmailProps) => { return ( <EmailLayout previewText={`Your receipt for ${bookTitle}`}> <Section> <Heading className="text-black text-[28px] font-bold text-center p-0 my-[24px] mx-0"> Purchase Receipt </Heading> <Text className="text-gray-700 text-[16px] leading-[26px]"> Hi {name}, </Text> <Text className="text-gray-700 text-[16px] leading-[26px]"> Thank you for buying from Writersthing! Your new book is now available in your library. </Text> </Section> <EmailCard title="Order Details"> <Section className="mb-[24px] text-center"> <Container className="bg-gray-200 rounded-md overflow-hidden mx-auto w-[160px]"> <Img src={bookCoverUrl} width="160" height="240" alt={bookTitle} className="object-cover mx-auto" /> </Container> <Text className="text-black font-bold text-[18px] mt-[16px] mb-0"> {bookTitle} </Text> <Text className="text-gray-500 text-[14px] mt-[4px] mb-0"> Digital eBook (PDF/EPUB) </Text> </Section> <Divider dashed /> <Row className="mb-[12px] mt-[16px]"> <Column> <Text className="text-gray-500 m-0 text-[15px]">Order ID</Text> </Column> <Column align="right"> <Text className="text-black font-medium font-mono m-0 text-[15px]">{orderId}</Text> </Column> </Row> <Row className="mb-[12px]"> <Column> <Text className="text-gray-500 m-0 text-[15px]">Date</Text> </Column> <Column align="right"> <Text className="text-black font-medium m-0 text-[15px]">{purchaseDate}</Text> </Column> </Row> <Divider dashed /> <Row> <Column> <Text className="text-gray-700 font-bold m-0 text-[18px]">Total Paid</Text> </Column> <Column align="right"> <Text className="text-black font-bold m-0 text-[18px]">{amount}</Text> </Column> </Row> </EmailCard> <EmailButton href={downloadUrl}> Download Book </EmailButton> <SocialLinks /> </EmailLayout> );
+}; export default PurchaseReceiptEmail;

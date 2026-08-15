@@ -12,6 +12,18 @@ import AvatarWithBadge from "./AvatarWithBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/hooks/useCart";
 
+// Pre-computed Ashoka Chakra spoke coordinates (24 spokes).
+// Computed once at module load so SSR and client produce identical strings — prevents hydration mismatch.
+const CHAKRA_SPOKES: { x1: string; y1: string; x2: string; y2: string }[] = Array.from({ length: 24 }).map((_, i) => {
+  const rad = ((i * 360) / 24 * Math.PI) / 180;
+  return {
+    x1: (10 + 2.8 * Math.cos(rad)).toFixed(4),
+    y1: (10 + 2.8 * Math.sin(rad)).toFixed(4),
+    x2: (10 + 7.8 * Math.cos(rad)).toFixed(4),
+    y2: (10 + 7.8 * Math.sin(rad)).toFixed(4),
+  };
+});
+
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -29,10 +41,12 @@ export default function Navbar() {
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
-        setUserRole(parsed.role || "Author");
+        setUserRole(parsed.role || user.user_metadata?.role || "Reader");
       } catch (e) {
         console.error(e);
       }
+    } else {
+      setUserRole(user.user_metadata?.role || "Reader");
     }
   }, [user]);
 
@@ -50,10 +64,7 @@ export default function Navbar() {
                      pathname === "/signup";
 
   const navLinks = user
-    ? [
-        { name: "For Writers", href: "/for-writers" },
-        { name: "About", href: "/about" },
-      ]
+    ? []
     : [
         { name: "For Writers", href: "/for-writers" },
         { name: "About", href: "/about" },
@@ -82,9 +93,47 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center group">
-                  <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black group-hover:opacity-80 transition-opacity">
-                    Writer's Thing
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center gap-2.5 group">
+                  {/* India flag tricolor — vertical bars */}
+                  <span
+                    className="flex flex-col self-center overflow-hidden"
+                    style={{ width: '7px', height: '38px', borderRadius: '3px', gap: 0, opacity: 0.5 }}
+                    aria-hidden="true"
+                  >
+                    {/* Saffron */}
+                    <span style={{ flex: 1, backgroundColor: '#FF9933', display: 'block' }} />
+                    {/* White band with Ashoka Chakra — bordered so it shows on white navbar */}
+                    <span
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#FFFFFF',
+                        borderTop: '0.5px solid #d1d5db',
+                        borderBottom: '0.5px solid #d1d5db',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <svg viewBox="0 0 20 20" width="7" height="7" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="10" cy="10" r="8.5" fill="none" stroke="#000080" strokeWidth="1.2"/>
+                        <circle cx="10" cy="10" r="2.2" fill="#000080"/>
+                        {CHAKRA_SPOKES.map((s, i) => (
+                          <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#000080" strokeWidth="0.9"/>
+                        ))}
+                      </svg>
+                    </span>
+                    {/* Green */}
+                    <span style={{ flex: 1, backgroundColor: '#138808', display: 'block' }} />
+                  </span>
+
+                  {/* Logo text + beta */}
+                  <span className="flex flex-col leading-none">
+                    <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black group-hover:opacity-80 transition-opacity">
+                      Writer's Thing
+                    </span>
+                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-400 mt-0.5 ml-0.5">
+                      beta
+                    </span>
                   </span>
                 </Link>
               </div>

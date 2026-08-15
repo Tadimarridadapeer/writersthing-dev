@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { emailService } from "@/services/email.service";
+import { sendHireAcceptedEmail } from "@/lib/email";
 
 function getSupabase() {
   return createServerClient(
@@ -63,27 +63,19 @@ export async function POST(req: Request) {
       .eq("id", hireReq.writer_id)
       .single();
 
-    // Now send emails sharing contact details to both parties
+    // Now send email sharing contact details to client
     if (writerData && writerData.email) {
-      // 1. Send email to writer with client details
-      await emailService.sendHireRequestAcceptedEmail(
-        writerData.email,
-        true,
-        hireReq.full_name || "Client",
-        hireReq.email_address || "",
-        hireReq.phone_number || null,
-        hireReq.project_category || "Writing Project"
-      );
-      
-      // 2. Send email to client with writer details
-      await emailService.sendHireRequestAcceptedEmail(
-        hireReq.email_address,
-        false,
-        writerData.name || "Writer",
-        writerData.email || "",
-        writerData.mobile || null,
-        hireReq.project_category || "Writing Project"
-      );
+      try {
+        const res = await sendHireAcceptedEmail(
+          hireReq.email_address,
+          hireReq.full_name || "Client",
+          writerData.name || "Writer",
+          writerData.email || ""
+        );
+        if (!res.success) console.error("Failed to send hire accepted email:", res.error);
+      } catch (emailErr) {
+        console.error("Hire accepted email exception:", emailErr);
+      }
     }
 
     return NextResponse.json({ success: true }, { status: 200 });

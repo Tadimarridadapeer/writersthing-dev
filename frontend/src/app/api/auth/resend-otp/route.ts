@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { emailService } from "@/services/email.service";
+import { sendOTPEmail } from "@/lib/email";
 import { otpService } from "@/lib/otp/otp.service";
 import { createApiResponse, createApiError } from "@/lib/utils/api";
 
@@ -66,8 +66,12 @@ export async function POST(req: NextRequest) {
       return createApiError("Failed to generate new OTP", 500);
     }
 
-    // Send email
-    await emailService.sendOTP(record.email, otp);
+    // Try sending email, do not fail business logic on error
+    try {
+      await sendOTPEmail(record.email, otp);
+    } catch (error) {
+      console.error("OTP email failed", error);
+    }
 
     return createApiResponse(true, "New verification code sent successfully", {
       session_id: insertData.session_id

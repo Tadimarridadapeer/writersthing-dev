@@ -92,7 +92,18 @@ export async function proxy(request: NextRequest) {
     console.log(`[RESPONSE] 307 Redirect (Unauthenticated) for ${request.method} ${path}`);
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirect', request.nextUrl.pathname)
+    // Include both pathname and search parameters in the redirect target
+    const fullPath = request.nextUrl.pathname + request.nextUrl.search
+    url.searchParams.set('redirect', fullPath)
+    
+    // Clear out other search params that belonged to the original destination
+    const keys = Array.from(url.searchParams.keys())
+    for (const key of keys) {
+      if (key !== 'redirect') {
+        url.searchParams.delete(key)
+      }
+    }
+    
     return NextResponse.redirect(url)
   }
 

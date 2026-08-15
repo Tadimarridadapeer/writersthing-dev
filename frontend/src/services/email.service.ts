@@ -1,14 +1,5 @@
 import { resend } from '@/lib/resend';
-import { WelcomeEmail } from '@/emails/WelcomeEmail';
-import { ForgotPasswordEmail } from '@/emails/ForgotPasswordEmail';
-import { PasswordChangedEmail } from '@/emails/PasswordChangedEmail';
-import { PaymentSuccessEmail } from '@/emails/PaymentSuccessEmail';
-import { PurchaseReceiptEmail } from '@/emails/PurchaseReceiptEmail';
-import { WriterSaleNotification } from '@/emails/WriterSaleNotification';
-import { BookApprovedEmail } from '@/emails/BookApprovedEmail';
-import { BookRejectedEmail } from '@/emails/BookRejectedEmail';
-import { NewsletterEmail } from '@/emails/NewsletterEmail';
-import { FounderWelcomeEmail } from '@/emails/FounderWelcomeEmail';
+// React imports removed to avoid conflicts
 import * as React from 'react';
 
 const defaultFrom = process.env.EMAIL_FROM || 'hello@writersthing.com';
@@ -32,85 +23,7 @@ export const emailService = {
     }
   },
 
-  sendWelcomeEmail: async (to: string, name: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Welcome to Writersthing!',
-      react: React.createElement(WelcomeEmail, { name }),
-    });
-  },
-
-  sendForgotPasswordEmail: async (to: string, name: string, resetLink: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Reset your password',
-      react: React.createElement(ForgotPasswordEmail, { name, resetLink }),
-    });
-  },
-
-  sendPasswordChangedEmail: async (to: string, name: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Your password was changed',
-      react: React.createElement(PasswordChangedEmail, { name }),
-    });
-  },
-
-  sendPaymentSuccessEmail: async (to: string, name: string, amount: string, transactionId: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Payment Successful',
-      react: React.createElement(PaymentSuccessEmail, { name, amount, transactionId }),
-    });
-  },
-
-  sendPurchaseReceiptEmail: async (to: string, name: string, bookTitle: string, authorName: string, amount: string, readLink: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: `Your receipt for ${bookTitle}`,
-      react: React.createElement(PurchaseReceiptEmail, { name, bookTitle, authorName, amount, readLink }),
-    });
-  },
-
-  sendWriterSaleNotification: async (to: string, writerName: string, bookTitle: string, buyerName: string, amountEarned: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'You made a new sale!',
-      react: React.createElement(WriterSaleNotification, { writerName, bookTitle, buyerName, amountEarned }),
-    });
-  },
-
-  sendBookApprovedEmail: async (to: string, authorName: string, bookTitle: string, bookUrl: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Your book is live!',
-      react: React.createElement(BookApprovedEmail, { authorName, bookTitle, bookUrl }),
-    });
-  },
-
-  sendBookRejectedEmail: async (to: string, authorName: string, bookTitle: string, feedback: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Update on your book submission',
-      react: React.createElement(BookRejectedEmail, { authorName, bookTitle, feedback }),
-    });
-  },
-
-  sendFounderWelcomeEmail: async (to: string, name: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject: 'Welcome to Writersthing',
-      react: React.createElement(FounderWelcomeEmail, { name }),
-    });
-  },
-
-  sendNewsletterEmail: async (to: string, name: string, subject: string, content: string, ctaText?: string, ctaUrl?: string): Promise<EmailResponse> => {
-    return emailService.sendEmail({
-      to,
-      subject,
-      react: React.createElement(NewsletterEmail, { name, subject, content, ctaText, ctaUrl }),
-    });
-  },
+  // Removed React email methods to avoid conflicts
 
   // Note: Existing API methods kept for backwards compatibility (they were previously returning boolean, updated here to use sendEmail and map the response)
   sendUpiOtpEmail: async (to: string, otp: string, purpose: 'setup' | 'change') => {

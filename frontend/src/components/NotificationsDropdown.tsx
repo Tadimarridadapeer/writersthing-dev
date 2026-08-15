@@ -31,6 +31,11 @@ export default function NotificationsDropdown() {
   }, []);
 
   const handleNotificationClick = (notification: NotificationItem) => {
+    if (notification.type === "founder_invite") {
+      // Do not automatically close or mark as read for founder_invite unless clicked properly
+      return;
+    }
+
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
@@ -49,6 +54,47 @@ export default function NotificationsDropdown() {
     }
   };
 
+  const handleInviteAction = async (notification: NotificationItem, action: "accept" | "decline") => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const inviteId = notification.metadata?.invite_id;
+      if (!inviteId) {
+        alert("Invitation data is missing. Please check your email.");
+        return;
+      }
+
+      if (action === "decline") {
+        const confirmDecline = window.confirm("Are you sure you want to decline the Founding Writer invitation?");
+        if (!confirmDecline) return;
+      }
+
+      const res = await fetch("/api/user/invitation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, invite_id: inviteId })
+      });
+
+      if (res.ok) {
+        markAsRead(notification.id);
+        setIsOpen(false);
+        if (action === "accept") {
+          alert("Congratulations! You are now a Writer's Thing Founding Writer.");
+          window.location.href = "/profile";
+        }
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to process invitation");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const getIcon = (type: string, priority: string) => {
     if (priority === 'important') return <AlertCircle size={14} className="text-red-500" />;
     switch (type) {
@@ -64,6 +110,7 @@ export default function NotificationsDropdown() {
       case "author_published": return <BookOpen size={14} className="text-indigo-500" />;
       case "bookmark_milestone":
       case "reading_completed": return <Check size={14} className="text-emerald-500" />;
+      case "invite": return <Star size={14} className="text-amber-500 fill-amber-500" />;
       default: return <Bell size={14} className="text-zinc-500" />;
     }
   };
@@ -75,11 +122,12 @@ export default function NotificationsDropdown() {
       case "new_rating": return "rated your work";
       case "new_comment": return "commented on your post";
       case "reply_to_comment": return "replied to your comment";
-      case "book_published": return `published a new book: ${metadata.title || ''}`;
-      case "story_published": return `published a new story: ${metadata.title || ''}`;
-      case "blog_published": return `published a new blog: ${metadata.title || ''}`;
-      case "reading_completed": return `You finished reading ${metadata.title || 'a book'}`;
-      case "bookmark_milestone": return `You have 10 bookmarks in ${metadata.list_name || 'a list'}`;
+      case "book_published": return `published a new book: ${metadata?.title || ''}`;
+      case "story_published": return `published a new story: ${metadata?.title || ''}`;
+      case "blog_published": return `published a new blog: ${metadata?.title || ''}`;
+      case "reading_completed": return `You finished reading ${metadata?.title || 'a book'}`;
+      case "bookmark_milestone": return `You have 10 bookmarks in ${metadata?.list_name || 'a list'}`;
+      case "invite": return "invited you to become a Founding Writer";
       default: return "interacted with your profile";
     }
   };
@@ -105,7 +153,7 @@ export default function NotificationsDropdown() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-80 max-h-[28rem] bg-white border border-zinc-100 shadow-2xl rounded-xl overflow-hidden z-50 flex flex-col"
+            className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-[320px] sm:max-w-[380px] sm:w-80 max-h-[28rem] bg-white border border-zinc-100 shadow-2xl rounded-xl overflow-hidden z-50 flex flex-col origin-top-right"
           >
             <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
               <h3 className="font-heading font-bold text-sm tracking-wide">Notifications</h3>
@@ -148,11 +196,32 @@ export default function NotificationsDropdown() {
                       
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-zinc-700 leading-tight">
-                          <span className="font-semibold text-black">{notification.actor?.name || "System"}</span> {getMessage(notification.type, notification.metadata)}.
+                          {notification.type === "founder_invite" ? (
+                            <span className="font-semibold text-black">Writer&apos;s Thing</span>
+                          ) : (
+                            <span className="font-semibold text-black">{notification.actor?.name || "System"}</span>
+                          )} {getMessage(notification.type, notification.metadata)}.
                         </p>
                         <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-wider font-medium">
                           {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                         </p>
+                        
+                        {notification.type === "founder_invite" && (
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleInviteAction(notification, "accept"); }}
+                              className="px-4 py-1.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded hover:bg-zinc-800 transition-colors"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleInviteAction(notification, "decline"); }}
+                              className="px-4 py-1.5 border border-zinc-200 text-zinc-600 text-[10px] font-black uppercase tracking-widest rounded hover:bg-zinc-50 transition-colors"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
                       </div>
                       
                       {!notification.is_read && (

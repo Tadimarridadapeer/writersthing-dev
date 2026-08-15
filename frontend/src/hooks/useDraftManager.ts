@@ -110,15 +110,30 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
         };
 
         if (payload.type === "Book") {
-          const formData = new FormData();
-          if (currentIdRef.current) formData.append("id", currentIdRef.current);
-          formData.append("title", payload.title);
-          formData.append("description", payload.description || "");
-          formData.append("category", payload.category);
-          if (payload.price) formData.append("price", payload.price);
-          if (payload.coverFile) formData.append("coverFile", payload.coverFile);
-          if (payload.pdfFile) formData.append("pdfFile", payload.pdfFile);
-          body = formData;
+          headers["Content-Type"] = "application/json";
+          
+          const payloadObj: any = {
+            id: currentIdRef.current,
+            title: payload.title,
+            description: payload.description || "",
+            category: payload.category,
+            price: payload.price
+          };
+
+          if (isPublishing) {
+            payloadObj.requestPresignedUrls = true;
+            if (payload.coverFile) {
+              payloadObj.coverName = payload.coverFile.name;
+              payloadObj.coverType = payload.coverFile.type;
+            }
+            if (payload.pdfFile) {
+              payloadObj.pdfName = payload.pdfFile.name;
+              payloadObj.pdfType = payload.pdfFile.type;
+              payloadObj.pdfSize = payload.pdfFile.size;
+            }
+          }
+          
+          body = JSON.stringify(payloadObj);
         } else {
           headers["Content-Type"] = "application/json";
           body = JSON.stringify({
@@ -147,6 +162,34 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
         } else if (!currentIdRef.current && data.bookId) {
           currentIdRef.current = data.bookId;
           setCurrentId(data.bookId);
+        }
+
+        if (isPublishing && data.uploadUrls) {
+          // Upload directly to Supabase via presigned URLs
+          if (payload.coverFile && data.uploadUrls.cover) {
+            await fetch(data.uploadUrls.cover, { method: "PUT", body: payload.coverFile, headers: { "Content-Type": payload.coverFile.type } });
+          }
+          if (payload.pdfFile && data.uploadUrls.pdf) {
+            await fetch(data.uploadUrls.pdf, { method: "PUT", body: payload.pdfFile, headers: { "Content-Type": payload.pdfFile.type } });
+          }
+
+          // Finalize publish
+          const finalizeRes = await fetch(endpoint, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "X-Publish": "true" },
+            body: JSON.stringify({
+              id: data.bookId || currentIdRef.current,
+              title: payload.title,
+              description: payload.description || "",
+              category: payload.category,
+              price: payload.price,
+              finalize: true,
+              coverPath: data.coverPath,
+              pdfPath: data.pdfPath,
+            })
+          });
+          const finalizeData = await finalizeRes.json();
+          if (!finalizeRes.ok) throw new Error(finalizeData.message || "Failed to finalize publish");
         }
 
         setStatus('saved');

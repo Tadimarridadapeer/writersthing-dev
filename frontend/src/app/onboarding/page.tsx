@@ -14,7 +14,7 @@ const INTERESTS = [
   "Health", "Fitness", "Romance", "Mystery", 
   "Thriller", "Fantasy", "Horror", "Biography", 
   "Philosophy", "Poetry", "Education", "Comics", 
-  "Travel", "Cooking"
+  "Travel", "Cooking", "Kids"
 ];
 
 const CONTENT_TYPES = [
@@ -263,20 +263,20 @@ export default function OnboardingPage() {
               <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Help us personalize your experience.</p>
               
               <div className="flex-1 overflow-y-auto min-h-0 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
                   {filteredGoals.map(goal => {
                     const isSelected = selectedGoals.includes(goal);
                     return (
                       <button
                         key={goal}
                         onClick={() => handleGoalToggle(goal)}
-                        className={`p-4 md:p-5 rounded-xl flex items-center gap-3 md:gap-4 border-2 transition-all text-left
+                        className={`p-3 md:p-4 rounded-xl flex items-center gap-3 border-2 transition-all text-left
                           ${isSelected ? 'border-black bg-zinc-50' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
                       >
-                        <div className={`w-5 h-5 md:w-6 md:h-6 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black border-black' : 'border-zinc-300'}`}>
-                          {isSelected && <Check size={14} className="text-white" />}
+                        <div className={`w-4 h-4 md:w-5 md:h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black border-black' : 'border-zinc-300'}`}>
+                          {isSelected && <Check size={12} className="text-white" />}
                         </div>
-                        <span className={`font-bold text-xs md:text-sm ${isSelected ? 'text-black' : 'text-zinc-600'}`}>{goal}</span>
+                        <span className={`font-bold text-[11px] md:text-xs ${isSelected ? 'text-black' : 'text-zinc-600'}`}>{goal}</span>
                       </button>
                     );
                   })}

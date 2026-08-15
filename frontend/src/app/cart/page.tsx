@@ -50,9 +50,11 @@ export default function CartPage() {
         currency: orderData.currency,
         name: "Writer's Thing",
         description: "Cart Checkout",
-        customerName: userObj.name || "Customer",
-        customerEmail: userObj.email || "",
-        onSuccess: async (response) => {
+        prefill: {
+          name: userObj.name || "Customer",
+          email: userObj.email || "",
+        },
+        onSuccess: async (response: any) => {
           try {
             // 3. Verify on backend
             const verifyRes = await fetch("/api/payment/verify", {

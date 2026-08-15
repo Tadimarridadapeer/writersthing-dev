@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ensureAuthorProfile } from "@/lib/author";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -54,6 +55,14 @@ export async function GET(request: Request) {
               created_at: new Date().toISOString()
             }
           ]);
+          
+          // Send welcome email for new Google signups
+          try {
+            const res = await sendWelcomeEmail(email, name);
+            if (!res.success) console.error("Failed to send OAuth welcome email:", res.error);
+          } catch (emailErr) {
+            console.error("Welcome email exception:", emailErr);
+          }
         }
 
         // 2. Ensure Author profile exists

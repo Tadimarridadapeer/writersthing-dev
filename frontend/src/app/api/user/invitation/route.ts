@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     if (action === "accept") {
       await supabaseAdmin
         .from("founding_writers")
-        .update({ status: "accepted", accepted_at: timestamp })
+        .update({ status: "accepted", accepted_at: timestamp, user_id: user.id })
         .eq("id", invite_id);
 
       // Add founder badge to user

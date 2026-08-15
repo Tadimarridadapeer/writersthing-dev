@@ -67,13 +67,23 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
           email: customerEmail,
           contact: customerContact,
         },
-        onSuccess: async (response) => {
+        onSuccess: async (response: any) => {
           // 3. Verify payment on backend
           try {
+            // Get session token directly to ensure backend auth works
+            const { createBrowserClient } = await import("@supabase/ssr");
+            const supabase = createBrowserClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                ...(token ? { "Authorization": `Bearer ${token}` } : {})
               },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,

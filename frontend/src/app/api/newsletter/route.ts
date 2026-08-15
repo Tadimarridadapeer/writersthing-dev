@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { sendNewsletterWelcomeEmail } from '@/lib/email';
+import { sendNewsletter } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     // Send welcome email only if it was a new subscription
     if (!dbError) {
-      await sendNewsletterWelcomeEmail(email);
+      await sendNewsletter(email, "Welcome to Writer's Thing Newsletter!", "Thanks for subscribing! We'll keep you updated with the best stories.");
     }
 
     return NextResponse.json({ success: true });

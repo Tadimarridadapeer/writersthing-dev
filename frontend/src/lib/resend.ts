@@ -1,5 +1,7 @@
 import { Resend } from 'resend';
 
-// Initialize the Resend client
-// The API key should be stored in the .env file as RESEND_API_KEY
+if (!process.env.RESEND_API_KEY) {
+  console.warn('RESEND_API_KEY is not defined in the environment variables');
+}
+
 export const resend = new Resend(process.env.RESEND_API_KEY);

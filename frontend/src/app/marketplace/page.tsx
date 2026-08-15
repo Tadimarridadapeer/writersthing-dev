@@ -11,11 +11,13 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import { ContinueReadingSection } from "@/components/ContinueReadingSection";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useCart } from "@/hooks/useCart";
+import { useFoundingWriters } from "@/context/FoundingWritersContext";
 import HireWriterModal from "@/components/HireWriterModal";
 
 function MarketplaceContent() {
   const { user } = useAuth();
   const { addToCart } = useCart();
+  const { founderMap } = useFoundingWriters();
   const searchParams = useSearchParams();
   const typeParam = searchParams?.get("type");
   const initialFeedType = typeParam === "Book" ? "books" : 
@@ -166,10 +168,16 @@ function MarketplaceContent() {
             setRecommendations(recData.data);
             setPreferences(recData.data.preferences);
             
-            // Extract a flat list of staff picks from the first few items for the sidebar
+            // Extract a flat, deduplicated list of staff picks from the first few items for the sidebar
             const initialFeed: any[] = [];
+            const seenIds = new Set();
             recData.data.sections.forEach((s: any) => {
-              if (initialFeed.length < 10) initialFeed.push(...s.items);
+              s.items.forEach((item: any) => {
+                if (initialFeed.length < 10 && !seenIds.has(item.id)) {
+                  initialFeed.push(item);
+                  seenIds.add(item.id);
+                }
+              });
             });
             setFeed(initialFeed);
           }
@@ -241,7 +249,15 @@ function MarketplaceContent() {
             <div className="w-5 h-5 md:w-6 md:h-6 shrink-0 rounded-full bg-zinc-100 flex items-center justify-center text-[9px] font-black uppercase text-zinc-500 border border-zinc-200 shadow-sm">
               {mappedItem.author ? mappedItem.author[0] : "?"}
             </div>
-            <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px]">{mappedItem.author}</span>
+            <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px] flex items-center gap-1.5">
+              {mappedItem.author}
+              {mappedItem.author_id && founderMap[mappedItem.author_id] && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black text-white text-[8px] font-black uppercase tracking-widest leading-none">
+                  <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                  #{String(founderMap[mappedItem.author_id]).padStart(5, '0')}
+                </span>
+              )}
+            </span>
             <span className="text-zinc-400 text-xs shrink-0">in</span>
             <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px]">{mappedItem.category}</span>
           </div>
@@ -387,7 +403,7 @@ function MarketplaceContent() {
         </div>
 
         <div className="w-20 md:w-32 lg:w-40 shrink-0 aspect-square md:aspect-[16/10] bg-zinc-100 overflow-hidden shadow-sm mt-1 md:mt-0 rounded-sm md:rounded-none relative">
-          <OptimizedImage src={mappedItem.cover} alt={mappedItem.title} variant={mappedItem.type === "Book" ? "book-cover" : "blog-thumbnail"} imageClassName="grayscale hover:grayscale-0 group-hover:grayscale-0 transition-all duration-700 hover:scale-105 group-hover:scale-105" />
+          <OptimizedImage src={mappedItem.cover} alt={mappedItem.title} className="w-full h-full" variant={mappedItem.type === "Book" ? "book-cover" : "blog-thumbnail"} imageClassName="grayscale hover:grayscale-0 group-hover:grayscale-0 transition-all duration-700 hover:scale-105 group-hover:scale-105" />
         </div>
       </Link>
     );
@@ -629,10 +645,8 @@ function MarketplaceContent() {
 
             {/* Footer links */}
             <div className="mt-12 pt-6 border-t border-zinc-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-500 font-medium">
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Help</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">About</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-zinc-800 transition-colors">Terms</Link>
+              <Link href="/about" className="hover:text-zinc-800 transition-colors">About</Link>
+              <Link href="/for-writers" className="hover:text-zinc-800 transition-colors">For Writers</Link>
             </div>
           </div>
         </div>
