@@ -52,12 +52,12 @@ export async function GET(req: Request) {
     // Query details for books
     const { data: booksData } = await supabaseServer
       .from("books")
-      .select("*, authors:author_id(*, users:user_id(name))")
+      .select("*, authors:author_id(*, users!authors_user_id_fkey(name))")
       .in("id", bookIds);
 
     const { data: storiesData } = await supabaseServer
       .from("stories")
-      .select("*, authors:author_id(*, users:user_id(name))")
+      .select("*, authors:author_id(*, users!authors_user_id_fkey(name))")
       .in("id", bookIds);
 
     const booksMap = new Map((booksData || []).map((b: any) => [b.id, b]));

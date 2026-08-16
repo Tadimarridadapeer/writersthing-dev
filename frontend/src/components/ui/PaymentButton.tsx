@@ -47,7 +47,7 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, userId, bookId: projectId }),
       });
 
       const orderData = await orderRes.json();
@@ -55,6 +55,20 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
       if (!orderRes.ok) {
         throw new Error(orderData.error || "Failed to create order");
       }
+
+      // Helper to mark order as Failed in DB if checkout aborts
+      const markOrderFailed = async () => {
+        try {
+          const { createBrowserClient } = await import("@supabase/ssr");
+          const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
+          await supabase.from("orders").update({ status: "Failed" }).eq("razorpay_order_id", orderData.order_id);
+        } catch (e) {
+          console.error("Failed to mark order as failed in DB", e);
+        }
+      };
 
       // 2. Open Razorpay Checkout
       openRazorpayCheckout({
@@ -108,17 +122,20 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
             console.error("Verification error:", err);
             setErrorMsg(err instanceof Error ? err.message : "Payment verification failed");
             setIsLoading(false);
+            await markOrderFailed();
             if (onError) onError(err);
           }
         },
-        onError: (err: unknown) => {
+        onError: async (err: unknown) => {
           console.error("Payment failed:", err);
           setErrorMsg((err as { description?: string })?.description || "Payment failed or cancelled");
           setIsLoading(false);
+          await markOrderFailed();
           if (onError) onError(err);
         },
-        onDismiss: () => {
+        onDismiss: async () => {
           setIsLoading(false);
+          await markOrderFailed();
         },
       });
     } catch (err: unknown) {

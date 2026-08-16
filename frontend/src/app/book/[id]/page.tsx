@@ -77,7 +77,7 @@ export default function BookDetailPage() {
       const [bookRes, reviewsRes] = await Promise.all([
         supabase
           .from("books")
-          .select("*, authors:author_id(*, users:user_id(*))")
+          .select("*, authors:author_id(*, users!authors_user_id_fkey(*))")
           .eq("id", params.id)
           .single(),
         supabase

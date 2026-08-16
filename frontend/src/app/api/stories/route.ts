@@ -16,6 +16,21 @@ function extractFirstImage(content: string, defaultImage: string) {
   return match ? match[1] : defaultImage;
 }
 
+function getSupabaseAdmin() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        async get(name: string) {
+          const cookieStore = await cookies();
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+}
+
 function getSupabase() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +65,7 @@ export async function GET(req: Request) {
     if (type === "Story") {
       let query = supabase
         .from("stories")
-        .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .eq("status", "Published")
         .order("created_at", { ascending: false });
 
@@ -101,7 +116,7 @@ export async function GET(req: Request) {
     } else {
       let query = supabase
         .from("blogs")
-        .select("id, title, content, banner_url, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, content, banner_url, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .not("content", "ilike", "[DRAFT]%")
         .order("created_at", { ascending: false });
 
@@ -169,13 +184,14 @@ export async function POST(req: Request) {
     const authorProfile = await ensureAuthorProfile(supabase, user.id);
 
     const { title, description, content, category, type, coverUrl, status } = await req.json();
+    const supabaseAdmin = getSupabaseAdmin();
 
     if (type === "Story") {
       const slug = title
         ? title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now()
         : "story-" + Date.now();
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("stories")
         .insert([
           {
@@ -202,7 +218,7 @@ export async function POST(req: Request) {
       }, { status: 201 });
     } else {
       // Blog
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("blogs")
         .insert([
           {
@@ -248,9 +264,10 @@ export async function PUT(req: Request) {
     }
 
     const isPublishing = req.headers.get("X-Publish") === "true";
+    const supabaseAdmin = getSupabaseAdmin();
 
     if (type === "Story") {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("stories")
         .update({
           title,
@@ -269,7 +286,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: `${type} updated successfully!`, id: data.id }, { status: 200 });
     } else {
       // Blog
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("blogs")
         .update({
           title,

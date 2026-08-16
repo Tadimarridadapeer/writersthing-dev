@@ -368,16 +368,16 @@ export default function ProfilePage() {
 
     const [booksRes, storiesRes, manuscriptsRes, blogsRes] = await Promise.all([
       bookIds.length 
-        ? supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").in("id", bookIds) 
+        ? supabase.from("books").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").in("id", bookIds) 
         : Promise.resolve({ data: [] }),
       storyIds.length 
-        ? supabase.from("stories").select("*, authors:author_id(*, users:user_id(name))").in("id", storyIds) 
+        ? supabase.from("stories").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").in("id", storyIds) 
         : Promise.resolve({ data: [] }),
       storyIds.length
         ? supabase.from("manuscripts").select("*").in("id", storyIds)
         : Promise.resolve({ data: [] }),
       blogIds.length 
-        ? supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").in("id", blogIds) 
+        ? supabase.from("blogs").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").in("id", blogIds) 
         : Promise.resolve({ data: [] })
     ]);
 
@@ -608,9 +608,9 @@ export default function ProfilePage() {
 
         if (authorProfile) {
           const [pubBooksRes, pubStoriesRes, pubBlogsRes] = await Promise.all([
-            supabase.from("books").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", parsedUser.id),
-            supabase.from("stories").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id),
-            supabase.from("blogs").select("*, authors:author_id(*, users:user_id(name))").eq("author_id", authorProfile.id)
+            supabase.from("books").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", parsedUser.id),
+            supabase.from("stories").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id),
+            supabase.from("blogs").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id)
           ]);
           
           const books = (pubBooksRes.data || []).map((b: any) => ({ ...b, type: "book", content_type: "book", details: b }));

@@ -33,6 +33,15 @@ function getSupabaseAdmin() {
   );
 }
 
+function toValidUUID(id: string): string {
+  if (!id) return "00000000-0000-4000-8000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return id;
+  }
+  const hex = Buffer.from(String(id)).toString("hex").padEnd(12, "0").slice(0, 12);
+  return `00000000-0000-4000-8000-${hex}`;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -43,18 +52,34 @@ export async function GET(
     const { data: { user } } = await supabase.auth.getUser();
 
     const { id } = await params;
+    const uuid = toValidUUID(id);
 
     // Run lookups in parallel to minimize database connection overhead and roundtrips
     const [bookRes, storyRes, blogRes] = await Promise.all([
-      supabase.from("books").select("*").eq("id", id).maybeSingle(),
-      supabase.from("stories").select("*, authors:author_id(user_id, users:user_id(name))").eq("id", id).maybeSingle(),
-      supabase.from("blogs").select("*, authors:author_id(user_id, users:user_id(name))").eq("id", id).maybeSingle()
+      supabase.from("books").select("*").in("id", [id, uuid]).maybeSingle(),
+      supabase.from("stories").select("*, authors:author_id(user_id, users!authors_user_id_fkey(name))").in("id", [id, uuid]).maybeSingle(),
+      supabase.from("blogs").select("*, authors:author_id(user_id, users!authors_user_id_fkey(name))").in("id", [id, uuid]).maybeSingle()
     ]);
 
     // Check books first (requires the viewer to be the author)
     if (bookRes.data) {
       const book = bookRes.data;
-      if (!user || book.author_id !== user.id) {
+      
+      // Fetch authorData to properly verify ownership since book.author_id is authors.id
+      let isBookOwner = false;
+      if (user) {
+        const adminClient = getSupabaseAdmin();
+        const { data: authorData } = await adminClient
+          .from("authors")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (authorData && book.author_id === authorData.id) {
+          isBookOwner = true;
+        }
+      }
+
+      if (!isBookOwner) {
         return NextResponse.json({ message: "Unauthorized access to this manuscript" }, { status: 403 });
       }
 
@@ -150,8 +175,19 @@ export async function PATCH(
     if (bookRes.data) {
       const book = bookRes.data;
 
-      // Books store author_id = users.id, so explicit check is reliable
-      if (book.author_id !== user.id) {
+      let isBookOwner = false;
+      if (user) {
+        const { data: authorData } = await supabaseAdmin
+          .from("authors")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (authorData && book.author_id === authorData.id) {
+          isBookOwner = true;
+        }
+      }
+
+      if (!isBookOwner) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
 
@@ -205,7 +241,8 @@ export async function PATCH(
       const story = storyRes.data;
 
       // Explicit author authorization check
-      const { data: authorData } = await supabaseAdmin
+      const adminClient = getSupabaseAdmin();
+      const { data: authorData } = await adminClient
         .from("authors")
         .select("id")
         .eq("user_id", user.id)
@@ -218,6 +255,7 @@ export async function PATCH(
       const updateData: Record<string, any> = {};
       if (title !== undefined) updateData.title = title;
       if (content !== undefined) updateData.body = content;
+      if (status !== undefined) updateData.status = status;
 
       if (Object.keys(updateData).length === 0) {
         return NextResponse.json({ message: "No fields to update" }, { status: 400 });
@@ -245,7 +283,8 @@ export async function PATCH(
       const blog = blogRes.data;
 
       // Explicit author authorization check
-      const { data: authorData } = await supabaseAdmin
+      const adminClient = getSupabaseAdmin();
+      const { data: authorData } = await adminClient
         .from("authors")
         .select("id")
         .eq("user_id", user.id)
@@ -258,6 +297,7 @@ export async function PATCH(
       const updateData: Record<string, any> = {};
       if (title !== undefined) updateData.title = title;
       if (content !== undefined) updateData.content = content;
+      if (status !== undefined) updateData.status = status;
 
       if (Object.keys(updateData).length === 0) {
         return NextResponse.json({ message: "No fields to update" }, { status: 400 });
@@ -314,7 +354,19 @@ export async function DELETE(
 
     // Handle Books
     if (bookRes.data) {
-      if (bookRes.data.author_id !== user.id) {
+      let isBookOwner = false;
+      if (user) {
+        const { data: authorData } = await supabaseAdmin
+          .from("authors")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (authorData && bookRes.data.author_id === authorData.id) {
+          isBookOwner = true;
+        }
+      }
+
+      if (!isBookOwner) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
       

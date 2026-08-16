@@ -43,12 +43,12 @@ export default function PDFReaderContent() {
   useEffect(() => {
     if (!bookId) return;
     const fetchMeta = async () => {
-      const { data } = await supabase.from('books').select('*, authors:author_id(users:user_id(name))').eq('id', bookId).single();
+      const { data } = await supabase.from('books').select('*, authors:author_id(users!authors_user_id_fkey(name))').eq('id', bookId).single();
       if (data) {
         setBookMeta(data);
         if (data.category) {
           const { data: related } = await supabase.from('books')
-            .select('id, title, cover_url, cover_image, authors:author_id(users:user_id(name))')
+            .select('id, title, cover_url, cover_image, authors:author_id(users!authors_user_id_fkey(name))')
             .eq('category', data.category)
             .neq('id', bookId)
             .limit(4);

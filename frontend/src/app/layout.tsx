@@ -9,6 +9,7 @@ import { FoundingWritersProvider } from "@/context/FoundingWritersContext";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import FounderInvitationModal from "@/components/ui/FounderInvitationModal";
+import MaintenanceProvider from "@/components/MaintenanceProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -79,19 +80,21 @@ export default function RootLayout({
         className={`${inter.variable} ${outfit.variable} ${playfair.variable} ${questrial.variable} ${bodoniModa.variable} ${libreBaskerville.variable} ${ebGaramond.variable} min-h-full flex flex-col bg-white dark:bg-black text-black dark:text-white antialiased`}
         suppressHydrationWarning
       >
-        <FoundingWritersProvider>
-          <AuthProvider>
-            <LoadingScreen />
-            <FounderInvitationModal />
-            <ClientLayout>{children}</ClientLayout>
-          </AuthProvider>
-        </FoundingWritersProvider>
-        <Script
-          id="razorpay-checkout-js"
-          src="https://checkout.razorpay.com/v1/checkout.js"
-        />
-        {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && <Analytics />}
-        {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && <SpeedInsights />}
+        <MaintenanceProvider>
+          <FoundingWritersProvider>
+            <AuthProvider>
+              <LoadingScreen />
+              <FounderInvitationModal />
+              <ClientLayout>{children}</ClientLayout>
+            </AuthProvider>
+          </FoundingWritersProvider>
+          <Script
+            id="razorpay-checkout-js"
+            src="https://checkout.razorpay.com/v1/checkout.js"
+          />
+          {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && <Analytics />}
+          {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && <SpeedInsights />}
+        </MaintenanceProvider>
       </body>
     </html>
   );

@@ -84,7 +84,7 @@ export class RecommendationService {
     try {
       const { data: books } = await this.supabase
         .from("books")
-        .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .ilike("category", `%${mainInterest}%`)
         .eq("status", "Published")
         .range(from, to);
@@ -108,7 +108,7 @@ export class RecommendationService {
         
         const { data: stories } = await this.supabase
           .from("stories")
-          .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+          .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
           .eq("status", "Published")
           .or(query)
           .range(from, to);
@@ -131,13 +131,13 @@ export class RecommendationService {
         const [booksRes, storiesRes] = await Promise.all([
           this.supabase
             .from("books")
-            .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+            .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
             .eq("status", "Published")
             .order("created_at", { ascending: false })
             .range(from, to),
           this.supabase
             .from("stories")
-            .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+            .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
             .eq("status", "Published")
             .order("created_at", { ascending: false })
             .range(from, to)
@@ -177,7 +177,7 @@ export class RecommendationService {
     try {
       const { data: books } = await this.supabase
         .from("books")
-        .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, description, category, cover_url, price, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .eq("status", "Published")
         .order("created_at", { ascending: false })
         .range(from, to);
@@ -195,7 +195,7 @@ export class RecommendationService {
     try {
       const { data: stories } = await this.supabase
         .from("stories")
-        .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, body, category, cover_image, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .eq("status", "Published")
         .order("created_at", { ascending: false })
         .range(from, to);
@@ -213,7 +213,7 @@ export class RecommendationService {
     try {
       const { data: blogs } = await this.supabase
         .from("blogs") 
-        .select("id, title, content, banner_url, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+        .select("id, title, content, banner_url, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .order("created_at", { ascending: false })
         .range(from, to);
         

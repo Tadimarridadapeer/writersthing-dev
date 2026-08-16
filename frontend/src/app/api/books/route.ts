@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { ensureAuthorProfile } from "@/lib/author";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+function getSupabaseAdmin() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        async get(name: string) {
+          const cookieStore = await cookies();
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +67,9 @@ export async function POST(req: Request) {
     
     console.log("Next.js POST /api/books - Submitting insert to Supabase 'books' table:", insertPayload);
 
-    const { data, error } = await supabase
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const { data, error } = await supabaseAdmin
       .from("books")
       .insert([
         {
@@ -95,7 +114,7 @@ export async function GET(req: Request) {
 
     let query = supabase
       .from("books")
-      .select("id, title, description, category, cover_url, pdf_path, price, created_at, author_id, authors:author_id(user_id, users:user_id(name))")
+      .select("id, title, description, category, cover_url, pdf_path, price, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
       .eq("status", "Published");
 
     if (search) {

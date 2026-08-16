@@ -277,12 +277,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     try {
       const { id } = await params;
       // Publishing removes the draft prefix
-      const payload: Record<string, any> = { title, content };
-      
-      // Only books have a database status field
-      if (manuscriptType === "book") {
-        payload.status = "Published";
-      }
+      const payload: Record<string, any> = { title, content, status: "Published" };
       
       const res = await fetch(`/api/manuscripts/${id}`, {
         method: "PATCH",
