@@ -81,15 +81,17 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-12 md:h-16 w-[250px] md:w-[350px]">
-                  <img 
-                    src="/festive-bg.png" 
-                    alt="Festive theme" 
-                    className="absolute inset-0 w-full h-full object-contain pointer-events-none group-hover:scale-105 transition-transform duration-500"
-                  />
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-12 md:h-16 px-2 md:px-8">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] sm:w-[450px] md:w-[580px] pointer-events-none group-hover:scale-105 transition-transform duration-500 z-0">
+                    <img 
+                      src="/festive-bg.png" 
+                      alt="Festive theme" 
+                      className="w-full h-auto object-contain"
+                    />
+                  </div>
                   
                   {/* Logo text */}
-                  <span className="relative z-10 flex flex-col leading-none">
+                  <span className="relative z-10 flex flex-col leading-none pt-1">
                     <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black">
                       Writer's Thing
                     </span>
