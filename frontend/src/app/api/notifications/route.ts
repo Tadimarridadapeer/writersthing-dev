@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 
     let query = supabase
       .from("notifications")
-      .select("*, actor:actor_id(id, name, avatar_url)", { count: "exact" })
+      .select("*", { count: "exact" })
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -63,8 +63,37 @@ export async function GET(req: Request) {
     }
 
     const { data, count, error } = await query;
-
-    if (error) throw error;
+    
+    if (error) {
+      console.error("Query Error:", error);
+      throw error;
+    }
+    
+    let finalData = data || [];
+    
+    // Fetch actor details manually using Service Role Key because of RLS and missing FK
+    if (finalData.length > 0) {
+      const adminSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      
+      const actorIds = [...new Set(finalData.map((n: any) => n.actor_id).filter(Boolean))];
+      if (actorIds.length > 0) {
+        const { data: actorsData } = await adminSupabase
+          .from("users")
+          .select("id, name, avatar_url")
+          .in("id", actorIds);
+          
+        if (actorsData) {
+          const actorMap = Object.fromEntries(actorsData.map((a: any) => [a.id, a]));
+          finalData = finalData.map((n: any) => ({
+            ...n,
+            actor: n.actor_id ? actorMap[n.actor_id] || null : null
+          }));
+        }
+      }
+    }
     
     // Also fetch unread count efficiently
     const { count: unreadCount } = await supabase
@@ -74,7 +103,7 @@ export async function GET(req: Request) {
       .eq("is_read", false)
       .eq("is_archived", false);
 
-    return NextResponse.json({ data: data || [], count, unreadCount: unreadCount || 0 });
+    return NextResponse.json({ data: finalData, count, unreadCount: unreadCount || 0 });
   } catch (err: any) {
     console.error("Notifications GET Error:", err);
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
