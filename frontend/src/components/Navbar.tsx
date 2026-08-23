@@ -81,11 +81,11 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-12 md:h-16 py-1">
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-10 md:h-14 w-[160px] md:w-[240px]">
                   <img 
                     src="/festive-logo.jpg" 
                     alt="Writer's Thing" 
-                    className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-[1.02] transition-transform duration-300"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] md:w-[280px] max-w-none h-auto object-contain mix-blend-multiply group-hover:scale-[1.05] transition-transform duration-300"
                   />
                 </Link>
               </div>
