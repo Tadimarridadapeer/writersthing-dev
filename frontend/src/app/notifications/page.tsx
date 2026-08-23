@@ -122,7 +122,7 @@ export default function NotificationsPage() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={lex items-start gap-4 p-5 rounded-2xl border transition-all  + (
+                  className={"flex items-start gap-4 p-5 rounded-2xl border transition-all " + (
                     !notification.is_read ? "bg-blue-50/20 border-blue-100" : "bg-white border-zinc-100"
                   )}
                 >
