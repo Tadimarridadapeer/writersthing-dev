@@ -68,11 +68,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // Fetch writer details for the email
+    // Fetch writer details for the email using Service Role Key (bypasses RLS)
+    const { createClient } = require('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     let writerEmail = null;
     let writerName = "Writer";
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminSupabase
       .from("users")
       .select("name, email")
       .eq("id", writer_id)
@@ -83,7 +89,7 @@ export async function POST(req: Request) {
       writerName = userData.name || writerName;
     } else {
       // Fallback to check if it's a founding_writers ID
-      const { data: founderData } = await supabase
+      const { data: founderData } = await adminSupabase
         .from("founding_writers")
         .select("full_name, email_address")
         .eq("id", writer_id)
