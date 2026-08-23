@@ -63,46 +63,40 @@ export default function AuthorProfilePage() {
       const storedUser = localStorage.getItem("user");
       const parsedUser = storedUser ? JSON.parse(storedUser) : null;
 
-      // The URL ID could be a users.id OR an authors.id (blogs/storys FK → authors.id).
-      // Try direct users lookup first; if that fails, resolve through the authors table.
-      let resolvedUserId = authorId;
-
-      const directUserRes = await supabase.from("users").select("*").eq("id", authorId).maybeSingle();
-
-      if (!directUserRes.data) {
-        // authorId might be an authors.id - look it up to get the real user_id
-        const authorLookup = await supabase.from("authors").select("user_id").eq("id", authorId).maybeSingle();
-        if (authorLookup.data?.user_id) {
-          resolvedUserId = authorLookup.data.user_id;
-        } else {
-          // authorId might be a founding_writers id (for manually added writers without an account yet)
-          const founderLookup = await supabase.from("founding_writers").select("*").eq("id", authorId).maybeSingle();
-          if (founderLookup.data) {
-            setAuthorUser({
-              id: founderLookup.data.id,
-              name: founderLookup.data.full_name,
-              email: founderLookup.data.email_address,
-              bio: "Official Founding Writer at Writer's Thing.",
-              avatar_url: ""
-            });
-            setAuthorProfile(null);
-            setFollowersCount(0);
-            setIsFollowing(false);
-            setAuthorBadges([{ id: "fw_badge", badge_type: "founder", badge_name: "Founding Writer" }]);
-            setWriterServices([{ id: "dummy_srv", service_name: "Freelance Writing", description: "Available for freelance projects, ghostwriting, and editing.", rate_min: null, rate_max: null }]);
-            setFoundingWriterNumber(founderLookup.data.founder_number);
-            setBooks([]);
-            setBlogs([]);
-            setStorys([]);
-            setLoading(false);
-            return;
-          }
-        }
+      // Fetch the base user profile via server API (bypasses RLS)
+      const profileResponse = await fetch(`/api/user/profile/${authorId}`);
+      if (!profileResponse.ok) {
+        setAuthorUser(null);
+        setLoading(false);
+        return;
       }
 
-      // Now fetch everything using the resolved user ID
+      const profileData = await profileResponse.json();
+      const resolvedUserId = profileData.resolvedUserId; // null for dummy users
+      const userData = profileData.user;
+
+      if (!resolvedUserId) {
+        // It's a dummy profile from founding_writers only
+        setAuthorUser(userData);
+        setAuthorProfile(null);
+        setFollowersCount(0);
+        setIsFollowing(false);
+        setAuthorBadges([{ id: "fw_badge", badge_type: "founder", badge_name: "Founding Writer" }]);
+        setWriterServices([{ id: "dummy_srv", service_name: "Freelance Writing", description: "Available for freelance projects, ghostwriting, and editing.", rate_min: null, rate_max: null }]);
+        
+        // Lookup founder number
+        const founderLookup = await supabase.from("founding_writers").select("founder_number").eq("id", userData.id).maybeSingle();
+        setFoundingWriterNumber(founderLookup.data?.founder_number || null);
+        
+        setBooks([]);
+        setBlogs([]);
+        setStorys([]);
+        setLoading(false);
+        return;
+      }
+
+      // Now fetch everything else using the resolved user ID
       const [
-        userRes,
         profileRes,
         followsCountRes,
         followStatusRes,
@@ -110,9 +104,6 @@ export default function AuthorProfilePage() {
         servicesRes,
         founderRes
       ] = await Promise.all([
-        directUserRes.data
-          ? Promise.resolve(directUserRes)
-          : supabase.from("users").select("*").eq("id", resolvedUserId).maybeSingle(),
         supabase.from("authors").select("*").eq("user_id", resolvedUserId).maybeSingle(),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", resolvedUserId),
         parsedUser ? supabase.from("follows").select("*").eq("follower_id", parsedUser.id).eq("following_id", resolvedUserId).maybeSingle() : Promise.resolve({ data: null }),
@@ -121,12 +112,7 @@ export default function AuthorProfilePage() {
         supabase.from("founding_writers").select("id, founder_number").eq("user_id", resolvedUserId).ilike("status", "accepted").maybeSingle()
       ]);
 
-      if (!userRes.data) {
-        setAuthorUser(null);
-        return;
-      }
-      
-      setAuthorUser(userRes.data);
+      setAuthorUser(userData);
       setAuthorProfile(profileRes.data);
       setFollowersCount(followsCountRes.count || 0);
       setIsFollowing(!!followStatusRes.data);
@@ -322,7 +308,7 @@ export default function AuthorProfilePage() {
                   onClick={() => setIsHireModalOpen(true)}
                   className="px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
                 >
-                  Send Invitation
+                  Hire Writer
                 </button>
               </div>
             </div>
