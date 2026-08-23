@@ -81,12 +81,10 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-10 md:h-14 w-[160px] md:w-[240px]">
-                  <img 
-                    src="/festive-logo.jpg" 
-                    alt="Writer's Thing" 
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] md:w-[280px] max-w-none h-auto object-contain mix-blend-multiply group-hover:scale-[1.05] transition-transform duration-300"
-                  />
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center gap-2.5 group">
+                  <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black group-hover:opacity-80 transition-opacity">
+                    Writer's Thing
+                  </span>
                 </Link>
               </div>
 
@@ -193,9 +191,9 @@ export default function Navbar() {
                     <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-500 hover:text-black">
                       <Menu size={24} />
                     </button>
-                      <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                        <img src="/festive-logo.jpg" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain mix-blend-multiply" />
-                      </Link>
+                    <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
+                      <img src="/logo.png" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain" style={{ filter: 'grayscale(100%)' }} />
+                    </Link>
                   </div>
                   
                   <div className="flex flex-col py-4">
