@@ -23,9 +23,9 @@ export async function POST(req: Request) {
     const supabase = getSupabase();
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    
+    // Allow both logged-in users and guests to send hire requests
+    const senderId = user?.id || crypto.randomUUID();
 
     const body = await req.json();
     const { 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const { data: requestData, error: insertError } = await supabase
       .from("hire_requests")
       .insert({
-        sender_id: user.id,
+        sender_id: senderId,
         writer_id,
         full_name,
         email_address,
