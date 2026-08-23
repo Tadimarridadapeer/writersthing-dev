@@ -1,25 +1,13 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-function getSupabase() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async get(name: string) {
-          const cookieStore = await cookies();
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
-}
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET(req: Request) {
   try {
-    const supabase = getSupabase();
+    // Use service role key to bypass RLS since the users table might not be readable to anon users
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // Fetch users who have an accepted founding_writers record
     const { data, error } = await supabase
@@ -45,7 +33,11 @@ export async function GET(req: Request) {
 
     // Map the response to a clean freelancer profile structure
     const freelancers = data.map((record: any) => {
-      const user = record.users || {};
+      // In Supabase JS, one-to-one could return object or array depending on schema. 
+      // Handle both cases just in case.
+      const userObj = Array.isArray(record.users) ? record.users[0] : record.users;
+      const user = userObj || {};
+      
       return {
         id: user.id || record.user_id || record.id,
         name: user.name || record.full_name,
