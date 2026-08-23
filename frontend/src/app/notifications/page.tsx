@@ -42,18 +42,18 @@ export default function NotificationsPage() {
     switch (type) {
       case "new_follower": return "started following you.";
       case "new_review": return "reviewed your work.";
-      case "new_like": return metadata?.title ? liked your post " + metadata.title + ". : "liked your work.";
+      case "new_like": return metadata?.title ? 'liked your post "' + metadata.title + '".' : "liked your work.";
       case "new_rating": return "rated your work.";
       case "new_comment": 
         if (metadata?.text) {
           const truncated = metadata.text.length > 40 ? metadata.text.substring(0, 40) + '...' : metadata.text;
-          return commented: " + truncated + ";
+          return 'commented: "' + truncated + '"';
         }
-        return metadata?.title ? commented on " + metadata.title + ". : "commented on your post.";
+        return metadata?.title ? 'commented on "' + metadata.title + '".' : "commented on your post.";
       case "reply_to_comment": return "replied to your comment.";
-      case "book_published": return published a new book:  + (metadata?.title || '');
-      case "story_published": return published a new story:  + (metadata?.title || '');
-      case "blog_published": return published a new blog:  + (metadata?.title || '');
+      case "book_published": return "published a new book: " + (metadata?.title || '');
+      case "story_published": return "published a new story: " + (metadata?.title || '');
+      case "blog_published": return "published a new blog: " + (metadata?.title || '');
       case "invite": return "invited you to become a Founding Writer.";
       default: return "interacted with your profile.";
     }
