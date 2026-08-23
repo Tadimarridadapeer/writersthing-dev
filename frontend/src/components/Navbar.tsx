@@ -93,16 +93,13 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                {/* Logo Section */}
-                <div className="flex shrink-0">
-                  <Link href="/" className="flex items-center group">
-                    <img 
-                      src="/logo-festive.png" 
-                      alt="Writer's Thing" 
-                      className="h-16 w-auto object-contain scale-[1.8] md:scale-[2.2] origin-left group-hover:opacity-90 transition-all ml-2" 
-                    />
-                  </Link>
-                </div>
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center gap-2.5 group">
+                  <img 
+                    src="/logo-festive.png" 
+                    alt="Writer's Thing" 
+                    className="h-14 md:h-16 w-auto object-contain transition-transform group-hover:scale-[1.02]" 
+                  />
+                </Link>
               </div>
 
               {/* Desktop Menu */}
@@ -209,7 +206,7 @@ export default function Navbar() {
                       <Menu size={24} />
                     </button>
                     <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                      <img src="/logo-festive.png" alt="Writer's Thing" className="h-16 w-auto max-w-[250px] object-contain scale-[1.8] origin-left ml-4" />
+                      <img src="/logo-festive.png" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain" />
                     </Link>
                   </div>
                   
