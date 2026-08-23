@@ -244,6 +244,17 @@ export default function NotificationsDropdown() {
                       )}
                     </button>
                   ))}
+                  
+                  {/* View all link */}
+                  <div className="p-2 border-t border-zinc-100 bg-zinc-50/50 mt-1">
+                    <Link 
+                      href="/notifications" 
+                      onClick={() => setIsOpen(false)}
+                      className="block w-full text-center p-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black hover:bg-zinc-100 rounded transition-colors"
+                    >
+                      View All Notifications
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
