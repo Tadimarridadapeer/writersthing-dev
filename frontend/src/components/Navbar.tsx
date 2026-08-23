@@ -99,7 +99,7 @@ export default function Navbar() {
                     <img 
                       src="/logo-festive.png" 
                       alt="Writer's Thing" 
-                      className="h-10 md:h-12 w-auto object-contain group-hover:opacity-90 transition-opacity" 
+                      className="h-16 w-auto object-contain scale-[1.8] md:scale-[2.2] origin-left group-hover:opacity-90 transition-all ml-2" 
                     />
                   </Link>
                 </div>
@@ -209,7 +209,7 @@ export default function Navbar() {
                       <Menu size={24} />
                     </button>
                     <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                      <img src="/logo-festive.png" alt="Writer's Thing" className="h-10 w-auto max-w-[250px] object-contain" />
+                      <img src="/logo-festive.png" alt="Writer's Thing" className="h-16 w-auto max-w-[250px] object-contain scale-[1.8] origin-left ml-4" />
                     </Link>
                   </div>
                   
