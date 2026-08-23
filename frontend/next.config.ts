@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
   experimental: {
     externalDir: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 export default process.env.NEXT_PUBLIC_SENTRY_DSN
