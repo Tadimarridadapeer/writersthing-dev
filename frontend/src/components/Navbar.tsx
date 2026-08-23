@@ -93,49 +93,16 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center gap-2.5 group">
-                  {/* India flag tricolor — vertical bars */}
-                  <span
-                    className="flex flex-col self-center overflow-hidden"
-                    style={{ width: '7px', height: '38px', borderRadius: '3px', gap: 0, opacity: 0.5 }}
-                    aria-hidden="true"
-                  >
-                    {/* Saffron */}
-                    <span style={{ flex: 1, backgroundColor: '#FF9933', display: 'block' }} />
-                    {/* White band with Ashoka Chakra — bordered so it shows on white navbar */}
-                    <span
-                      style={{
-                        flex: 1,
-                        backgroundColor: '#FFFFFF',
-                        borderTop: '0.5px solid #d1d5db',
-                        borderBottom: '0.5px solid #d1d5db',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <svg viewBox="0 0 20 20" width="7" height="7" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="10" cy="10" r="8.5" fill="none" stroke="#000080" strokeWidth="1.2"/>
-                        <circle cx="10" cy="10" r="2.2" fill="#000080"/>
-                        {CHAKRA_SPOKES.map((s, i) => (
-                          <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#000080" strokeWidth="0.9"/>
-                        ))}
-                      </svg>
-                    </span>
-                    {/* Green */}
-                    <span style={{ flex: 1, backgroundColor: '#138808', display: 'block' }} />
-                  </span>
-
-                  {/* Logo text + beta */}
-                  <span className="flex flex-col leading-none">
-                    <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black group-hover:opacity-80 transition-opacity">
-                      Writer's Thing
-                    </span>
-                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-400 mt-0.5 ml-0.5">
-                      beta
-                    </span>
-                  </span>
-                </Link>
+                {/* Logo Section */}
+                <div className="flex shrink-0">
+                  <Link href="/" className="flex items-center group">
+                    <img 
+                      src="/logo-festive.png" 
+                      alt="Writer's Thing" 
+                      className="h-10 md:h-12 w-auto object-contain group-hover:opacity-90 transition-opacity" 
+                    />
+                  </Link>
+                </div>
               </div>
 
               {/* Desktop Menu */}
@@ -242,7 +209,7 @@ export default function Navbar() {
                       <Menu size={24} />
                     </button>
                     <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                      <img src="/logo.png" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain" style={{ filter: 'grayscale(100%)' }} />
+                      <img src="/logo-festive.png" alt="Writer's Thing" className="h-10 w-auto max-w-[250px] object-contain" />
                     </Link>
                   </div>
                   
