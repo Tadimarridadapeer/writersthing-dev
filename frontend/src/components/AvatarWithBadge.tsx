@@ -30,12 +30,20 @@ export default function AvatarWithBadge({ userId, avatarUrl, name, className = "
 
   return (
     <div className={`relative inline-block ${className}`}>
-      <div 
-        className={`w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-white text-[9px] font-black`}
-        title={name && !name.includes('@') ? name : "Author"}
-      >
-        {initials}
-      </div>
+      {avatarUrl ? (
+        <img 
+          src={avatarUrl} 
+          alt={name || "Avatar"} 
+          className="w-full h-full rounded-full object-cover" 
+        />
+      ) : (
+        <div 
+          className={`w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-white text-xs font-black`}
+          title={name && !name.includes('@') ? name : "Author"}
+        >
+          {initials}
+        </div>
+      )}
     </div>
   );
 }

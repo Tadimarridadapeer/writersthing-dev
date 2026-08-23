@@ -70,10 +70,33 @@ export default function AuthorProfilePage() {
       const directUserRes = await supabase.from("users").select("*").eq("id", authorId).maybeSingle();
 
       if (!directUserRes.data) {
-        // authorId might be an authors.id — look it up to get the real user_id
+        // authorId might be an authors.id - look it up to get the real user_id
         const authorLookup = await supabase.from("authors").select("user_id").eq("id", authorId).maybeSingle();
         if (authorLookup.data?.user_id) {
           resolvedUserId = authorLookup.data.user_id;
+        } else {
+          // authorId might be a founding_writers id (for manually added writers without an account yet)
+          const founderLookup = await supabase.from("founding_writers").select("*").eq("id", authorId).maybeSingle();
+          if (founderLookup.data) {
+            setAuthorUser({
+              id: founderLookup.data.id,
+              name: founderLookup.data.full_name,
+              email: founderLookup.data.email_address,
+              bio: "Official Founding Writer at Writer's Thing.",
+              avatar_url: ""
+            });
+            setAuthorProfile(null);
+            setFollowersCount(0);
+            setIsFollowing(false);
+            setAuthorBadges([{ id: "fw_badge", badge_type: "founder", badge_name: "Founding Writer" }]);
+            setWriterServices([{ id: "dummy_srv", service_name: "Freelance Writing", description: "Available for freelance projects, ghostwriting, and editing.", rate_min: null, rate_max: null }]);
+            setFoundingWriterNumber(founderLookup.data.founder_number);
+            setBooks([]);
+            setBlogs([]);
+            setStorys([]);
+            setLoading(false);
+            return;
+          }
         }
       }
 

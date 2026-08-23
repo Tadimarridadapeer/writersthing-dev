@@ -47,10 +47,10 @@ export async function GET(req: Request) {
     const freelancers = data.map((record: any) => {
       const user = record.users || {};
       return {
-        id: user.id || record.user_id,
+        id: user.id || record.user_id || record.id,
         name: user.name || record.full_name,
         email: user.email || record.email_address,
-        avatar_url: user.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80",
+        avatar_url: user.avatar_url || "",
         bio: user.bio || "Official Founding Writer at Writer's Thing.",
         skills: ["Writing", "Editing", "Proofreading"], // Default skills since we don't have a skills column
       };

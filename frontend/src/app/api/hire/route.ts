@@ -69,18 +69,38 @@ export async function POST(req: Request) {
     }
 
     // Fetch writer details for the email
-    const { data: writerData } = await supabase
+    let writerEmail = null;
+    let writerName = "Writer";
+
+    const { data: userData } = await supabase
       .from("users")
       .select("name, email")
       .eq("id", writer_id)
-      .single();
+      .maybeSingle();
 
-    if (writerData && writerData.email) {
+    if (userData && userData.email) {
+      writerEmail = userData.email;
+      writerName = userData.name || writerName;
+    } else {
+      // Fallback to check if it's a founding_writers ID
+      const { data: founderData } = await supabase
+        .from("founding_writers")
+        .select("full_name, email_address")
+        .eq("id", writer_id)
+        .maybeSingle();
+        
+      if (founderData && founderData.email_address) {
+        writerEmail = founderData.email_address;
+        writerName = founderData.full_name || writerName;
+      }
+    }
+
+    if (writerEmail) {
       // Send notification email to writer
       try {
         const res = await sendHireRequestEmail(
-          writerData.email,
-          writerData.name || "Writer",
+          writerEmail,
+          writerName,
           full_name || "A Client",
           project_category,
           project_summary

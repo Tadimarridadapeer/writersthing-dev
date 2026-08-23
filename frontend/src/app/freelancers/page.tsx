@@ -79,12 +79,18 @@ function FreelancersContent() {
                     <span className="text-[9px] font-black uppercase tracking-widest text-amber-600">Verified</span>
                   </div>
 
-                  <div className="w-28 h-28 mb-5 rounded-full overflow-hidden border-4 border-white shadow-lg relative group-hover:scale-105 transition-transform duration-500">
-                    <img 
-                      src={freelancer.avatar_url} 
-                      alt={freelancer.name}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-28 h-28 mb-5 rounded-full overflow-hidden border-4 border-white shadow-lg relative group-hover:scale-105 transition-transform duration-500 bg-zinc-100 flex items-center justify-center">
+                    {freelancer.avatar_url ? (
+                      <img 
+                        src={freelancer.avatar_url} 
+                        alt={freelancer.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-4xl font-black text-zinc-400">
+                        {freelancer.name ? freelancer.name.charAt(0).toUpperCase() : "?"}
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-xl font-black tracking-tight text-zinc-900 mb-1">{freelancer.name}</h3>
                 </div>
