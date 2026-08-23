@@ -81,21 +81,12 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-12 md:h-16 px-2 md:px-8">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] sm:w-[450px] md:w-[580px] pointer-events-none group-hover:scale-105 transition-transform duration-500 z-0">
-                    <img 
-                      src="/festive-bg.png" 
-                      alt="Festive theme" 
-                      className="w-full h-auto object-contain"
-                    />
-                  </div>
-                  
-                  {/* Logo text */}
-                  <span className="relative z-10 flex flex-col leading-none pt-1">
-                    <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black">
-                      Writer's Thing
-                    </span>
-                  </span>
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-12 md:h-16 py-1">
+                  <img 
+                    src="/festive-logo.jpg" 
+                    alt="Writer's Thing" 
+                    className="h-full w-auto object-contain mix-blend-multiply group-hover:scale-[1.02] transition-transform duration-300"
+                  />
                 </Link>
               </div>
 
@@ -202,9 +193,9 @@ export default function Navbar() {
                     <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-500 hover:text-black">
                       <Menu size={24} />
                     </button>
-                    <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                      <img src="/logo.png" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain" style={{ filter: 'grayscale(100%)' }} />
-                    </Link>
+                      <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
+                        <img src="/festive-logo.jpg" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain mix-blend-multiply" />
+                      </Link>
                   </div>
                   
                   <div className="flex flex-col py-4">
