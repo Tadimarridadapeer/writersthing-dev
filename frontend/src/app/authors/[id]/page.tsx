@@ -120,22 +120,18 @@ export default function AuthorProfilePage() {
       setWriterServices(servicesRes?.data || []);
       setFoundingWriterNumber(founderRes.data?.founder_number || null);
 
-      // Books, blogs and storys query depends on author profileData ID
-      if (profileRes.data) {
-        const [booksDataRes, blogsDataRes, storysDataRes] = await Promise.all([
-          supabase.from("books").select("*").eq("author_id", profileRes.data.id).eq("status", "Published").order("created_at", { ascending: false }),
-          supabase.from("blogs").select("*").or(`author_id.eq.${profileRes.data.id},author_id.eq.${resolvedUserId}`).order("created_at", { ascending: false }),
-          supabase.from("stories").select("*").or(`author_id.eq.${profileRes.data.id},author_id.eq.${resolvedUserId}`).order("created_at", { ascending: false })
-        ]);
-        
-        setBooks(booksDataRes.data || []);
-        setBlogs(blogsDataRes.data || []);
-        setStorys(storysDataRes.data || []);
-      } else {
-        setBooks([]);
-        setBlogs([]);
-        setStorys([]);
-      }
+      // Books, blogs and storys query depends on author profileData ID OR resolvedUserId
+      const authorIdForQuery = profileRes.data?.id || resolvedUserId;
+      
+      const [booksDataRes, blogsDataRes, storysDataRes] = await Promise.all([
+        supabase.from("books").select("*").or(`author_id.eq.${authorIdForQuery},author_id.eq.${resolvedUserId}`).eq("status", "Published").order("created_at", { ascending: false }),
+        supabase.from("blogs").select("*").or(`author_id.eq.${authorIdForQuery},author_id.eq.${resolvedUserId}`).order("created_at", { ascending: false }),
+        supabase.from("stories").select("*").or(`author_id.eq.${authorIdForQuery},author_id.eq.${resolvedUserId}`).order("created_at", { ascending: false })
+      ]);
+      
+      setBooks(booksDataRes.data || []);
+      setBlogs(blogsDataRes.data || []);
+      setStorys(storysDataRes.data || []);
     } catch (err) {
       console.error("Error fetching author details:", err);
     } finally {

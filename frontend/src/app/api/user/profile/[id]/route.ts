@@ -14,14 +14,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let resolvedUserId = id;
 
     // First try finding the user by users.id
-    let userRes = await supabase.from("users").select("id, name, email, avatar_url, bio").eq("id", id).maybeSingle();
+    let userRes = await supabase.from("users").select("id, name, email, avatar_url, bio, available_for_hire, is_verified_writer").eq("id", id).maybeSingle();
     
     // If not found, try finding by authors.id
     if (!userRes.data) {
       const authorRes = await supabase.from("authors").select("user_id").eq("id", id).maybeSingle();
       if (authorRes.data?.user_id) {
         resolvedUserId = authorRes.data.user_id;
-        userRes = await supabase.from("users").select("id, name, email, avatar_url, bio").eq("id", resolvedUserId).maybeSingle();
+        userRes = await supabase.from("users").select("id, name, email, avatar_url, bio, available_for_hire, is_verified_writer").eq("id", resolvedUserId).maybeSingle();
       }
     }
 
