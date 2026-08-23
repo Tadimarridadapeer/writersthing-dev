@@ -38,13 +38,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
-      router.push("/login?redirect=/admin");
+      router.replace("/login?redirect=/admin");
       return;
     }
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
     if (parsedUser.role !== "Admin") {
-      router.push("/profile");
+      router.replace("/profile");
     }
     fetchGlobalData();
   }, [router]);
@@ -62,7 +62,7 @@ export default function AdminDashboard() {
       // 2. Fetch Books for Review
       const { data: pending, count: pendingCount } = await supabase
         .from("books")
-        .select("*, authors:author_id(name)")
+        .select("*, authors:author_id(user_id, users!authors_user_id_fkey(name))")
         .eq("status", "Review");
 
       setStats({
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                 <div key={book.id} className="flex items-center justify-between p-6 bg-zinc-50 border border-zinc-100 rounded-sm group hover:border-black transition-all">
                   <div>
                     <h3 className="font-heading font-bold text-lg mb-1">{book.title}</h3>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {book.authors?.name || "Unknown Author"} • {book.category}</p>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">by {book.authors?.users?.name || book.authors?.name || "Unknown Author"} • {book.category}</p>
                   </div>
                   <div className="flex gap-2">
                     <button 

@@ -37,13 +37,13 @@ export default function FoundingWritersAdmin() {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
-      router.push("/login?redirect=/admin/founding-writers");
+      router.replace("/login?redirect=/admin/founding-writers");
       return;
     }
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
     if (parsedUser.role !== "Admin") {
-      router.push("/profile");
+      router.replace("/profile");
       return;
     }
     fetchData();

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, User, Share2, Loader2, Heart, MessageSquare, Bookmark, Star } from "lucide-react";
+import { ArrowLeft, Clock, User, Share2, Loader2, Heart, MessageSquare, Bookmark, Star, UserPlus, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import DictionaryWrapper from "@/components/DictionaryWrapper";
 import { ReviewSection } from "@/components/ReviewSection";
@@ -512,7 +512,7 @@ export default function BlogPost() {
     try {
       const res = await fetch(`/api/manuscripts/${params.id}`, { method: "DELETE" });
       if (res.ok) {
-        router.push("/blogs");
+        router.push("/marketplace");
       } else {
         alert("Failed to delete blog.");
       }
@@ -554,8 +554,8 @@ export default function BlogPost() {
       <div className="h-screen flex flex-col items-center justify-center bg-white gap-6">
         <h1 className="text-2xl font-heading font-bold uppercase tracking-tight text-amber-600">DRAFT STORY</h1>
         <p className="text-zinc-500 font-medium">This story is a draft and is not published yet.</p>
-        <Link href="/blogs" className="px-8 py-3 bg-black text-white font-bold rounded-sm shadow-xl">
-          Return to Blogs
+        <Link href="/marketplace" className="px-8 py-3 bg-black text-white font-bold rounded-sm shadow-xl">
+          Return to Marketplace
         </Link>
       </div>
     );
@@ -637,13 +637,13 @@ export default function BlogPost() {
                     <div className="flex gap-2">
                       <Link
                         href={`/write/${params.id}`}
-                        className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-black bg-black text-white hover:bg-zinc-800 transition-all flex items-center justify-center"
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-xs font-black uppercase tracking-widest border-black bg-black text-white hover:bg-zinc-800"
                       >
                         Edit Story
                       </Link>
                       <button
                         onClick={handleDelete}
-                        className="px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-600 text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-xs font-black uppercase tracking-widest border-rose-600 text-rose-600 hover:bg-rose-50"
                       >
                         Delete
                       </button>
@@ -651,12 +651,13 @@ export default function BlogPost() {
                   ) : (
                     <button 
                       onClick={handleFollow}
-                      className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                      className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-xs font-black uppercase tracking-widest ${
                         isFollowing 
-                          ? "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:border-zinc-300" 
-                          : "bg-black text-white hover:bg-zinc-800"
+                          ? "border-black bg-black text-white" 
+                          : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-black hover:border-zinc-300"
                       }`}
                     >
+                      {isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
                       {isFollowing ? "Following" : "Follow"}
                     </button>
                   )
@@ -665,31 +666,39 @@ export default function BlogPost() {
                 {/* Like Button */}
                 <button 
                   onClick={handleLike}
-                  className={`p-3.5 border transition-all rounded-xl ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-xs font-black uppercase tracking-widest ${
                     isLiked 
-                      ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100" 
-                      : "border-zinc-100 hover:bg-zinc-50 text-zinc-500 hover:text-black"
+                      ? "border-black bg-black text-white" 
+                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-black hover:border-zinc-300"
                   }`}
                   title="Like story"
                 >
-                  <Heart size={16} className={isLiked ? "fill-rose-500 text-rose-500" : ""} />
+                  <Heart size={16} className={isLiked ? "fill-white" : ""} />
+                  {isLiked ? "Liked" : "Like"}
                 </button>
                 
                 {/* Save Button */}
                 <button 
                   onClick={handleSave}
-                  className={`p-3.5 border transition-all rounded-xl ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-xs font-black uppercase tracking-widest ${
                     isSaved 
-                      ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100" 
-                      : "border-zinc-100 hover:bg-zinc-50 text-zinc-500 hover:text-black"
+                      ? "border-black bg-black text-white" 
+                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-black hover:border-zinc-300"
                   }`}
                   title="Save to Library"
                 >
-                  <Bookmark size={16} className={isSaved ? "fill-amber-500 text-amber-500" : ""} />
+                  <Bookmark size={16} className={isSaved ? "fill-white" : ""} />
+                  {isSaved ? "Saved" : "Save"}
                 </button>
 
-                <button onClick={handleShare} className="p-3.5 border border-zinc-100 hover:bg-black hover:text-white transition-all rounded-xl">
+                {/* Share Button (Reference) */}
+                <button 
+                  onClick={handleShare} 
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 transition-all text-xs font-black uppercase tracking-widest hover:bg-zinc-50 hover:text-black hover:border-zinc-300"
+                  title="Reference / Share"
+                >
                   <Share2 size={16} />
+                  Reference
                 </button>
               </div>
             </div>
@@ -728,20 +737,20 @@ export default function BlogPost() {
                   <div className="flex flex-wrap items-center gap-6 text-sm text-zinc-500 pt-2 border-t border-zinc-50">
                     <button 
                       onClick={handleLike} 
-                      className={`flex items-center gap-1.5 transition-all ${isLiked ? "text-rose-600 font-bold" : "hover:text-black"}`}
+                      className={`flex items-center gap-1.5 transition-all ${isLiked ? "text-black font-bold" : "hover:text-black"}`}
                     >
-                      <Heart size={16} className={`text-rose-500 ${isLiked ? "fill-rose-500" : ""}`} /> 
+                      <Heart size={16} className={`text-zinc-500 ${isLiked ? "fill-black text-black" : ""}`} /> 
                       {likesCount} {likesCount === 1 ? "like" : "likes"}
                     </button>
                     <button 
                       onClick={handleSave} 
-                      className={`flex items-center gap-1.5 transition-all ${isSaved ? "text-amber-600 font-bold" : "hover:text-black"}`}
+                      className={`flex items-center gap-1.5 transition-all ${isSaved ? "text-black font-bold" : "hover:text-black"}`}
                     >
-                      <Bookmark size={16} className={`text-amber-500 ${isSaved ? "fill-amber-500" : ""}`} /> 
+                      <Bookmark size={16} className={`text-zinc-500 ${isSaved ? "fill-black text-black" : ""}`} /> 
                       {isSaved ? "Saved" : "Save story"}
                     </button>
                     <span className="flex items-center gap-1.5">
-                      <MessageSquare size={16} className="text-blue-500" /> 
+                      <MessageSquare size={16} className="text-zinc-500" /> 
                       {comments.length} comments
                     </span>
                     {avgRating && (

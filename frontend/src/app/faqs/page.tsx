@@ -49,7 +49,7 @@ export default function FAQsPage() {
       question: "How do I contact Writer's Thing?",
       answer: (
         <>
-          You can reach our support team directly at <a href="mailto:thewritersthing@gmail.com" className="underline hover:text-black transition-colors">thewritersthing@gmail.com</a> or message us via the WhatsApp Community.
+          You can reach our support team directly at <a href="mailto:hello@writersthing.com" className="underline hover:text-black transition-colors">hello@writersthing.com</a> or message us via the WhatsApp Community.
         </>
       )
     }
@@ -97,7 +97,7 @@ export default function FAQsPage() {
           Didn't find your answer?
         </h2>
         <p className="text-zinc-600 mb-8 font-medium">
-          Reach us anytime at <a href="mailto:thewritersthing@gmail.com" className="text-black font-bold hover:underline underline-offset-4 transition-all">thewritersthing@gmail.com</a>
+          Reach us anytime at <a href="mailto:hello@writersthing.com" className="text-black font-bold hover:underline underline-offset-4 transition-all">hello@writersthing.com</a>
         </p>
         <Link 
           href="/contact"

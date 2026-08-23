@@ -270,9 +270,9 @@ function WritePageContent() {
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !pdfFile || !category.trim()) {
-      window.alert("Please select a category first.");
-      setErrorMessage("A Title, Category, and PDF Manuscript are required to publish a book.");
+    if (!title || !pdfFile || !category.trim() || !coverFile) {
+      window.alert("A Title, Category, Cover Image, and PDF Manuscript are required to publish a book.");
+      setErrorMessage("A Title, Category, Cover Image, and PDF Manuscript are required to publish a book.");
       return;
     }
 
@@ -337,17 +337,15 @@ function WritePageContent() {
 
       let thumbnailUrl = "";
       if (storyThumbnail) {
-        const ext = storyThumbnail.name.split(".").pop();
-        const imgPath = `${userId}/${Date.now()}-story.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("story-images")
-          .upload(imgPath, storyThumbnail);
-        
-        if (uploadError) throw new Error("Thumbnail Upload Failed: " + uploadError.message);
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from("story-images")
-          .getPublicUrl(imgPath);
+        const formData = new FormData();
+        formData.append("file", storyThumbnail);
+        formData.append("type", "Story");
+        const uploadRes = await fetch("/api/stories/upload-cover", { method: "POST", body: formData });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({ message: "Upload failed" }));
+          throw new Error("Thumbnail Upload Failed: " + (err.message || "Unknown error"));
+        }
+        const { publicUrl } = await uploadRes.json();
         thumbnailUrl = publicUrl;
       }
 
@@ -426,17 +424,15 @@ function WritePageContent() {
 
       let bannerUrl = "";
       if (blogBanner) {
-        const ext = blogBanner.name.split(".").pop();
-        const imgPath = `${userId}/${Date.now()}-blog.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("story-images")
-          .upload(imgPath, blogBanner);
-        
-        if (uploadError) throw new Error("Banner Upload Failed: " + uploadError.message);
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from("story-images")
-          .getPublicUrl(imgPath);
+        const formData = new FormData();
+        formData.append("file", blogBanner);
+        formData.append("type", "Blog");
+        const uploadRes = await fetch("/api/stories/upload-cover", { method: "POST", body: formData });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({ message: "Upload failed" }));
+          throw new Error("Banner Upload Failed: " + (err.message || "Unknown error"));
+        }
+        const { publicUrl } = await uploadRes.json();
         bannerUrl = publicUrl;
       }
 
@@ -610,6 +606,11 @@ function WritePageContent() {
                       return; 
                     }
                     if (!content.trim()) { setErrorMessage("Please write some content before publishing."); return; }
+                    if (!coverFile) { 
+                      window.alert("Please upload a cover/image before publishing.");
+                      setErrorMessage("Please upload a cover/image before publishing."); 
+                      return; 
+                    }
                     setIsSubmitting(true);
                     try {
                       const id = await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, true);
@@ -632,12 +633,27 @@ function WritePageContent() {
                 <BlogEditorUI 
                   onBack={handleBack}
                   onSaveDraft={async () => {
+                    if (!category.trim()) {
+                      window.alert("Please select a category first.");
+                      setErrorMessage("Please select a category first."); 
+                      return;
+                    }
                     setIsSubmitting(true);
                     try {
                       await saveToDatabase({ type: "Blog", title, category, content: content, coverFile }, false);
                     } finally { setIsSubmitting(false); }
                   }}
                   onPublish={async () => {
+                    if (!category.trim()) {
+                      window.alert("Please select a category first.");
+                      setErrorMessage("Please select a category first."); 
+                      return;
+                    }
+                    if (!coverFile) { 
+                      window.alert("Please upload a cover/image before publishing.");
+                      setErrorMessage("Please upload a cover/image before publishing."); 
+                      return; 
+                    }
                     setIsSubmitting(true);
                     try {
                       const id = await saveToDatabase({ type: "Blog", title, category, content: content, coverFile }, true);
@@ -646,6 +662,7 @@ function WritePageContent() {
                     finally { setIsSubmitting(false); }
                   }}
                   title={title} setTitle={setTitle}
+                  category={category} setCategory={setCategory}
                   content={content} setContent={setContent}
                   onBannerChange={(e: any) => setCoverFile(e.target.files?.[0] || null)}
                   isSubmitting={isSubmitting} errorMessage={errorMessage}
@@ -690,7 +707,10 @@ function WritePageContent() {
                 {selectedType === "Book" ? (
                   <>
                     <button 
-                      onClick={() => router.push("/marketplace")}
+                      onClick={() => {
+                        router.refresh();
+                        router.push("/marketplace");
+                      }}
                       className="px-12 py-5 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all"
                     >
                       Go to Marketplace
@@ -706,6 +726,7 @@ function WritePageContent() {
                   <>
                     <button 
                       onClick={() => {
+                        router.refresh();
                         if (selectedType === "Blog") router.push(`/blogs/${createdId}`);
                         else if (selectedType === "Story") router.push(`/stories/${createdId}`);
                         else router.push("/profile");
@@ -817,8 +838,16 @@ function UpiInputField({ activeUpiId, upiIdInput, setUpiIdInput }: any) {
 function CategoryInputField({ label, value, onChange }: any) {
   const CATEGORY_SUGGESTIONS = [
     "Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", 
-    "Education", "Self Improvement", "Poetry", "History", "Others"
+    "Education", "Self Improvement", "Poetry", "History", "Love", "Others"
   ];
+  
+  const [showCustom, setShowCustom] = useState(false);
+
+  useEffect(() => {
+    if (value && !CATEGORY_SUGGESTIONS.includes(value) && value !== "Others") {
+      setShowCustom(true);
+    }
+  }, []);
 
   return (
     <div className="space-y-4 relative">
@@ -826,8 +855,16 @@ function CategoryInputField({ label, value, onChange }: any) {
       <div className="relative">
         <select 
           required
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={showCustom ? "Others" : (value || "")}
+          onChange={(e) => {
+            if (e.target.value === "Others") {
+              setShowCustom(true);
+              onChange(""); 
+            } else {
+              setShowCustom(false);
+              onChange(e.target.value);
+            }
+          }}
           className="w-full bg-white border border-zinc-300 p-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all text-zinc-950 appearance-none cursor-pointer"
         >
           <option value="" disabled>SELECT A CATEGORY...</option>
@@ -839,6 +876,18 @@ function CategoryInputField({ label, value, onChange }: any) {
           <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
         </div>
       </div>
+      {showCustom && (
+        <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <input
+            type="text"
+            required
+            placeholder="TYPE YOUR CATEGORY HERE..."
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full bg-white border border-zinc-300 p-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all text-zinc-950"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -846,8 +895,16 @@ function CategoryInputField({ label, value, onChange }: any) {
 function StoryCategoryInputField({ label, value, onChange }: any) {
   const CATEGORY_SUGGESTIONS = [
     "Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", 
-    "Education", "Self Improvement", "Poetry", "History", "Others"
+    "Education", "Self Improvement", "Poetry", "History", "Love", "Others"
   ];
+  
+  const [showCustom, setShowCustom] = useState(false);
+
+  useEffect(() => {
+    if (value && !CATEGORY_SUGGESTIONS.includes(value) && value !== "Others") {
+      setShowCustom(true);
+    }
+  }, []);
 
   return (
     <div className="flex flex-col gap-2 flex-grow min-w-[200px] relative">
@@ -855,8 +912,16 @@ function StoryCategoryInputField({ label, value, onChange }: any) {
       <div className="relative">
         <select 
           required
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={showCustom ? "Others" : (value || "")}
+          onChange={(e) => {
+            if (e.target.value === "Others") {
+              setShowCustom(true);
+              onChange(""); 
+            } else {
+              setShowCustom(false);
+              onChange(e.target.value);
+            }
+          }}
           className="bg-transparent text-sm font-bold uppercase tracking-widest outline-none border border-zinc-300 p-4 w-full focus:border-zinc-950 transition-colors text-zinc-950 appearance-none cursor-pointer"
         >
           <option value="" disabled>SELECT A CATEGORY...</option>
@@ -868,6 +933,18 @@ function StoryCategoryInputField({ label, value, onChange }: any) {
           <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
         </div>
       </div>
+      {showCustom && (
+        <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <input
+            type="text"
+            required
+            placeholder="TYPE YOUR CATEGORY HERE..."
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full bg-transparent border border-zinc-300 p-4 text-sm font-bold uppercase tracking-widest outline-none focus:border-zinc-950 transition-all text-zinc-950"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1074,6 +1151,19 @@ function StoryEditorUI({
   isSubmitting, errorMessage,
   draftStatus, lastSaved
 }: any) {
+  const CATEGORY_SUGGESTIONS = [
+    "Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", 
+    "Education", "Self Improvement", "Poetry", "History", "Love", "Others"
+  ];
+  
+  const [showCustomCat, setShowCustomCat] = useState(false);
+
+  useEffect(() => {
+    if (category && !CATEGORY_SUGGESTIONS.includes(category) && category !== "Others") {
+      setShowCustomCat(true);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#FDFCF8] px-4 py-12 md:py-24 text-zinc-900 font-serif">
       <div className="max-w-[700px] mx-auto">
@@ -1096,15 +1186,36 @@ function StoryEditorUI({
             />
             
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className={`w-full text-sm font-bold tracking-widest uppercase ${category ? 'text-zinc-600' : 'text-zinc-300'} bg-transparent outline-none transition-all border-none focus:ring-0 appearance-none cursor-pointer p-0`}
+              value={showCustomCat ? "Others" : (category || "")}
+              onChange={(e) => {
+                if (e.target.value === "Others") {
+                  setShowCustomCat(true);
+                  setCategory("");
+                } else {
+                  setShowCustomCat(false);
+                  setCategory(e.target.value);
+                }
+              }}
+              className={`w-full text-sm font-bold tracking-widest uppercase ${category || showCustomCat ? 'text-zinc-600' : 'text-zinc-300'} bg-transparent outline-none transition-all border-none focus:ring-0 appearance-none cursor-pointer p-0`}
             >
               <option value="" disabled>CATEGORY (E.G. FICTION, FANTASY, ROMANCE)</option>
-              {["Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", "Education", "Self Improvement", "Poetry", "History", "Others"].map(c => (
+              {CATEGORY_SUGGESTIONS.map(c => (
                 <option key={c} value={c} className="text-zinc-900">{c}</option>
               ))}
             </select>
+            
+            {showCustomCat && (
+              <div className="animate-in fade-in duration-300 pt-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="TYPE YOUR CATEGORY HERE..."
+                  value={category || ""}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-transparent border-b border-zinc-300 pb-2 text-sm font-bold tracking-widest uppercase outline-none focus:border-zinc-950 transition-all text-zinc-600 placeholder:text-zinc-300"
+                />
+              </div>
+            )}
             
             <div className="pt-4">
               <FileUploadField 
@@ -1153,6 +1264,7 @@ function BlogEditorUI({
   onSaveDraft,
   onPublish, 
   title, setTitle, 
+  category, setCategory,
   content, setContent,
   onBannerChange, 
   isSubmitting, errorMessage,
@@ -1269,6 +1381,11 @@ function BlogEditorUI({
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Category */}
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <CategoryInputField label="Category" placeholder="e.g. Technology, Lifestyle, Fiction..." value={category} onChange={setCategory} />
               </div>
 
               {/* Content */}

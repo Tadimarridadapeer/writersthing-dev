@@ -217,7 +217,7 @@ export const PUT = withObservability(async (req: Request) => {
     const updatePayload: any = {
       title,
       description,
-      status: isPublishing ? "Published" : "Draft"
+      ...(isPublishing ? { status: "Published" } : {})
     };
 
     if (category) {
@@ -273,7 +273,13 @@ export const PUT = withObservability(async (req: Request) => {
           .from(STORAGE_CONFIG.buckets.publicCovers)
           .getPublicUrl(bodyJson.coverPath);
         updatePayload.cover_url = publicUrl;
+      } else {
+        const { data: existingBook } = await supabaseAdmin.from("books").select("cover_url").eq("id", id).single();
+        if (!existingBook?.cover_url) {
+          return NextResponse.json({ message: "A cover image is required to publish this book." }, { status: 400 });
+        }
       }
+      
       if (bodyJson.pdfPath) {
         updatePayload.pdf_path = bodyJson.pdfPath;
       }

@@ -10,23 +10,25 @@ function extractDescription(content: string) {
   return plainText.length > 0 ? plainText.substring(0, 160) + "..." : "No synopsis available.";
 }
 
-function extractFirstImage(content: string, defaultImage: string) {
-  if (!content) return defaultImage;
+import { getFallbackImage } from "@/lib/fallbacks";
+
+function extractFirstImage(content: string, category: string, id: string, useFallback: boolean = true) {
+  if (!content) return useFallback ? getFallbackImage(category, id) : null;
   const match = content.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return match ? match[1] : defaultImage;
+  return match ? match[1] : (useFallback ? getFallbackImage(category, id) : null);
 }
 
-function getSupabaseAdmin() {
-  return createServerClient(
+import { createClient } from "@supabase/supabase-js";
+
+function getTrueSupabaseAdmin() {
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookies: {
-        async get(name: string) {
-          const cookieStore = await cookies();
-          return cookieStore.get(name)?.value;
-        },
-      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
     }
   );
 }
@@ -95,7 +97,7 @@ export async function GET(req: Request) {
         title: item.title,
         description: extractDescription(item.body),
         category: item.category || "General",
-        cover_url: item.cover_image || extractFirstImage(item.body, "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800"),
+        cover_url: item.cover_image || extractFirstImage(item.body, item.category || "General", item.id, false),
         created_at: item.created_at,
         authors: {
           name: item.authors?.users?.name || "Unknown Author",
@@ -146,7 +148,7 @@ export async function GET(req: Request) {
         title: item.title,
         description: extractDescription(item.content),
         category: "Blog",
-        cover_url: item.banner_url || extractFirstImage(item.content, "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?q=80&w=800"),
+        cover_url: item.banner_url || extractFirstImage(item.content, "Blog", item.id),
         created_at: item.created_at,
         authors: {
           name: item.authors?.users?.name || "Unknown Author",
@@ -183,8 +185,9 @@ export async function POST(req: Request) {
     // Ensure author profile exists
     const authorProfile = await ensureAuthorProfile(supabase, user.id);
 
-    const { title, description, content, category, type, coverUrl, status } = await req.json();
-    const supabaseAdmin = getSupabaseAdmin();
+    const { title, description, content, category, type, coverUrl, cover_image: coverImageField, status } = await req.json();
+    const resolvedCoverUrl = coverUrl || coverImageField || "";
+    const supabaseAdmin = getTrueSupabaseAdmin();
 
     if (type === "Story") {
       const slug = title
@@ -199,7 +202,7 @@ export async function POST(req: Request) {
             slug,
             body: content || description || "",
             category: category || "General",
-            cover_image: coverUrl || "",
+            ...(resolvedCoverUrl ? { cover_image: resolvedCoverUrl } : {}),
             author_id: authorProfile.id,
             status: status || (req.headers.get("X-Publish") === "true" ? "Published" : "Draft")
           }
@@ -224,8 +227,9 @@ export async function POST(req: Request) {
           {
             title,
             content: content || description || "",
-            banner_url: coverUrl || "",
-            author_id: authorProfile.id
+            ...(resolvedCoverUrl ? { banner_url: resolvedCoverUrl } : {}),
+            author_id: authorProfile.id,
+            status: status || (req.headers.get("X-Publish") === "true" ? "Published" : "Draft")
           }
         ])
         .select()
@@ -257,14 +261,15 @@ export async function PUT(req: Request) {
     }
 
     const authorProfile = await ensureAuthorProfile(supabase, user.id);
-    const { id, title, description, content, category, type, coverUrl } = await req.json();
+    const { id, title, description, content, category, type, coverUrl, cover_image: coverImageField } = await req.json();
+    const putCoverUrl = coverUrl || coverImageField || "";
 
     if (!id) {
       return NextResponse.json({ message: "ID is required for update" }, { status: 400 });
     }
 
     const isPublishing = req.headers.get("X-Publish") === "true";
-    const supabaseAdmin = getSupabaseAdmin();
+    const supabaseAdmin = getTrueSupabaseAdmin();
 
     if (type === "Story") {
       const { data, error } = await supabaseAdmin
@@ -273,8 +278,8 @@ export async function PUT(req: Request) {
           title,
           body: content || description || "",
           category: category || "General",
-          cover_image: coverUrl || "",
-          status: isPublishing ? "Published" : "Draft"
+          ...(putCoverUrl ? { cover_image: putCoverUrl } : {}),
+          ...(isPublishing ? { status: "Published" } : {})
         })
         .eq("id", id)
         .eq("author_id", authorProfile.id)
@@ -291,7 +296,8 @@ export async function PUT(req: Request) {
         .update({
           title,
           content: content || description || "",
-          banner_url: coverUrl || ""
+          ...(putCoverUrl ? { banner_url: putCoverUrl } : {}),
+          ...(isPublishing ? { status: "Published" } : {})
         })
         .eq("id", id)
         .eq("author_id", authorProfile.id)

@@ -78,7 +78,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">7. Contact Us</h2>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              If you have any questions about these Terms, please contact us at <a href="mailto:contact@writersthing.com" className="text-black font-bold hover:underline">contact@writersthing.com</a>.
+              If you have any questions about these Terms, please contact us at <a href="mailto:hello@writersthing.com" className="text-black font-bold hover:underline">hello@writersthing.com</a>.
             </p>
           </section>
         </div>

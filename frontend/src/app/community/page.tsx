@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
+
 import { ChevronRight, MessageCircle, PenTool, Star, Users, Calendar, Megaphone } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import Breadcrumbs from "@/components/Breadcrumbs";
@@ -52,12 +52,14 @@ export default function CommunityPage() {
 
       {/* CTA */}
       <section className="py-32 px-6 text-center bg-zinc-50">
-        <Link 
-          href="/signup"
+        <a 
+          href="https://whatsapp.com/channel/0029VbCCMcBIiRouZwg8FH27"
+          target="_blank"
+          rel="noreferrer"
           className="inline-flex px-12 py-6 bg-black text-white font-bold tracking-widest uppercase text-sm rounded-md hover:bg-zinc-800 transition-colors items-center gap-3"
         >
           Join the Community <ChevronRight size={18} />
-        </Link>
+        </a>
       </section>
       
     </div>

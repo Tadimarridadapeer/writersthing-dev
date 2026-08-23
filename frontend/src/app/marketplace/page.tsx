@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Bookmark, MoreHorizontal, Search, X, ShoppingBag, Filter, ChevronDown, Check } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { RecommendationsPayload } from "@/types/recommendations";
 import { OptimizedImage } from "@/components/OptimizedImage";
@@ -15,10 +15,17 @@ import { useFoundingWriters } from "@/context/FoundingWritersContext";
 import HireWriterModal from "@/components/HireWriterModal";
 
 function MarketplaceContent() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { addToCart } = useCart();
   const { founderMap } = useFoundingWriters();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/login?redirect=/marketplace");
+    }
+  }, [user, authLoading, router]);
   const typeParam = searchParams?.get("type");
   const initialFeedType = typeParam === "Book" ? "books" : 
                           typeParam === "Story" ? "stories" : 
@@ -108,7 +115,10 @@ function MarketplaceContent() {
         newFeed.sort((a, b) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
 
         if (isLoadMore) {
-          setFeed(prev => [...prev, ...newFeed]);
+          setFeed(prev => {
+            const newUniqueFeed = newFeed.filter(item => !prev.some(p => p.id === item.id));
+            return [...prev, ...newUniqueFeed];
+          });
         } else {
           setFeed(newFeed);
           if (newFeed.length === 0) {
@@ -143,7 +153,7 @@ function MarketplaceContent() {
 
       } else {
         // Fetch recommendations for "all" without search
-        const recRes = await fetch(`/api/recommendations?page=${currentPage}&limit=10`);
+        const recRes = await fetch(`/api/recommendations?page=${currentPage}&limit=10`, { cache: 'no-store' });
         if (recRes.ok) {
           const recData = await recRes.json();
           
@@ -156,7 +166,12 @@ function MarketplaceContent() {
               recData.data.sections.forEach((newSec: any) => {
                 const existingIndex = newSections.findIndex(s => s.title === newSec.title);
                 if (existingIndex >= 0) {
-                  newSections[existingIndex].items = [...newSections[existingIndex].items, ...newSec.items];
+                  const existingItems = newSections[existingIndex].items;
+                  const newUniqueItems = newSec.items.filter((item: any) => !existingItems.some((eItem: any) => eItem.id === item.id));
+                  newSections[existingIndex] = {
+                    ...newSections[existingIndex],
+                    items: [...existingItems, ...newUniqueItems]
+                  };
                 } else {
                   newSections.push(newSec);
                 }
@@ -199,7 +214,7 @@ function MarketplaceContent() {
       fetchPaginatedData(1, feedType, searchQuery, selectedCategories, false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, feedType, languageFilter, selectedCategories, fetchPaginatedData]);
+  }, [searchQuery, feedType, languageFilter, selectedCategories, fetchPaginatedData, user?.id]);
 
   const handleLoadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -223,7 +238,8 @@ function MarketplaceContent() {
     }
   };
 
-  const staffPicks = feed.slice(0, 4);
+  const recommendationItems = recommendations?.sections?.flatMap((s: any) => s.items) || [];
+  const staffPicks = recommendationItems.length > 0 ? recommendationItems.slice(0, 4) : feed.slice(0, 4);
 
   const renderItem = (item: any) => {
     // Normalization because DB formats vs Recommendation formats differ slightly
@@ -233,7 +249,7 @@ function MarketplaceContent() {
       type: item.type || (item.price !== undefined ? "Book" : "Story"),
       description: item.description || item.body || item.content || "No description available.",
       category: item.category || "General",
-      cover: item.cover_url || item.cover_image || item.banner_url || item.cover || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800",
+      cover: item.cover_url || item.cover_image || item.banner_url || item.cover || null,
       author: item.author || item.authors?.name || item.authors?.users?.name || "Unknown",
       author_id: item.author_id || item.authors?.user_id,
       url: item.url || (item.price !== undefined ? `/book/${item.id}` : (item.type === 'Blog' ? `/blogs/${item.id}` : `/stories/${item.id}`)),
@@ -249,7 +265,16 @@ function MarketplaceContent() {
             <div className="w-5 h-5 md:w-6 md:h-6 shrink-0 rounded-full bg-zinc-100 flex items-center justify-center text-[9px] font-black uppercase text-zinc-500 border border-zinc-200 shadow-sm">
               {mappedItem.author ? mappedItem.author[0] : "?"}
             </div>
-            <span className="text-xs md:text-sm font-semibold text-zinc-800 truncate max-w-[100px] md:max-w-[200px] flex items-center gap-1.5">
+            <span 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (mappedItem.author_id) {
+                  router.push(`/authors/${mappedItem.author_id}`);
+                }
+              }}
+              className="text-xs md:text-sm font-semibold text-zinc-800 hover:text-indigo-600 transition-colors truncate max-w-[100px] md:max-w-[200px] flex items-center gap-1.5 cursor-pointer"
+            >
               {mappedItem.author}
               {mappedItem.author_id && founderMap[mappedItem.author_id] && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black text-white text-[8px] font-black uppercase tracking-widest leading-none">
@@ -402,12 +427,22 @@ function MarketplaceContent() {
           </div>
         </div>
 
-        <div className="w-20 md:w-32 lg:w-40 shrink-0 aspect-square md:aspect-[16/10] bg-zinc-100 overflow-hidden shadow-sm mt-1 md:mt-0 rounded-sm md:rounded-none relative">
-          <OptimizedImage src={mappedItem.cover} alt={mappedItem.title} className="w-full h-full" variant={mappedItem.type === "Book" ? "book-cover" : "blog-thumbnail"} imageClassName="grayscale hover:grayscale-0 group-hover:grayscale-0 transition-all duration-700 hover:scale-105 group-hover:scale-105" />
-        </div>
+        {mappedItem.cover && (
+          <div className="w-20 md:w-32 lg:w-40 shrink-0 aspect-square md:aspect-[16/10] bg-zinc-100 overflow-hidden shadow-sm mt-1 md:mt-0 rounded-sm md:rounded-none relative">
+            <OptimizedImage src={mappedItem.cover} alt={mappedItem.title} className="w-full h-full" variant={mappedItem.type === "Book" ? "book-cover" : "blog-thumbnail"} imageClassName="transition-all duration-700 hover:scale-105 group-hover:scale-105" />
+          </div>
+        )}
       </Link>
     );
   };
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center bg-white">
+        <Loader2 className="animate-spin text-zinc-300" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex bg-white">
@@ -608,15 +643,23 @@ function MarketplaceContent() {
         <div className="lg:col-span-4 hidden lg:block pt-12 pl-12 border-l border-zinc-100 relative">
           <div className="sticky top-12">
             
-            {/* Staff Picks */}
+            {/* Writer's Thing Recommendations */}
             <div className="mb-12">
-              <h3 className="font-black text-sm mb-6 text-black tracking-tight">Staff Picks</h3>
+              <h3 className="font-black text-sm mb-6 text-black tracking-tight">Writer's Thing Recommendations</h3>
               {staffPicks.map((pick: any) => {
                 const url = pick.url || (pick.price !== undefined ? `/book/${pick.id}` : (pick.type === 'Blog' ? `/blogs/${pick.id}` : `/stories/${pick.id}`));
                 const author = pick.author || pick.authors?.name || pick.authors?.users?.name || "Unknown";
                 return (
                   <Link key={`pick-${pick.id}`} href={url} className="block mb-6 group">
-                    <div className="flex items-center gap-2">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const authorId = pick.author_id || pick.authors?.user_id;
+                        if (authorId) router.push(`/authors/${authorId}`);
+                      }}
+                    >
                       <div className="w-4 h-4 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-black uppercase text-zinc-500 border border-zinc-200">
                         {author ? author[0] : "?"}
                       </div>

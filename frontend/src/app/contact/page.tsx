@@ -65,8 +65,8 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 className="font-bold mb-1">Email</h3>
-                  <a href="mailto:thewritersthing@gmail.com" className="text-zinc-600 hover:text-black transition-colors underline-offset-4 hover:underline">
-                    thewritersthing@gmail.com
+                  <a href="mailto:hello@writersthing.com" className="text-zinc-600 hover:text-black transition-colors underline-offset-4 hover:underline">
+                    hello@writersthing.com
                   </a>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export default function ContactPage() {
                   {status === "error" && (
                     <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-md flex items-center gap-3 text-sm font-medium">
                       <AlertCircle size={16} />
-                      Something went wrong. Please try again later or contact us directly at thewritersthing@gmail.com
+                      Something went wrong. Please try again later or contact us directly at hello@writersthing.com
                     </div>
                   )}
 

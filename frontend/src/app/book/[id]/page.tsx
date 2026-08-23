@@ -356,7 +356,7 @@ export default function BookDetailPage() {
             </h1>
 
             <div className="flex items-center gap-4">
-              <p className="text-sm font-medium italic text-zinc-400">by {book.authors?.users?.name || "Unknown"}</p>
+              <p className="text-sm font-medium italic text-zinc-400">by {book.authors?.users?.name || book.authors?.name || "Unknown Author"}</p>
               <div className="h-3 w-px bg-zinc-200" />
               <div className="flex items-center gap-1 text-amber-500">
                 {[1, 2, 3, 4, 5].map((s) => (

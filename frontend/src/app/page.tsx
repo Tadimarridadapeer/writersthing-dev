@@ -13,7 +13,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.push("/marketplace");
+      router.replace("/marketplace");
     }
   }, [user, authLoading, router]);
 
@@ -28,29 +28,36 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-70" />
         
         {/* Corner Accents */}
-        <div className="absolute top-6 left-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
-          <span>+</span>
-          <span>[WT_SYS_01]</span>
-        </div>
-        <div className="absolute top-6 right-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
-          <span>[SHEET_01/01]</span>
-          <span>+</span>
-        </div>
-        <div className="absolute bottom-6 left-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
-          <span>+</span>
-          <span>[STATUS: ACTIVE]</span>
-        </div>
-        <div className="absolute bottom-6 right-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
-          <span>[COMMISSION: 10%]</span>
-          <span>+</span>
-        </div>
+        {false && (
+          <>
+            <div className="absolute top-6 left-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+              <span>+</span>
+              <span>[WT_SYS_01]</span>
+            </div>
+            <div className="absolute top-6 right-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+              <span>[SHEET_01/01]</span>
+              <span>+</span>
+            </div>
+            <div className="absolute bottom-6 left-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+              <span>+</span>
+              <span>[STATUS: ACTIVE]</span>
+            </div>
+            <div className="absolute bottom-6 right-6 text-[10px] font-mono text-zinc-400 flex items-center gap-2 tracking-widest hidden md:flex">
+              <span>[COMMISSION: 10%]</span>
+              <span>+</span>
+            </div>
+          </>
+        )}
 
         {/* Top Pill Badge */}
-        <div className="absolute top-12 left-12 md:left-24 z-10 hidden md:block">
-          <div className="px-5 py-2 rounded-full border border-zinc-200 bg-white shadow-sm flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] text-zinc-500 uppercase">
-            <span className="text-zinc-400">✨</span> PROLOGUE
+        {false && (
+          <div className="absolute top-12 left-12 md:left-24 z-10 hidden md:block">
+            <div className="px-5 py-2 rounded-full border border-zinc-200 bg-white shadow-sm flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] text-zinc-500 uppercase">
+              <span className="text-zinc-400">✨</span> PROLOGUE
+            </div>
           </div>
-        </div>
+        )}
+
         
         <div className="relative z-10 max-w-5xl mx-auto text-center mt-4">
           
@@ -117,9 +124,11 @@ export default function Home() {
           CHAPTER 2: THE QUIET ROOM
           ========================================= */}
       <section className="relative w-full min-h-screen flex flex-col justify-center items-center bg-white text-black px-6 py-32 border-b border-black/10">
-        <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase hidden md:block">
-          Chapter One
-        </div>
+        {false && (
+          <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase hidden md:block">
+            Chapter One
+          </div>
+        )}
 
         <div className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
           
@@ -188,9 +197,11 @@ export default function Home() {
           CHAPTER 3: THE STAGE
           ========================================= */}
       <section className="relative w-full min-h-screen flex flex-col justify-center items-center bg-zinc-50 text-black px-6 py-16 md:py-20 border-b border-black/10">
-        <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase hidden md:block">
-          Chapter Two
-        </div>
+        {false && (
+          <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase hidden md:block">
+            Chapter Two
+          </div>
+        )}
 
         <div className="max-w-6xl w-full mx-auto">
           
@@ -278,9 +289,11 @@ export default function Home() {
           CHAPTER 4: THE PLEDGE (Pricing)
           ========================================= */}
       <section id="pricing" className="relative w-full min-h-screen flex flex-col justify-center items-center bg-white text-black px-6 py-32">
-        <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase">
-          Epilogue
-        </div>
+        {false && (
+          <div className="absolute top-12 left-12 md:left-24 opacity-30 text-xs font-mono tracking-[0.3em] uppercase">
+            Epilogue
+          </div>
+        )}
 
         <div className="max-w-4xl w-full mx-auto text-center">
           
@@ -342,19 +355,21 @@ export default function Home() {
 
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 1.5, delay: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <Link 
-              href="/signup" 
-              className="inline-block px-12 py-5 bg-black text-white hover:bg-zinc-800 transition-colors duration-500 uppercase tracking-[0.3em] text-xs font-semibold rounded-none"
+          {false && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 1.5, delay: 0.8 }}
+              viewport={{ once: true }}
             >
-              Join Writersthing Pro
-            </Link>
-          </motion.div>
+              <Link 
+                href="/signup" 
+                className="inline-block px-12 py-5 bg-black text-white hover:bg-zinc-800 transition-colors duration-500 uppercase tracking-[0.3em] text-xs font-semibold rounded-none"
+              >
+                Join Writersthing Pro
+              </Link>
+            </motion.div>
+          )}
 
         </div>
       </section>

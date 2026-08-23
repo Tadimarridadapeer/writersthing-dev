@@ -1,5 +1,5 @@
 import React from "react";
-import { OptimizedImage } from "./OptimizedImage";
+
 import FoundingBadge from "./ui/FoundingBadge";
 import { useFoundingWriters } from "@/context/FoundingWritersContext";
 
@@ -15,21 +15,27 @@ export default function AvatarWithBadge({ userId, avatarUrl, name, className = "
   const founderNumber = userId ? founderMap[userId] : undefined;
   const isFoundingWriter = !!founderNumber;
 
+  const getInitials = (fullName?: string) => {
+    if (!fullName) return "U";
+    const cleanName = fullName.includes('@') ? fullName.split('@')[0] : fullName;
+    const parts = cleanName.trim().split(/\s+/).filter(Boolean);
+    
+    if (parts.length === 0) return "U";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    if (parts.length === 2) return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
+
+  const initials = getInitials(name);
+
   return (
     <div className={`relative inline-block ${className}`}>
-      {avatarUrl ? (
-        <OptimizedImage
-          src={avatarUrl}
-          className={`w-full h-full rounded-full border border-zinc-100 shadow-sm`}
-          imageClassName="grayscale hover:grayscale-0 transition-all duration-300"
-          alt="Avatar"
-          variant="profile"
-        />
-      ) : (
-        <div className={`w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-white text-[9px] font-black`}>
-          {(name || "U").charAt(0).toUpperCase()}
-        </div>
-      )}
+      <div 
+        className={`w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-white text-[9px] font-black`}
+        title={name && !name.includes('@') ? name : "Author"}
+      >
+        {initials}
+      </div>
     </div>
   );
 }

@@ -334,9 +334,25 @@ export default function ProfilePage() {
     if (typeof book.author === "string") return book.author;
     if (book.author?.name) return book.author.name;
     if (book.authors?.users?.name) return book.authors.users.name;
+    if (book.authors?.name) return book.authors.name;
     if (book.users?.name) return book.users.name;
     if (book.author?.users?.name) return book.author.users.name;
     return "Unknown";
+  };
+
+  const handleDelete = async (id: string, type: string) => {
+    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/manuscripts/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to delete');
+      }
+      setPublishedItems(prev => prev.filter(p => p.details.id !== id));
+      setToast({ message: `${type} deleted successfully`, type: 'success' });
+    } catch (err: any) {
+      setToast({ message: err.message, type: 'error' });
+    }
   };
 
   function toOriginalId(uuid: string): string {
@@ -474,7 +490,7 @@ export default function ProfilePage() {
   const fetchProfileData = async () => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
-      router.push("/login?redirect=/profile");
+      router.replace("/login?redirect=/profile");
       return;
     }
     
@@ -1107,9 +1123,22 @@ export default function ProfilePage() {
                                         </button>
                                       </div>
                                       <div className="flex gap-2">
-                                        <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                        <Link href={link} className="flex-grow text-center py-2 bg-black text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center">
                                           {isDraft ? "Edit Draft" : "Read Now"}
                                         </Link>
+                                        {!isBook && !isDraft && (
+                                          <Link href={`/editor?type=${item.content_type}&id=${details.id}`} className="px-4 py-2 bg-zinc-200 text-black text-[9px] font-black uppercase tracking-widest hover:bg-zinc-300 transition-all flex items-center justify-center">
+                                            Edit
+                                          </Link>
+                                        )}
+                                        {!isBook && (
+                                          <button 
+                                            onClick={(e) => { e.preventDefault(); handleDelete(details.id, item.content_type); }}
+                                            className="px-4 py-2 bg-red-100 text-red-600 text-[9px] font-black uppercase tracking-widest hover:bg-red-200 transition-all flex items-center justify-center cursor-pointer"
+                                          >
+                                            Delete
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -1347,7 +1376,7 @@ export default function ProfilePage() {
                                     <Link href="/stories" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Read Stories</Link>
                                   )}
                                   {(likeFilter === "all" || likeFilter === "blog") && (
-                                    <Link href="/blogs" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
+                                    <Link href="/marketplace" className="px-8 py-3 border border-black text-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-black hover:text-white transition-all">Discover Blogs</Link>
                                   )}
                                 </div>
                               </div>

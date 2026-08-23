@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export type DraftStatus = 'idle' | 'saving' | 'saved' | 'failed' | 'unsaved';
 
@@ -87,6 +88,9 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
     }
 
     if (isPublishing) {
+      if (!payload.coverFile && !payload.coverUrl) {
+        throw new Error("Please upload a cover/image before publishing.");
+      }
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       if (continuousTimerRef.current) clearTimeout(continuousTimerRef.current);
     }
@@ -101,6 +105,26 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
       setErrorMessage("");
 
       try {
+        // Handle Story and Blog image upload via backend API (service role bypasses RLS)
+        if (payload.coverFile && payload.type !== "Book") {
+          const formData = new FormData();
+          formData.append("file", payload.coverFile);
+          formData.append("type", payload.type);
+
+          const uploadRes = await fetch("/api/stories/upload-cover", {
+            method: "POST",
+            body: formData
+          });
+
+          if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({ message: "Cover upload failed" }));
+            throw new Error("Image Upload Failed: " + (err.message || "Unknown error"));
+          }
+
+          const { publicUrl } = await uploadRes.json();
+          payload.coverUrl = publicUrl;
+        }
+
         const endpoint = payload.type === "Book" ? "/api/books/upload" : "/api/stories";
         const method = currentIdRef.current ? "PUT" : "POST";
 

@@ -36,12 +36,8 @@ export async function GET(req: Request) {
 
     const recommendationService = new RecommendationService(supabase, user);
 
-    let recommendations;
-    if (user) {
-      recommendations = await recommendationService.getPersonalizedRecommendations(page, limit);
-    } else {
-      recommendations = await recommendationService.getFallbackRecommendations(page, limit);
-    }
+    // Bypassing personalized recommendations for now to show all content to all users
+    const recommendations = await recommendationService.getFallbackRecommendations(page, limit);
 
     // Wrap in standard pagination response format
     const hasMore = recommendations.sections.some((s: any) => s.items.length === limit);

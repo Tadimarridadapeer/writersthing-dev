@@ -87,7 +87,6 @@ function FreelancersContent() {
                     />
                   </div>
                   <h3 className="text-xl font-black tracking-tight text-zinc-900 mb-1">{freelancer.name}</h3>
-                  <p className="text-sm text-zinc-500 font-medium">{freelancer.email}</p>
                 </div>
 
                 {/* Bio & Skills */}
@@ -105,13 +104,13 @@ function FreelancersContent() {
                   </div>
 
                   {/* Hire Button */}
-                  <a 
-                    href={`mailto:${freelancer.email}?subject=Hiring Inquiry via Writer's Thing&body=Hi ${freelancer.name.split(' ')[0]},%0D%0A%0D%0AI saw your profile on Writer's Thing and I'm interested in hiring you for...`}
+                  <Link 
+                    href={`/authors/${freelancer.id}`}
                     className="w-full py-4 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-colors hover:shadow-lg hover:-translate-y-0.5 transform duration-300"
                   >
                     <Mail size={16} />
-                    Hire {freelancer.name.split(' ')[0]}
-                  </a>
+                    View Profile
+                  </Link>
                 </div>
               </motion.div>
             ))}

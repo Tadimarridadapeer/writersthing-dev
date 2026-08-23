@@ -34,7 +34,6 @@ interface LanguageSelectorProps {
 export default function LanguageSelector({ selectedLanguage, onLanguageChange, isTranslating }: LanguageSelectorProps) {
   return (
     <div className="flex items-center gap-3 mb-8 bg-zinc-50 border border-zinc-100 p-4 rounded-sm">
-      <span className="text-xl">🌍</span>
       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Read in Your Language</span>
       
       <select 

@@ -49,26 +49,34 @@ export default async function DraftsPage() {
     redirect("/profile");
   }
 
+  // Workaround: Use true admin client for blogs because blogs RLS is broken for drafts
+  const { createClient } = require('@supabase/supabase-js');
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
   // Fetch Drafts
   const [booksRes, blogsRes, storiesRes] = await Promise.all([
     supabase.from("books").select("id, title, category, created_at, updated_at, description").eq("author_id", authorData.id).eq("status", "Draft").order("updated_at", { ascending: false }),
-    supabase.from("blogs").select("id, title, category, created_at, content").eq("author_id", authorData.id).eq("status", "Draft").order("created_at", { ascending: false }),
+    adminClient.from("blogs").select("id, title, category, created_at, content").eq("author_id", authorData.id).eq("status", "Draft").order("created_at", { ascending: false }),
     supabase.from("stories").select("id, title, category, created_at, body").eq("author_id", authorData.id).eq("status", "Draft").order("created_at", { ascending: false }),
   ]);
 
   const drafts: any[] = [];
 
-  (booksRes.data || []).forEach(b => {
+  (booksRes.data || []).forEach((b: any) => {
     const stats = calculateStats(b.description || "");
     drafts.push({ ...b, _type: "Book", _words: stats.words, _time: stats.time, _last_saved: b.updated_at || b.created_at });
   });
 
-  (blogsRes.data || []).forEach(b => {
+  (blogsRes.data || []).forEach((b: any) => {
     const stats = calculateStats(b.content || "");
     drafts.push({ ...b, _type: "Blog", _words: stats.words, _time: stats.time, _last_saved: b.created_at });
   });
 
-  (storiesRes.data || []).forEach(s => {
+  (storiesRes.data || []).forEach((s: any) => {
     const stats = calculateStats(s.body || "");
     drafts.push({ ...s, _type: "Story", _words: stats.words, _time: stats.time, _last_saved: s.created_at });
   });

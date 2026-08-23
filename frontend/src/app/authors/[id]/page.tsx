@@ -213,11 +213,11 @@ export default function AuthorProfilePage() {
         
         {/* Breadcrumb Header */}
         <Link 
-          href="/blogs" 
+          href="/marketplace" 
           className="inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 hover:text-black transition-all group mb-12"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-          Back to Blogs
+          Back to Marketplace
         </Link>
 
         {/* Author Header Profile Box */}
@@ -295,14 +295,12 @@ export default function AuthorProfilePage() {
                   {isFollowing ? "Following" : "Follow Author"}
                 </button>
                 
-                {(foundingWriterNumber !== null || authorUser.is_verified_writer || authorUser.available_for_hire) && (
-                  <button 
-                    onClick={() => setIsHireModalOpen(true)}
-                    className="px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
-                  >
-                    Hire Writer
-                  </button>
-                )}
+                <button 
+                  onClick={() => setIsHireModalOpen(true)}
+                  className="px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.25em] transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
+                >
+                  Send Invitation
+                </button>
               </div>
             </div>
 

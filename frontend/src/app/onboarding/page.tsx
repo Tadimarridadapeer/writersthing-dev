@@ -14,7 +14,7 @@ const INTERESTS = [
   "Health", "Fitness", "Romance", "Mystery", 
   "Thriller", "Fantasy", "Horror", "Biography", 
   "Philosophy", "Poetry", "Education", "Comics", 
-  "Travel", "Cooking", "Kids"
+  "Travel", "Cooking", "Kids", "Allow", "Action"
 ];
 
 const CONTENT_TYPES = [
@@ -55,7 +55,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [user, authLoading, router]);
 
@@ -142,7 +142,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="h-full overflow-hidden bg-[#FDFDFD] flex flex-col items-center pt-8 md:pt-16 px-6 pb-6 md:pb-12">
+    <div className="h-full overflow-hidden bg-[#FDFDFD] flex flex-col items-center pt-6 md:pt-10 px-6 pb-6 md:pb-8">
       <div className="absolute top-6 left-6 md:top-8 md:left-8 z-10">
         <Link href="/">
           <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black hover:opacity-80 transition-opacity">
@@ -151,9 +151,9 @@ export default function OnboardingPage() {
         </Link>
       </div>
 
-      <div className="w-full max-w-4xl mx-auto mt-16 md:mt-20 relative flex-grow flex flex-col min-h-0">
+      <div className="w-full max-w-6xl mx-auto mt-12 md:mt-10 lg:mt-8 relative flex-grow flex flex-col min-h-0">
         {step < 4 && (
-          <div className="flex items-center gap-2 mb-8">
+          <div className="flex items-center gap-2 mb-6 md:mb-8">
             {[1, 2, 3].map(i => (
               <div key={i} className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-black' : 'bg-zinc-200'} transition-colors duration-500`} />
             ))}
@@ -170,11 +170,11 @@ export default function OnboardingPage() {
               exit={{ opacity: 0, x: -20 }}
               className="flex-grow flex flex-col min-h-0"
             >
-              <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight uppercase mb-2">What do you enjoy reading?</h1>
-              <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Choose at least 3 interests to personalize your experience.</p>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tight uppercase mb-2">What do you enjoy reading?</h1>
+              <p className="text-zinc-500 text-sm md:text-base lg:text-lg font-medium italic mb-4 md:mb-8">Choose at least 3 interests to personalize your experience.</p>
               
-              <div className="flex-1 overflow-y-auto min-h-0 pb-4">
-                <div className="flex flex-wrap gap-2 md:gap-3">
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-2">
+                <div className="flex flex-wrap gap-2 md:gap-3 lg:gap-4">
                   {INTERESTS.map(interest => {
                     const isSelected = selectedInterests.includes(interest);
                     return (
@@ -212,24 +212,24 @@ export default function OnboardingPage() {
               exit={{ opacity: 0, x: -20 }}
               className="flex-grow flex flex-col min-h-0"
             >
-              <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight uppercase mb-2">What would you like to discover?</h1>
-              <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Choose the content you'd love to see in your feed.</p>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tight uppercase mb-2">What would you like to discover?</h1>
+              <p className="text-zinc-500 text-sm md:text-base lg:text-lg font-medium italic mb-4 md:mb-8">Choose the content you'd love to see in your feed.</p>
               
-              <div className="flex-1 overflow-y-auto min-h-0 pb-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
                   {CONTENT_TYPES.map(type => {
                     const isSelected = selectedContentTypes.includes(type.id);
                     return (
                       <button
                         key={type.id}
                         onClick={() => handleContentToggle(type.id)}
-                        className={`p-4 md:p-6 rounded-2xl flex flex-col items-center justify-center gap-3 md:gap-4 border-2 transition-all text-center
+                        className={`p-4 md:p-6 lg:p-8 rounded-2xl flex flex-col items-center justify-center gap-3 md:gap-4 border-2 transition-all text-center
                           ${isSelected ? 'border-black bg-black text-white shadow-xl scale-[1.02]' : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300'}`}
                       >
-                        <div className={`${isSelected ? 'text-white' : 'text-zinc-400'}`}>
+                        <div className={`${isSelected ? 'text-white' : 'text-zinc-400'} lg:scale-125 transition-transform`}>
                           {type.icon}
                         </div>
-                        <span className="font-bold text-xs md:text-sm">{type.id}</span>
+                        <span className="font-bold text-xs md:text-sm lg:text-base">{type.id}</span>
                       </button>
                     );
                   })}
@@ -259,24 +259,24 @@ export default function OnboardingPage() {
               exit={{ opacity: 0, x: -20 }}
               className="flex-grow flex flex-col min-h-0"
             >
-              <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight uppercase mb-2">Why are you joining Writer's Thing?</h1>
-              <p className="text-zinc-500 text-sm md:text-lg font-medium italic mb-6">Help us personalize your experience.</p>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tight uppercase mb-2">Why are you joining Writer's Thing?</h1>
+              <p className="text-zinc-500 text-sm md:text-base lg:text-lg font-medium italic mb-4 md:mb-8">Help us personalize your experience.</p>
               
-              <div className="flex-1 overflow-y-auto min-h-0 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
                   {filteredGoals.map(goal => {
                     const isSelected = selectedGoals.includes(goal);
                     return (
                       <button
                         key={goal}
                         onClick={() => handleGoalToggle(goal)}
-                        className={`p-3 md:p-4 rounded-xl flex items-center gap-3 border-2 transition-all text-left
-                          ${isSelected ? 'border-black bg-zinc-50' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
+                        className={`p-3 md:p-5 lg:p-6 rounded-xl flex items-center gap-3 md:gap-4 border-2 transition-all text-left
+                          ${isSelected ? 'border-black bg-zinc-50 shadow-sm' : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50'}`}
                       >
-                        <div className={`w-4 h-4 md:w-5 md:h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black border-black' : 'border-zinc-300'}`}>
-                          {isSelected && <Check size={12} className="text-white" />}
+                        <div className={`w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black border-black' : 'border-zinc-300'}`}>
+                          {isSelected && <Check size={14} className="text-white" />}
                         </div>
-                        <span className={`font-bold text-[11px] md:text-xs ${isSelected ? 'text-black' : 'text-zinc-600'}`}>{goal}</span>
+                        <span className={`font-bold text-[11px] md:text-sm lg:text-base ${isSelected ? 'text-black' : 'text-zinc-600'}`}>{goal}</span>
                       </button>
                     );
                   })}
@@ -305,11 +305,11 @@ export default function OnboardingPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="flex-grow flex flex-col items-center justify-center text-center min-h-0"
             >
-              <div className="w-32 h-32 bg-zinc-100 rounded-full flex items-center justify-center mb-8">
+              <div className="w-24 h-24 md:w-32 md:h-32 bg-zinc-100 rounded-full flex items-center justify-center mb-6 md:mb-8">
                 <Library size={48} className="text-black" />
               </div>
-              <h1 className="text-5xl md:text-6xl font-heading font-black tracking-tight uppercase mb-6">Perfect! Your library is ready.</h1>
-              <p className="text-zinc-500 text-lg font-medium italic mb-12 max-w-2xl">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-black tracking-tight uppercase mb-4 md:mb-6">Perfect! Your library is ready.</h1>
+              <p className="text-zinc-500 text-base md:text-lg lg:text-xl font-medium italic mb-10 md:mb-12 max-w-2xl">
                 We'll recommend books, blogs, stories, and writers based on your interests and goals. You can update these preferences anytime from your Profile Settings.
               </p>
               

@@ -9,9 +9,11 @@ import { ArrowRight, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAuthorProfile } from "@/lib/author";
 import { signInWithGoogle } from "@/lib/auth-oauth";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [redirectUrl, setRedirectUrl] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -52,6 +54,12 @@ export default function LoginPage() {
     const searchParams = new URLSearchParams(window.location.search);
     setRedirectUrl(searchParams.get("redirect") || "");
   }, []);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(redirectUrl || "/marketplace");
+    }
+  }, [user, authLoading, router, redirectUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +128,7 @@ export default function LoginPage() {
           redirectTo = "/onboarding";
         }
         
-        router.push(redirectTo);
+        router.replace(redirectTo);
       }
     } catch (err: any) {
       setError(err.message);

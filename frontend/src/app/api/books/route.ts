@@ -21,6 +21,21 @@ function getSupabaseAdmin() {
 
 export const dynamic = "force-dynamic";
 
+function getSupabase() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        async get(name: string) {
+          const cookieStore = await cookies();
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -112,7 +127,8 @@ export async function GET(req: Request) {
     const search = searchParams.get("search") || "";
     const category = searchParams.get("category") || "";
 
-    let query = supabase
+    const supabaseClient = getSupabase();
+    let query = supabaseClient
       .from("books")
       .select("id, title, description, category, cover_url, pdf_path, price, created_at, author_id, authors:author_id(user_id, users!authors_user_id_fkey(name))")
       .eq("status", "Published");
@@ -145,8 +161,17 @@ export async function GET(req: Request) {
       returnData = returnData.slice(0, limit);
     }
 
+    const mappedData = returnData.map((item: any) => ({
+      ...item,
+      authors_raw: item.authors,
+      authors: {
+        name: item.authors?.users?.name || item.authors?.name || "Unknown Author",
+        user_id: item.authors?.user_id
+      }
+    }));
+
     return NextResponse.json({
-      data: returnData,
+      data: mappedData,
       hasMore,
       nextPage: hasMore ? page + 1 : null
     }, {

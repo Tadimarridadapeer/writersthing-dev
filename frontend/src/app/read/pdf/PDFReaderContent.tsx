@@ -253,7 +253,7 @@ export default function PDFReaderContent() {
                           />
                         </div>
                         <h4 className="font-heading font-bold text-sm uppercase tracking-tight leading-tight line-clamp-2 mb-1">{b.title}</h4>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">by {Array.isArray(b.authors) ? b.authors[0]?.users?.name : b.authors?.users?.name || "Unknown"}</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">by {Array.isArray(b.authors) ? b.authors[0]?.name || b.authors[0]?.users?.name : b.authors?.name || b.authors?.users?.name || "Unknown Author"}</p>
                       </Link>
                     ))}
                   </div>

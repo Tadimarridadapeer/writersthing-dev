@@ -20,9 +20,18 @@ export async function POST(req: Request) {
     let resumeType: string | undefined;
 
     if (resume) {
+      if (resume.size > 4 * 1024 * 1024) {
+        return NextResponse.json({ success: false, error: "Resume must be less than 4MB" }, { status: 400 });
+      }
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(resume.type) && !resume.name.match(/\.(pdf|doc|docx)$/i)) {
+        return NextResponse.json({ success: false, error: "Resume must be a PDF or DOC/DOCX file" }, { status: 400 });
+      }
       resumeBuffer = Buffer.from(await resume.arrayBuffer());
       resumeName = resume.name;
       resumeType = resume.type || 'application/pdf';
+    } else {
+      return NextResponse.json({ success: false, error: "Resume is required" }, { status: 400 });
     }
 
     const data = { name, mobile, city, portfolio, driveLink, about, why };

@@ -8,21 +8,33 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 
 export default function CareersPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus("loading");
+    setErrorMessage("");
     
     try {
       const formData = new FormData(e.currentTarget);
       const res = await fetch("/api/careers", {
         method: "POST",
-        body: formData // sending as multipart/form-data
+        body: formData
       });
       
-      if (!res.ok) throw new Error("Submission failed");
+      if (res.status === 413) {
+        throw new Error("File is too large. Maximum size is 4MB.");
+      }
+      
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        throw new Error(data.error || "Submission failed");
+      }
       setStatus("success");
-    } catch (err) {
+    } catch (err: any) {
+      setErrorMessage(err.message || "");
       setStatus("error");
     }
   };
@@ -119,7 +131,7 @@ export default function CareersPage() {
                   {status === "error" && (
                     <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-md flex items-center gap-3 text-sm font-medium mb-6">
                       <AlertCircle size={16} />
-                      Something went wrong. Please try again later or contact us at thewritersthing@gmail.com
+                      {errorMessage || "Something went wrong. Please try again later or contact us at hello@writersthing.com"}
                     </div>
                   )}
 
@@ -159,8 +171,30 @@ export default function CareersPage() {
                     <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Resume Upload</label>
                     <div className="w-full bg-white border border-zinc-200 border-dashed p-6 rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-black transition-colors group relative overflow-hidden">
                       <UploadCloud size={24} className="text-zinc-400 group-hover:text-black mb-2 transition-colors relative z-0" />
-                      <span className="text-sm font-medium text-zinc-600 group-hover:text-black relative z-0">Click to upload PDF</span>
-                      <input name="resume" required type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                      <span className="text-sm font-medium text-zinc-600 group-hover:text-black relative z-0 text-center">
+                        {resumeFile ? resumeFile.name : "Click to upload PDF, DOC, or DOCX (Max 4MB)"}
+                      </span>
+                      <input 
+                        name="resume" 
+                        required 
+                        type="file" 
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 4 * 1024 * 1024) {
+                              alert("File is too large. Maximum size is 4MB.");
+                              e.target.value = "";
+                              setResumeFile(null);
+                              return;
+                            }
+                            setResumeFile(file);
+                          } else {
+                            setResumeFile(null);
+                          }
+                        }}
+                      />
                     </div>
                   </div>
 

@@ -348,14 +348,15 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
       const ext = file.name.split(".").pop();
       const path = `${user.id}/${Date.now()}-${file.name}`;
+      const bucket = "article-images";
       const { error: uploadError } = await supabase.storage
-        .from("story-images")
+        .from(bucket)
         .upload(path, file);
 
       if (uploadError) throw new Error("Image Upload Failed: " + uploadError.message);
 
       const { data: { publicUrl } } = supabase.storage
-        .from("story-images")
+        .from(bucket)
         .getPublicUrl(path);
 
       const imageMarkdown = `\n![${file.name}](${publicUrl})\n`;

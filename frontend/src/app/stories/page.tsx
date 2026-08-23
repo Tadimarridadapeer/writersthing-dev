@@ -73,16 +73,18 @@ export default function StorysPage() {
                   className="group border-b border-zinc-100 py-16 hover:bg-zinc-50/50 transition-all px-8 -mx-8"
                 >
                   <Link href={`/stories/${story.id}`} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-                    <div className="lg:col-span-3">
-                      <div className="aspect-[4/3] bg-zinc-100 overflow-hidden rounded-sm">
-                        <OptimizedImage 
-                          src={story.cover_url || "https://images.unsplash.com/photo-1457369804593-50c4113ef53c?auto=format&fit=crop&q=80&w=800"} 
-                          alt={story.title}
-                          variant="blog-thumbnail"
-                          imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700"
-                        />
+                    {story.cover_url && (
+                      <div className="lg:col-span-3">
+                        <div className="aspect-[4/3] bg-zinc-100 overflow-hidden rounded-sm">
+                          <OptimizedImage 
+                            src={story.cover_url} 
+                            alt={story.title}
+                            variant="blog-thumbnail"
+                            imageClassName="grayscale group-hover:grayscale-0 transition-all duration-700"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="lg:col-span-7">
                       <div className="flex items-center gap-6 mb-4">

@@ -7,7 +7,7 @@ const defaultFrom = process.env.EMAIL_FROM || 'hello@writersthing.com';
 type EmailResponse = { success: true; data?: any } | { success: false; error: string };
 
 export const emailService = {
-  sendEmail: async (options: { to: string; subject: string; html?: string; react?: React.ReactElement; from?: string }): Promise<EmailResponse> => {
+  sendEmail: async (options: { to: string; subject: string; html?: string; react?: React.ReactElement; from?: string; attachments?: any[] }): Promise<EmailResponse> => {
     try {
       const data = await resend.emails.send({
         from: options.from || defaultFrom,
@@ -15,6 +15,7 @@ export const emailService = {
         subject: options.subject,
         html: options.html,
         react: options.react,
+        attachments: options.attachments,
       });
       return { success: true, data };
     } catch (error: any) {
@@ -103,7 +104,22 @@ export const emailService = {
           <h4>Why Writer's Thing:</h4>
           <p>${data.why.replace(/\n/g, "<br>")}</p>
         `;
-    const result = await emailService.sendEmail({ to: 'hello@writersthing.com', subject: `New Career Application - ${data.name}`, html, from: defaultFrom });
+        
+    const attachments = [];
+    if (resumeBuffer && resumeName) {
+      attachments.push({
+        filename: resumeName,
+        content: resumeBuffer,
+      });
+    }
+
+    const result = await emailService.sendEmail({ 
+      to: 'hello@writersthing.com', 
+      subject: `New Career Application - ${data.name}`, 
+      html, 
+      from: defaultFrom,
+      attachments
+    });
     return result.success;
   }
 };

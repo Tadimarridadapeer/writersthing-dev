@@ -18,6 +18,16 @@ function getSupabase() {
   );
 }
 
+import { createClient } from "@supabase/supabase-js";
+
+function getTrueSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
 function getSupabaseAdmin() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,11 +64,11 @@ export async function GET(
     const { id } = await params;
     const uuid = toValidUUID(id);
 
-    // Run lookups in parallel to minimize database connection overhead and roundtrips
+    const trueAdmin = getTrueSupabaseAdmin();
     const [bookRes, storyRes, blogRes] = await Promise.all([
       supabase.from("books").select("*").in("id", [id, uuid]).maybeSingle(),
       supabase.from("stories").select("*, authors:author_id(user_id, users!authors_user_id_fkey(name))").in("id", [id, uuid]).maybeSingle(),
-      supabase.from("blogs").select("*, authors:author_id(user_id, users!authors_user_id_fkey(name))").in("id", [id, uuid]).maybeSingle()
+      trueAdmin.from("blogs").select("*, authors:author_id(id, user_id, users!authors_user_id_fkey(name))").in("id", [id, uuid]).maybeSingle()
     ]);
 
     // Check books first (requires the viewer to be the author)
@@ -118,9 +128,18 @@ export async function GET(
       });
     }
 
-    // Check blogs (publicly readable)
+    // Check blogs (publicly readable if published, otherwise owner only)
     if (blogRes.data) {
       const blog = blogRes.data;
+      
+      // Enforce authorization manually since we bypassed RLS
+      const isPublished = blog.status === "Published";
+      const isOwner = user && blog.authors?.user_id === user.id;
+      
+      if (!isPublished && !isOwner) {
+        return NextResponse.json({ message: "Unauthorized access to this blog" }, { status: 403 });
+      }
+      
       return NextResponse.json({
         title: blog.title,
         content: blog.content || "",

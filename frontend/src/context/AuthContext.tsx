@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (_event === 'SIGNED_OUT') {
-        router.push("/login");
+        router.replace("/login");
       }
     });
 

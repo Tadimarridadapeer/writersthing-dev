@@ -6,9 +6,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function check() {
-  const { data, error } = await supabase.storage.from('books').list('6311a15b-87e8-440d-b2d1-f8afb7f2e87e/6130dcf9-b301-44dc-8b46-e664d18193d4');
-  console.log('List of files:', data, error);
+async function run() {
+  const buckets = ['covers', 'story-images', 'article-images', 'blog-images'];
+  const storyId = 'f20ec27a-45ef-4cca-8586-5fb6bbfcb682';
+  
+  for (const b of buckets) {
+    const { data: top } = await supabase.storage.from(b).list('', { limit: 100 });
+    if (!top) continue;
+    
+    for (const f of top) {
+      if (f.name.includes(storyId)) {
+        console.log(`Found in bucket ${b}: ${f.name}`);
+      }
+      
+      // Check subfolders
+      const { data: sub } = await supabase.storage.from(b).list(f.name, { limit: 100 });
+      if (sub) {
+        for (const sf of sub) {
+          if (sf.name.includes(storyId)) {
+            console.log(`Found in bucket ${b}/${f.name}: ${sf.name}`);
+          }
+        }
+      }
+    }
+  }
+  console.log("Done checking storage.");
 }
-
-check();
+run();

@@ -9,8 +9,14 @@ export default function BackButton() {
   const [canGoBack, setCanGoBack] = useState(false);
 
   useEffect(() => {
-    // A simple heuristic to check if we navigated from within the app
-    if (window.history.length > 1 && document.referrer.includes(window.location.host)) {
+    // document.referrer does not update during Next.js client-side navigation.
+    // Instead, we can check if the Next.js history state index is > 0, 
+    // or if window.history.length > 2 (which implies internal navigation in a tab).
+    const isNextJsInternalNav = window.history.state && window.history.state.idx > 0;
+    const isHistoryLong = window.history.length > 2;
+    const isReferrerInternal = document.referrer.includes(window.location.host);
+    
+    if (isNextJsInternalNav || isHistoryLong || isReferrerInternal) {
       setCanGoBack(true);
     }
   }, []);

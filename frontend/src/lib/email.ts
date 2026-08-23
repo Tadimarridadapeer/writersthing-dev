@@ -91,7 +91,9 @@ export const sendBookPublishedEmail = async (to: string, title: string): Promise
 };
 
 export const sendNewsletter = async (to: string | string[], subject: string, content: string): Promise<EmailResponse> => {
-  return sendEmail(to, subject, React.createElement(Newsletter, { subject, content }));
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://writersthing.com';
+  const readMoreUrl = `${appUrl}/marketplace`;
+  return sendEmail(to, subject, React.createElement(Newsletter, { subject, content, readMoreUrl }));
 };
 
 export const sendWriterSaleNotification = async (to: string, writerName: string, bookTitle: string, amount: string): Promise<EmailResponse> => {
