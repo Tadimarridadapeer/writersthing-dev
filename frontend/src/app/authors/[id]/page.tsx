@@ -179,6 +179,19 @@ export default function AuthorProfilePage() {
         await supabase
           .from("follows")
           .insert({ follower_id: currentUser.id, following_id: authorId });
+            
+        // Trigger notification
+        fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: authorId,
+            type: 'new_follower',
+            target_id: currentUser.id,
+            target_type: 'profile'
+          })
+        }).catch(console.error);
+            
         setIsFollowing(true);
         setFollowersCount(prev => prev + 1);
       }

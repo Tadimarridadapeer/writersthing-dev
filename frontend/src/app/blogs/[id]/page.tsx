@@ -323,6 +323,18 @@ export default function BlogPost() {
         await supabase
           .from("follows")
           .insert({ follower_id: currentUser.id, following_id: blog.authorId });
+          
+        fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: blog.authorId,
+            type: 'new_follower',
+            target_id: currentUser.id,
+            target_type: 'profile'
+          })
+        }).catch(console.error);
+
         setIsFollowing(true);
         setFollowersCount(prev => prev + 1);
       }

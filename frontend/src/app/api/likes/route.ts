@@ -186,9 +186,9 @@ export async function POST(req: Request) {
                 .insert({
                   user_id: authorId,
                   actor_id: activeUserId,
-                  content_id: validUuid,
-                  type: 'like',
-                  message: 'liked your story',
+                  target_id: validUuid,
+                  target_type: content_type,
+                  type: 'new_like',
                   is_read: false
                 })
                 .select('id')

@@ -149,13 +149,25 @@ export default function BookDetailPage() {
           .eq("following_id", book.authors.user_id);
         setIsFollowing(false);
         setFollowersCount(prev => Math.max(0, prev - 1));
-      } else {
-        await supabase
-          .from("follows")
-          .insert({ follower_id: user.id, following_id: book.authors.user_id });
-        setIsFollowing(true);
-        setFollowersCount(prev => prev + 1);
-      }
+        } else {
+          await supabase
+            .from("follows")
+            .insert({ follower_id: user.id, following_id: book.authors.user_id });
+
+          fetch('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: book.authors.user_id,
+              type: 'new_follower',
+              target_id: user.id,
+              target_type: 'profile'
+            })
+          }).catch(console.error);
+
+          setIsFollowing(true);
+          setFollowersCount(prev => prev + 1);
+        }
     } catch (err) {
       console.error("Follow error:", err);
     }

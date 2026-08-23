@@ -98,6 +98,7 @@ export default function NotificationsDropdown() {
   const getIcon = (type: string, priority: string) => {
     if (priority === 'important') return <AlertCircle size={14} className="text-red-500" />;
     switch (type) {
+      case "new_like": return <Heart size={14} className="text-pink-500 fill-pink-500" />;
       case "new_rating": 
       case "new_review": return <Star size={14} className="text-yellow-500 fill-yellow-500" />;
       case "new_follower": return <UserPlus size={14} className="text-green-500" />;
@@ -119,6 +120,7 @@ export default function NotificationsDropdown() {
     switch (type) {
       case "new_follower": return "started following you";
       case "new_review": return "reviewed your work";
+      case "new_like": return "liked your work";
       case "new_rating": return "rated your work";
       case "new_comment": return "commented on your post";
       case "reply_to_comment": return "replied to your comment";

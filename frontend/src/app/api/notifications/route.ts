@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { NotificationService } from "@/lib/notificationService";
 
 export const dynamic = "force-dynamic";
 
@@ -149,5 +150,32 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    const body = await req.json();
+    const { user_id, type, target_id, target_type } = body;
+    
+    if (!user_id || !type) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    
+    await NotificationService.create({
+      userId: user_id,
+      actorId: user.id,
+      type,
+      targetId: target_id,
+      targetType: target_type
+    });
+    
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

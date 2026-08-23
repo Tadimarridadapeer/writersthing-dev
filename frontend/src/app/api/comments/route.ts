@@ -200,9 +200,9 @@ export async function POST(req: Request) {
                 .insert({
                   user_id: authorId,
                   actor_id: activeUserId,
-                  content_id: uuid,
-                  type: 'comment',
-                  message: 'commented on your story',
+                  target_id: uuid,
+                  target_type: content_type || "story",
+                  type: 'new_comment',
                   is_read: false
                 })
                 .select('id')
