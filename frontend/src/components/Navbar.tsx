@@ -12,18 +12,6 @@ import AvatarWithBadge from "./AvatarWithBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/hooks/useCart";
 
-// Pre-computed Ashoka Chakra spoke coordinates (24 spokes).
-// Computed once at module load so SSR and client produce identical strings — prevents hydration mismatch.
-const CHAKRA_SPOKES: { x1: string; y1: string; x2: string; y2: string }[] = Array.from({ length: 24 }).map((_, i) => {
-  const rad = ((i * 360) / 24 * Math.PI) / 180;
-  return {
-    x1: (10 + 2.8 * Math.cos(rad)).toFixed(4),
-    y1: (10 + 2.8 * Math.sin(rad)).toFixed(4),
-    x2: (10 + 7.8 * Math.cos(rad)).toFixed(4),
-    y2: (10 + 7.8 * Math.sin(rad)).toFixed(4),
-  };
-});
-
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -93,12 +81,19 @@ export default function Navbar() {
                 >
                   <Menu size={24} />
                 </button>
-                <Link href={user ? "/marketplace" : "/"} className="flex items-center gap-2.5 group">
+                <Link href={user ? "/marketplace" : "/"} className="flex items-center justify-center relative group z-50 h-12 md:h-16 w-[250px] md:w-[350px]">
                   <img 
-                    src="/logo-festive.png" 
-                    alt="Writer's Thing" 
-                    className="h-14 md:h-16 w-auto object-contain transition-transform group-hover:scale-[1.02]" 
+                    src="/festive-bg.png" 
+                    alt="Festive theme" 
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none group-hover:scale-105 transition-transform duration-500"
                   />
+                  
+                  {/* Logo text */}
+                  <span className="relative z-10 flex flex-col leading-none">
+                    <span className="text-2xl md:text-3xl font-[family-name:var(--font-bodoni-moda)] tracking-tight text-black">
+                      Writer's Thing
+                    </span>
+                  </span>
                 </Link>
               </div>
 
@@ -206,7 +201,7 @@ export default function Navbar() {
                       <Menu size={24} />
                     </button>
                     <Link href={user ? "/marketplace" : "/"} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center">
-                      <img src="/logo-festive.png" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain" />
+                      <img src="/logo.png" alt="Writersthing Logo" className="h-10 w-auto max-w-[200px] object-contain" style={{ filter: 'grayscale(100%)' }} />
                     </Link>
                   </div>
                   
