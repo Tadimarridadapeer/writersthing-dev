@@ -203,7 +203,11 @@ export async function POST(req: Request) {
                   target_id: uuid,
                   target_type: content_type || "story",
                   type: 'new_comment',
-                  is_read: false
+                  is_read: false,
+                  metadata: {
+                    text: comment_text?.trim() || "",
+                    title: contentInfo.title || "A post"
+                  }
                 })
                 .select('id')
                 .maybeSingle();

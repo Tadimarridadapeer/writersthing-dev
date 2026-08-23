@@ -189,7 +189,10 @@ export async function POST(req: Request) {
                   target_id: validUuid,
                   target_type: content_type,
                   type: 'new_like',
-                  is_read: false
+                  is_read: false,
+                  metadata: {
+                    title: contentInfo.title || "A post"
+                  }
                 })
                 .select('id')
                 .maybeSingle();

@@ -42,15 +42,23 @@ export default function NotificationsDropdown() {
     setIsOpen(false);
 
     // Deep linking logic based on new schema
+    let destination = "";
     if (notification.target_url) {
-      router.push(notification.target_url);
+      destination = notification.target_url;
     } else if (notification.target_type && notification.target_id) {
-      if (notification.target_type === "book") router.push(`/book/${notification.target_id}`);
-      else if (notification.target_type === "story") router.push(`/stories/${notification.target_id}`);
-      else if (notification.target_type === "blog") router.push(`/blogs/${notification.target_id}`);
-      else if (notification.target_type === "profile") router.push(`/authors/${notification.target_id}`);
+      if (notification.target_type === "book") destination = `/book/${notification.target_id}`;
+      else if (notification.target_type === "story") destination = `/stories/${notification.target_id}`;
+      else if (notification.target_type === "blog") destination = `/blogs/${notification.target_id}`;
+      else if (notification.target_type === "profile") destination = `/authors/${notification.target_id}`;
     } else if (notification.type === "new_follower") {
-      router.push("/profile");
+      destination = "/profile";
+    }
+    
+    if (destination) {
+      if (notification.type === "new_comment" && !destination.includes("#")) {
+        destination += "#comments";
+      }
+      router.push(destination);
     }
   };
 
@@ -118,19 +126,24 @@ export default function NotificationsDropdown() {
 
   const getMessage = (type: string, metadata: any) => {
     switch (type) {
-      case "new_follower": return "started following you";
-      case "new_review": return "reviewed your work";
-      case "new_like": return "liked your work";
-      case "new_rating": return "rated your work";
-      case "new_comment": return "commented on your post";
-      case "reply_to_comment": return "replied to your comment";
+      case "new_follower": return "started following you.";
+      case "new_review": return "reviewed your work.";
+      case "new_like": return metadata?.title ? `liked your post "${metadata.title}".` : "liked your work.";
+      case "new_rating": return "rated your work.";
+      case "new_comment": 
+        if (metadata?.text) {
+          const truncated = metadata.text.length > 40 ? metadata.text.substring(0, 40) + '...' : metadata.text;
+          return `commented: "${truncated}"`;
+        }
+        return metadata?.title ? `commented on "${metadata.title}".` : "commented on your post.";
+      case "reply_to_comment": return "replied to your comment.";
       case "book_published": return `published a new book: ${metadata?.title || ''}`;
       case "story_published": return `published a new story: ${metadata?.title || ''}`;
       case "blog_published": return `published a new blog: ${metadata?.title || ''}`;
       case "reading_completed": return `You finished reading ${metadata?.title || 'a book'}`;
       case "bookmark_milestone": return `You have 10 bookmarks in ${metadata?.list_name || 'a list'}`;
-      case "invite": return "invited you to become a Founding Writer";
-      default: return "interacted with your profile";
+      case "invite": return "invited you to become a Founding Writer.";
+      default: return "interacted with your profile.";
     }
   };
 
@@ -231,15 +244,6 @@ export default function NotificationsDropdown() {
                       )}
                     </button>
                   ))}
-                  
-                  {/* View all link */}
-                  <Link 
-                    href="/profile?section=Notifications" 
-                    onClick={() => setIsOpen(false)}
-                    className="block w-full text-center p-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black hover:bg-zinc-50 transition-colors"
-                  >
-                    View All Notifications
-                  </Link>
                 </div>
               )}
             </div>

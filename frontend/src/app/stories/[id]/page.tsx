@@ -820,7 +820,7 @@ export default function StoryPost() {
                 </div>
 
                 {/* Comments Section */}
-                <section className="space-y-8">
+                <section id="comments" className="space-y-8">
                   <h3 className="text-2xl font-serif tracking-tight text-zinc-900 font-bold font-heading">Discussion ({comments.length})</h3>
 
                   <form onSubmit={handleCommentSubmit} className="space-y-4">

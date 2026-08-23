@@ -929,8 +929,6 @@ export default function ProfilePage() {
             <aside className="lg:col-span-3">
               <nav className="flex flex-col gap-2 sticky top-40">
                 <p className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-300 mb-2 px-6">Reader Tools</p>
-                <ProfileNavBtn icon={<Bell size={18} />} label="Notifications" active={activeSection === "Notifications"} onClick={() => setActiveSection("Notifications")} />
-                <ProfileNavBtn icon={<Star size={18} />} label="Reviews" active={activeSection === "Reviews"} onClick={() => setActiveSection("Reviews")} />
                 <ProfileNavBtn icon={<Book size={18} />} label="My Library" active={activeSection === "Library"} onClick={() => setActiveSection("Library")} />
                 <ProfileNavBtn icon={<Bookmark size={18} />} label="Bookmarks" active={activeSection === "Bookmarks"} onClick={() => setActiveSection("Bookmarks")} />
                 <ProfileNavBtn icon={<Heart size={18} />} label="Liked Content" active={activeSection === "Likes"} onClick={() => setActiveSection("Likes")} />
