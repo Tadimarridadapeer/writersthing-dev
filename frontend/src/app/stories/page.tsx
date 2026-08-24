@@ -5,8 +5,10 @@ import { motion } from "framer-motion";
 import { ArrowRight, BookOpen, Clock, User, ShieldCheck, Download, Feather, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { useAuth } from "@/context/AuthContext";
 
 export default function StorysPage() {
+  const { user } = useAuth();
   const [storys, setStorys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,13 +47,15 @@ export default function StorysPage() {
                   Technical guides, industry analysis, and craft mastery. Elevating the standard of independent publishing.
                 </p>
                 <div className="flex gap-4">
-                  <div className="px-6 py-3 border border-zinc-200 text-[10px] font-black uppercase tracking-widest">500+ Storys</div>
-                  <Link 
-                    href="/editor?type=story"
-                    className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-sm flex items-center gap-2"
-                  >
-                    <Feather size={14} /> Contribute
-                  </Link>
+                  <div className="px-6 py-3 border border-zinc-200 text-[10px] font-black uppercase tracking-widest">500+ Stories</div>
+                  {user && (
+                    <Link 
+                      href="/editor?type=story"
+                      className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl rounded-sm flex items-center gap-2"
+                    >
+                      <Feather size={14} /> Contribute
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
