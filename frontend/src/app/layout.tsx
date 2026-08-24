@@ -50,8 +50,24 @@ const ebGaramond = EB_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.writersthing.com"),
   title: "Writersthing - Unknown Writers Become Known",
   description: "A premium platform for authors and readers to connect, share, and grow.",
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Writersthing - Unknown Writers Become Known',
+    description: 'A premium platform for authors and readers to connect, share, and grow.',
+    url: 'https://www.writersthing.com',
+    siteName: 'Writersthing',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Writersthing - Unknown Writers Become Known',
+    description: 'A premium platform for authors and readers to connect, share, and grow.',
+  },
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -70,6 +86,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Writersthing',
+      url: 'https://www.writersthing.com',
+      publisher: {
+        '@id': 'https://www.writersthing.com/#organization'
+      }
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      '@id': 'https://www.writersthing.com/#organization',
+      name: 'Writer\'s Thing',
+      url: 'https://www.writersthing.com'
+    }
+  ];
+
   return (
     <html
       lang="en"
@@ -80,6 +115,11 @@ export default function RootLayout({
         className={`${inter.variable} ${outfit.variable} ${playfair.variable} ${questrial.variable} ${bodoniModa.variable} ${libreBaskerville.variable} ${ebGaramond.variable} min-h-full flex flex-col bg-white dark:bg-black text-black dark:text-white antialiased`}
         suppressHydrationWarning
       >
+        <Script
+          id="json-ld-website"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <MaintenanceProvider>
           <FoundingWritersProvider>
             <AuthProvider>
