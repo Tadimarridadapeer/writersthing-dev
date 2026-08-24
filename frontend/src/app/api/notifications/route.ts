@@ -72,16 +72,11 @@ export async function GET(req: Request) {
     
     let finalData = data || [];
     
-    // Fetch actor details manually using Service Role Key because of RLS and missing FK
+    // Fetch actor details manually using the authenticated client
     if (finalData.length > 0) {
-      const adminSupabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      
       const actorIds = [...new Set(finalData.map((n: any) => n.actor_id).filter(Boolean))];
       if (actorIds.length > 0) {
-        const { data: actorsData } = await adminSupabase
+        const { data: actorsData } = await supabase
           .from("users")
           .select("id, name, avatar_url")
           .in("id", actorIds);
