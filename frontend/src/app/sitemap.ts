@@ -112,17 +112,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: authors } = await supabase
       .from('authors')
       .select('id, user_id, updated_at')
+      .not('user_id', 'is', null)
       .limit(1000);
 
     if (authors) {
       authors.forEach((author) => {
-        dynamicRoutes.push({
-          // Using user_id as that's usually the ID used in routing or profile fetcher handles it
-          url: `${BASE_URL}/authors/${author.user_id || author.id}`, 
-          lastModified: author.updated_at ? new Date(author.updated_at) : currentDate,
-          changeFrequency: 'monthly',
-          priority: 0.6,
-        });
+        if (author.user_id) {
+          dynamicRoutes.push({
+            // Using user_id as that's usually the ID used in routing or profile fetcher handles it
+            url: `${BASE_URL}/authors/${author.user_id}`, 
+            lastModified: author.updated_at ? new Date(author.updated_at) : currentDate,
+            changeFrequency: 'monthly',
+            priority: 0.6,
+          });
+        }
       });
     }
   } catch (err) {

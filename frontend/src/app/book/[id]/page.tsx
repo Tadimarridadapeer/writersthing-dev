@@ -583,24 +583,33 @@ export default function BookDetailPage() {
                       {cart.some(i => i.id === book.id || i.book_id === book.id) || isAddedToCart ? "Added to Cart" : "Add to Cart"}
                     </button>
                     {user ? (
-                      <PaymentButton 
-                        amount={book.price || 100} 
-                        userId={user.id}
-                        projectId={book.id}
-                        customerName={user.name || ""}
-                        customerEmail={user.email || ""}
-                        className="w-full sm:w-auto sm:flex-grow px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
-                        buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
-                        onSuccess={() => {
-                          setIsPurchased(true);
-                        }}
-                      />
+                      (!book.price || book.price === 0) ? (
+                        <Link
+                          href={`/read/pdf?id=${book.id}&title=${encodeURIComponent(book.title)}`}
+                          className="w-full sm:w-auto sm:flex-grow px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                        >
+                          DOWNLOAD <BookOpen size={12} fill="currentColor" />
+                        </Link>
+                      ) : (
+                        <PaymentButton 
+                          amount={book.price || 100} 
+                          userId={user.id}
+                          projectId={book.id}
+                          customerName={user.name || ""}
+                          customerEmail={user.email || ""}
+                          className="w-full sm:w-auto sm:flex-grow px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
+                          buttonText={<>Buy Now <Zap size={12} fill="currentColor" /></>}
+                          onSuccess={() => {
+                            setIsPurchased(true);
+                          }}
+                        />
+                      )
                     ) : (
                       <button 
                         onClick={handleBuyNow}
                         className="w-full sm:w-auto sm:flex-grow px-8 py-3.5 bg-white text-zinc-950 font-black text-[9px] uppercase tracking-[0.25em] hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 rounded-xl"
                       >
-                        Buy Now <Zap size={12} fill="currentColor" />
+                        {(!book.price || book.price === 0) ? "DOWNLOAD" : "Buy Now"} <Zap size={12} fill="currentColor" />
                       </button>
                     )}
                   </div>

@@ -113,9 +113,17 @@ export async function GET(
       });
     }
 
-    // Check stories (publicly readable)
+    // Check stories (publicly readable if published, otherwise owner only)
     if (storyRes.data) {
       const story = storyRes.data;
+      
+      const isPublished = story.status === "Published";
+      const isOwner = user && story.authors?.user_id === user.id;
+      
+      if (!isPublished && !isOwner) {
+        return NextResponse.json({ message: "Unauthorized access to this story" }, { status: 403 });
+      }
+
       return NextResponse.json({
         title: story.title,
         content: story.body || "",
