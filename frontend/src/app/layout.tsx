@@ -51,22 +51,22 @@ const ebGaramond = EB_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.writersthing.com"),
-  title: "Writersthing - Unknown Writers Become Known",
-  description: "A premium platform for authors and readers to connect, share, and grow.",
+  title: "Writer's Thing - A Home for Writers & Storytellers",
+  description: "Writer's Thing is a publishing platform for writers, storytellers, and authors to write, publish, discover, and share great stories.",
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Writersthing - Unknown Writers Become Known',
-    description: 'A premium platform for authors and readers to connect, share, and grow.',
+    title: "Writer's Thing - A Home for Writers & Storytellers",
+    description: "Writer's Thing is a publishing platform for writers, storytellers, and authors to write, publish, discover, and share great stories.",
     url: 'https://www.writersthing.com',
-    siteName: 'Writersthing',
+    siteName: "Writer's Thing",
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Writersthing - Unknown Writers Become Known',
-    description: 'A premium platform for authors and readers to connect, share, and grow.',
+    title: "Writer's Thing - A Home for Writers & Storytellers",
+    description: "Writer's Thing is a publishing platform for writers, storytellers, and authors to write, publish, discover, and share great stories.",
   },
   icons: {
     icon: [
@@ -90,7 +90,7 @@ export default function RootLayout({
     {
       '@context': 'https://schema.org',
       '@type': 'WebSite',
-      name: 'Writersthing',
+      name: 'Writer\'s Thing',
       url: 'https://www.writersthing.com',
       publisher: {
         '@id': 'https://www.writersthing.com/#organization'
