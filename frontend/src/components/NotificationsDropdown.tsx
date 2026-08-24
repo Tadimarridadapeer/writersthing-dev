@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Heart, MessageCircle, UserPlus, Check, X, BookOpen, Star, AlertCircle } from "lucide-react";
+import { Bell, Heart, MessageCircle, UserPlus, Check, X, BookOpen, Star, AlertCircle, Megaphone, FileText } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -112,14 +112,14 @@ export default function NotificationsDropdown() {
       case "new_follower": return <UserPlus size={14} className="text-green-500" />;
       case "new_comment":
       case "reply_to_comment": return <MessageCircle size={14} className="text-blue-500" />;
-      case "book_published":
-      case "story_published":
-      case "blog_published":
-      case "article_published":
+      case "book_published": return <BookOpen size={14} className="text-indigo-500" />;
+      case "story_published": return <FileText size={14} className="text-indigo-500" />;
+      case "blog_published": return <FileText size={14} className="text-indigo-500" />;
       case "author_published": return <BookOpen size={14} className="text-indigo-500" />;
       case "bookmark_milestone":
       case "reading_completed": return <Check size={14} className="text-emerald-500" />;
       case "invite": return <Star size={14} className="text-amber-500 fill-amber-500" />;
+      case "system_message": return <Megaphone size={14} className="text-red-500 fill-red-100" />;
       default: return <Bell size={14} className="text-zinc-500" />;
     }
   };
@@ -143,6 +143,7 @@ export default function NotificationsDropdown() {
       case "reading_completed": return `You finished reading ${metadata?.title || 'a book'}`;
       case "bookmark_milestone": return `You have 10 bookmarks in ${metadata?.list_name || 'a list'}`;
       case "invite": return "invited you to become a Founding Writer.";
+      case "system_message": return `Broadcast: ${metadata?.text || 'Announcement from Admins'}`;
       default: return "interacted with your profile.";
     }
   };

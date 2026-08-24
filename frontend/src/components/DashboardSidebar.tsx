@@ -10,7 +10,8 @@ import {
   Library, 
   Settings,
   Plus,
-  LogOut
+  LogOut,
+  Megaphone
 } from "lucide-react";
 import { OptimizedImage } from "@/components/OptimizedImage";
 
@@ -56,6 +57,7 @@ export default function DashboardSidebar() {
     { name: "Users", icon: <BarChart3 size={20} />, href: "/admin/users" },
     { name: "Content", icon: <BookCopy size={20} />, href: "/admin/content" },
     { name: "Payouts", icon: <Library size={20} />, href: "/admin/payouts" },
+    { name: "Broadcast", icon: <Megaphone size={20} />, href: "/admin/broadcast" },
     { name: "Settings", icon: <Settings size={20} />, href: "/dashboard/settings" },
   ];
 

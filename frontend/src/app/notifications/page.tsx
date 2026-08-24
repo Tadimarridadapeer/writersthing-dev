@@ -8,7 +8,7 @@ import { Bell, Check, Trash2 } from "lucide-react";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
-import { Heart, MessageSquare, Star, UserPlus, FileText, Gift, Mail } from "lucide-react";
+import { Heart, MessageSquare, Star, UserPlus, FileText, Gift, Mail, Megaphone } from "lucide-react";
 
 export default function NotificationsPage() {
   const { user } = useAuth();
@@ -34,6 +34,7 @@ export default function NotificationsPage() {
       case "story_published":
       case "blog_published": return <FileText size={12} className="text-purple-500" />;
       case "founder_invite": return <Gift size={12} className="text-amber-500" />;
+      case "system_message": return <Megaphone size={12} className="text-red-500 fill-red-100" />;
       default: return <Bell size={12} className="text-zinc-500" />;
     }
   };
@@ -55,6 +56,7 @@ export default function NotificationsPage() {
       case "story_published": return "published a new story: " + (metadata?.title || '');
       case "blog_published": return "published a new blog: " + (metadata?.title || '');
       case "invite": return "invited you to become a Founding Writer.";
+      case "system_message": return `Broadcast: ${metadata?.text || 'Announcement from Admins'}`;
       default: return "interacted with your profile.";
     }
   };
