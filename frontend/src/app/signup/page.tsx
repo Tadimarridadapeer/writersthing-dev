@@ -119,7 +119,7 @@ export default function SignupPage() {
       >
         <div className="relative z-10">
           <Link href="/" className="inline-block mb-8 xl:mb-12">
-            <h2 className="text-sm font-black uppercase tracking-[0.5em] text-zinc-500">Writersthing</h2>
+            <h2 className="text-sm font-black uppercase tracking-[0.5em] text-zinc-500">Writer's Thing</h2>
           </Link>
           
           <div className="max-w-xl">
@@ -161,7 +161,7 @@ export default function SignupPage() {
         >
           <header className="mb-8">
             <div className="lg:hidden mb-6">
-               <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Writersthing</h2>
+               <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Writer's Thing</h2>
             </div>
             <h1 className="text-3xl xl:text-4xl font-heading font-bold tracking-tight uppercase mb-3">Create Account</h1>
             <p className="text-zinc-500 text-sm font-medium italic">Fill in your details to create your creator profile.</p>

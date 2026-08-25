@@ -21,7 +21,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">1. Introduction</h2>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              Welcome to Writersthing. These Terms of Use govern your access to and use of our platform, website, and services. By accessing or using Writersthing, you agree to be bound by these Terms and all applicable laws and regulations.
+              Welcome to Writer's Thing. These Terms of Use govern your access to and use of our platform, website, and services. By accessing or using Writer's Thing, you agree to be bound by these Terms and all applicable laws and regulations.
             </p>
             <p className="text-zinc-600 leading-relaxed mb-4">
               If you do not agree with any of these terms, you are prohibited from using or accessing this site.
@@ -31,10 +31,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">2. Intellectual Property Rights</h2>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              <strong>For Creators:</strong> You retain 100% ownership and copyright of any original content, manuscripts, stories, or blogs you publish on Writersthing. By publishing on our platform, you grant us a non-exclusive, worldwide, royalty-free license to display, distribute, and promote your content strictly within the context of operating and marketing the platform.
+              <strong>For Creators:</strong> You retain 100% ownership and copyright of any original content, manuscripts, stories, or blogs you publish on Writer's Thing. By publishing on our platform, you grant us a non-exclusive, worldwide, royalty-free license to display, distribute, and promote your content strictly within the context of operating and marketing the platform.
             </p>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              <strong>For Writersthing:</strong> The platform itself, including its original design, features, functionality, and branding, are owned by Writersthing and are protected by international copyright, trademark, and other intellectual property laws.
+              <strong>For Writer's Thing:</strong> The platform itself, including its original design, features, functionality, and branding, are owned by Writer's Thing and are protected by international copyright, trademark, and other intellectual property laws.
             </p>
           </section>
 
@@ -54,7 +54,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">4. Marketplace and Payments</h2>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              Creators may sell their work on Writersthing. We operate on a direct creator-to-reader revenue model, retaining a minimal commission on sales to cover transaction processing and platform maintenance. 
+              Creators may sell their work on Writer's Thing. We operate on a direct creator-to-reader revenue model, retaining a minimal commission on sales to cover transaction processing and platform maintenance. 
             </p>
             <p className="text-zinc-600 leading-relaxed mb-4">
               All purchases are final unless required otherwise by law. Creators are responsible for ensuring they have the legal right to monetize the content they upload.

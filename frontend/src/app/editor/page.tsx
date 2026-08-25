@@ -1132,7 +1132,7 @@ function BookUploadUI({
             disabled={isSubmitting}
             className="w-full sm:w-auto px-20 py-6 bg-black text-white font-black text-[10px] uppercase tracking-[0.4em] hover:scale-[1.05] transition-all shadow-2xl flex items-center justify-center gap-4 disabled:opacity-50 rounded-sm"
           >
-            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish to Writersthing"}
+            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish to Writer's Thing"}
           </button>
         </div>
       </form>

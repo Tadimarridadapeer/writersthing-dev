@@ -20,30 +20,33 @@ export default function AboutPage() {
         {/* Hero Section */}
         <section className="unified-axis mb-32">
           <div className="max-w-4xl">
-            <motion.p 
+            <motion.h2 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400 mb-8"
+              transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+              className="text-lg md:text-xl font-medium tracking-tight text-zinc-600 mb-8 font-serif italic"
             >
-              The Mission of Writersthing
+              Where Unknown Writers Become Known
+            </motion.h2>
+          </div>
+
+          <div className="max-w-3xl border-l-4 border-black pl-8 md:pl-12">
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 0.2 }}
+              className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400 mb-6"
+            >
+              The Mission of Writer's Thing
             </motion.p>
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-7xl md:text-8xl font-heading font-black tracking-ultra-tight uppercase leading-[0.9] mb-12"
-            >
-              Where Unknown <br />
-              Writers Become <br />
-              <span className="text-zinc-200">Iconic Voices.</span>
-            </motion.h1>
+            
             <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-zinc-500 text-2xl font-medium leading-relaxed max-w-2xl italic"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.5, delay: 0.3 }}
+              className="text-2xl md:text-3xl leading-relaxed font-light text-black"
             >
-              Writersthing is a premium literary ecosystem designed to bridge the gap between hidden talent and the global stage. We provide the quiet room, the professional tools, and the network to ensure your narrative thrives.
+              Writer's Thing is a premium literary ecosystem designed to bridge the gap between hidden talent and the global stage. We provide the quiet room, the professional tools, and the network to ensure your narrative thrives.
             </motion.p>
           </div>
         </section>

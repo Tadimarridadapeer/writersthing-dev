@@ -148,7 +148,7 @@ export default function LoginPage() {
       >
         <div className="relative z-10">
           <Link href="/" className="inline-block mb-8 xl:mb-12">
-            <h2 className="text-sm font-black uppercase tracking-[0.5em] text-zinc-500">Writersthing</h2>
+            <h2 className="text-sm font-black uppercase tracking-[0.5em] text-zinc-500">Writer's Thing</h2>
           </Link>
           
           <div className="max-w-xl">
@@ -156,7 +156,7 @@ export default function LoginPage() {
               Where Stories <br /> Find Their <br /> Legacy.
             </h1>
             <p className="text-sm xl:text-base 2xl:text-lg text-zinc-400 font-medium leading-relaxed italic border-l-2 border-zinc-800 pl-8">
-              "We believe that every manuscript deserves a stage. Writersthing isn't just a marketplace; it's a sanctuary for the written word, connecting unknown voices with global readers."
+              "We believe that every manuscript deserves a stage. Writer's Thing isn't just a marketplace; it's a sanctuary for the written word, connecting unknown voices with global readers."
             </p>
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function LoginPage() {
         >
           <header className="mb-8">
             <div className="lg:hidden mb-6">
-               <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Writersthing</h2>
+               <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Writer's Thing</h2>
             </div>
             <h1 className="text-3xl xl:text-4xl font-heading font-bold tracking-tight uppercase mb-3">Welcome</h1>
             <p className="text-zinc-500 text-sm font-medium italic">Enter your email and password to access your account.</p>
@@ -260,7 +260,7 @@ export default function LoginPage() {
 
           <footer className="mt-8 pt-6 border-t border-zinc-50 flex flex-col items-center gap-4 w-full">
             <p className="text-zinc-400 text-xs font-medium italic mb-2">
-              New to Writersthing?
+              New to Writer's Thing?
             </p>
             <Link 
               href={redirectUrl ? `/signup?redirect=${encodeURIComponent(redirectUrl)}` : "/signup"} 

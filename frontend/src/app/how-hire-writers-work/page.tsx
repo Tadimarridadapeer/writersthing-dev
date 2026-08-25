@@ -36,7 +36,7 @@ export default function HowHireWritersWorkPage() {
               How Hiring Writers Works
             </h1>
             <p className="text-lg text-zinc-500 font-serif leading-relaxed">
-              Writersthing isn't just a marketplace; it's a launchpad. We are the ultimate destination for the next generation of storytellers. Our mission is to connect visionary creators with undiscovered talent, turning today's unknown writers into tomorrow's icons.
+              Writer's Thing isn't just a marketplace; it's a launchpad. We are the ultimate destination for the next generation of storytellers. Our mission is to connect visionary creators with undiscovered talent, turning today's unknown writers into tomorrow's icons.
             </p>
           </div>
         </div>

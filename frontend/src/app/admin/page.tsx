@@ -219,7 +219,7 @@ export default function AdminDashboard() {
 
         {/* Footer info */}
         <footer className="pt-8 border-t border-zinc-100 flex justify-between items-center text-zinc-400">
-          <p className="text-[10px] font-black uppercase tracking-widest italic">© 2026 Writersthing Control Center</p>
+          <p className="text-[10px] font-black uppercase tracking-widest italic">© 2026 Writer's Thing Control Center</p>
           <div className="flex gap-8">
             <span className="text-[10px] font-black uppercase tracking-widest hover:text-black cursor-pointer">Security Logs</span>
             <span className="text-[10px] font-black uppercase tracking-widest hover:text-black cursor-pointer">API Status</span>

@@ -21,10 +21,10 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">1. Introduction</h2>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              At Writersthing, we respect your privacy and are committed to protecting the personal information you share with us. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our platform.
+              At Writer's Thing, we respect your privacy and are committed to protecting the personal information you share with us. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our platform.
             </p>
             <p className="text-zinc-600 leading-relaxed mb-4">
-              By accessing or using Writersthing, you agree to the collection and use of information in accordance with this policy.
+              By accessing or using Writer's Thing, you agree to the collection and use of information in accordance with this policy.
             </p>
           </section>
 
