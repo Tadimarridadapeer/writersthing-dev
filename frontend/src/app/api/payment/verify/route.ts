@@ -95,7 +95,7 @@ export async function POST(req: Request) {
     console.log("Executing query...");
     let existingPayment;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("payments")
         .select("id")
         .eq("payment_id", razorpay_payment_id)
@@ -211,7 +211,7 @@ export async function POST(req: Request) {
     console.log("Executing query...");
     let paymentRecord;
     try {
-      const response = await supabase.from("payments").insert(paymentInsertData).select().single();
+      const response = await supabaseAdmin.from("payments").insert(paymentInsertData).select().single();
       const { data, error } = response;
       if (error) {
         console.error(error.message);
@@ -230,97 +230,100 @@ export async function POST(req: Request) {
       throw error;
     }
 
-    // QUERY 4: insert order_items
+    // QUERY 4: insert purchases and author_earnings
     if (orderItemsToInsert.length > 0) {
-      const splitsWithPaymentId = orderItemsToInsert.map(item => ({
-        ...item,
-        payment_id: paymentRecord?.id
-      }));
+      const purchasesToInsert = [];
+      const earningsToInsert = [];
       
-      console.log("STEP A");
-      console.log(splitsWithPaymentId);
-      console.log(userId);
-      console.log(projectId);
-      console.log(razorpay_payment_id);
-      console.log(razorpay_order_id);
-      console.log(amount);
-      console.log("Executing query...");
+      for (const item of orderItemsToInsert) {
+        purchasesToInsert.push({
+          buyer_id: userId,
+          book_id: item.book_id,
+          order_id: razorpay_order_id,
+          payment_id: paymentRecord.id,
+          amount: item.amount,
+          currency: "INR",
+          status: "COMPLETED"
+        });
+      }
+      
+      console.log("STEP A: Inserting Purchases");
+      let insertedPurchases: any[] = [];
       try {
-        const response = await supabase.from("order_items").insert(splitsWithPaymentId);
-        const { error } = response;
+        const response = await supabaseAdmin.from("purchases").insert(purchasesToInsert).select();
+        const { data, error } = response;
         if (error) {
-          console.error(error.message);
-          console.error(error.details);
-          console.error(error.hint);
-          console.error(error.code);
+          console.error("Purchases insert error (table may not exist yet):", error.message);
+        } else {
+           insertedPurchases = data || [];
         }
-        if (!error && !response.data) {
-          console.log(response);
-        }
-        console.log("Query successful");
       } catch (error) {
-        console.error(error);
-        throw error;
+        console.error("Purchases insertion failed", error);
+      }
+      
+      for (const item of orderItemsToInsert) {
+        const purchase = insertedPurchases.find(p => p.book_id === item.book_id);
+        if (purchase) {
+          // author_earnings.author_id references authors(user_id), so resolve user_id from authors.id
+          const { data: authorRec } = await supabaseAdmin.from('authors').select('user_id').eq('id', item.author_id).single();
+          const resolvedAuthorUserId = authorRec?.user_id || item.author_id;
+          earningsToInsert.push({
+            author_id: resolvedAuthorUserId,
+            book_id: item.book_id,
+            purchase_id: purchase.id,
+            gross_amount: item.amount,
+            platform_fee: item.commission_amount,
+            net_amount: item.writer_amount,
+            status: "RECORDED"
+          });
+        }
+      }
+      
+      if (earningsToInsert.length > 0) {
+        console.log("STEP A: Inserting Author Earnings");
+        try {
+          const { error } = await supabaseAdmin.from("author_earnings").insert(earningsToInsert);
+          if (error) {
+            console.error("Earnings insert error (table may not exist yet):", error.message);
+          }
+        } catch (error) {
+          console.error("Earnings insertion failed", error);
+        }
       }
 
-      // QUERY 5: rpc increment_author_balance
+      // QUERY 5: Update balance and sales_count directly
       for (const item of orderItemsToInsert) {
-        const rpcData = {
-          author_uuid: item.author_id,
-          amount_to_add: item.writer_amount
-        };
-        console.log("STEP A");
-        console.log(rpcData);
-        console.log(userId);
-        console.log(projectId);
-        console.log(razorpay_payment_id);
-        console.log(razorpay_order_id);
-        console.log(amount);
-        console.log("Executing query...");
         try {
-          const { error } = await supabase.rpc('increment_author_balance', rpcData);
-          if (error) {
-            console.error(error.message);
-            console.error(error.details);
-            console.error(error.hint);
-            console.error(error.code);
+          const { data: authorData } = await supabaseAdmin.from('authors').select('available_balance').eq('id', item.author_id).single();
+          if (authorData) {
+            const newBalance = Number(authorData.available_balance || 0) + Number(item.writer_amount);
+            await supabaseAdmin.from('authors').update({ available_balance: newBalance }).eq('id', item.author_id);
           }
-          console.log("Query successful");
+          
+          const { data: bookData } = await supabaseAdmin.from('books').select('sales_count').eq('id', item.book_id).single();
+          if (bookData) {
+            const newSales = Number(bookData.sales_count || 0) + 1;
+            await supabaseAdmin.from('books').update({ sales_count: newSales }).eq('id', item.book_id);
+          }
         } catch (error) {
-          console.error(error);
-          throw error;
+          console.error("Update execution failed", error);
         }
       }
     }
 
     // QUERY 6: insert library
     if (libraryInserts.length > 0) {
-      console.log("STEP A");
-      console.log(libraryInserts);
-      console.log(userId);
-      console.log(projectId);
-      console.log(razorpay_payment_id);
-      console.log(razorpay_order_id);
-      console.log(amount);
-      console.log("Executing query...");
+      console.log("STEP A: Upserting Library");
       try {
-        const response = await supabase
+        const response = await supabaseAdmin
           .from("library")
           .upsert(libraryInserts, { onConflict: 'user_id,book_id' });
         const { error } = response;
         if (error) {
-          console.error(error.message);
-          console.error(error.details);
-          console.error(error.hint);
-          console.error(error.code);
+          console.error("Library upsert error:", error);
         }
-        if (!error && !response.data) {
-          console.log(response);
-        }
-        console.log("Query successful");
       } catch (error) {
-        console.error(error);
-        throw error;
+        console.error("Library upsert failed", error);
       }
     }
 
@@ -352,23 +355,15 @@ export async function POST(req: Request) {
             for (const book of books) {
               await sendPurchaseReceipt(buyer.email, book.title || 'Your Book', book.price?.toString() || '0');
               
-              // QUERY 8: select writer
-              console.log("STEP A");
-              console.log({ select: 'email, name', eq: book.author_id });
-              console.log(userId);
-              console.log(projectId);
-              console.log(razorpay_payment_id);
-              console.log(razorpay_order_id);
-              console.log(amount);
-              console.log("Executing query...");
-              const { data: writer, error: writerError } = await supabaseAdmin.from('users').select('email, name').eq('id', book.author_id).single();
+              // QUERY 8: resolve author's user_id and select writer
+              console.log("STEP A: Looking up writer for book author_id:", book.author_id);
+              // book.author_id is authors.id, need to resolve to users.id first
+              const { data: authorRecord } = await supabaseAdmin.from('authors').select('user_id').eq('id', book.author_id).single();
+              const writerUserId = authorRecord?.user_id || book.author_id;
+              const { data: writer, error: writerError } = await supabaseAdmin.from('users').select('email, name').eq('id', writerUserId).single();
               if (writerError) {
-                console.error(writerError.message);
-                console.error(writerError.details);
-                console.error(writerError.hint);
-                console.error(writerError.code);
+                console.error("Writer lookup error:", writerError.message);
               }
-              console.log("Query successful");
 
               if (writer?.email) {
                 await sendWriterSaleNotification(writer.email, writer.name || 'Writer', book.title || 'A Book', book.price?.toString() || '0');

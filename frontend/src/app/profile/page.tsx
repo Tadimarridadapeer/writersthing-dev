@@ -73,6 +73,8 @@ export default function ProfilePage() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
 
+  const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
+
   const fetchUpiData = async () => {
     if (!user?.id) return;
     try {
@@ -87,6 +89,9 @@ export default function ProfilePage() {
         if (authData) setAvailableBalance(authData.available_balance || 0);
       }
       setPendingUpiRequest(null);
+      
+      const { data: withdrawalsData } = await supabase.from('withdrawals').select('*').eq('author_id', user.id).order('created_at', { ascending: false });
+      if (withdrawalsData) setWithdrawalsList(withdrawalsData);
     } catch (e) {
       console.error("Failed to fetch UPI data", e);
     }
@@ -94,6 +99,22 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchUpiData();
+
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('profile_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'authors', filter: `user_id=eq.${user.id}` }, (payload: any) => {
+        fetchUpiData(); // Re-fetch to get updated balance
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals', filter: `author_id=eq.${user.id}` }, (payload: any) => {
+        fetchUpiData(); // Re-fetch to update withdrawal history
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   // Webcam modal state
@@ -614,28 +635,24 @@ export default function ProfilePage() {
       const resolvedReaded = await fetchItemsDetails(readedSaves);
       setReadedItems(resolvedReaded);
 
-      // 2. Process Published Items (for Authors/Admins)
-      if (parsedUser.role === "Author" || parsedUser.role === "Admin") {
-        const { data: authorProfile } = await supabase
-          .from("authors")
-          .select("id")
-          .eq("user_id", parsedUser.id)
-          .maybeSingle();
+      // 2. Process Published Items
+      const { data: authorProfile } = await supabase
+        .from("authors")
+        .select("id")
+        .eq("user_id", parsedUser.id)
+        .maybeSingle();
 
-        if (authorProfile) {
-          const [pubBooksRes, pubStoriesRes, pubBlogsRes] = await Promise.all([
-            supabase.from("books").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", parsedUser.id),
-            supabase.from("stories").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id),
-            supabase.from("blogs").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id)
-          ]);
-          
-          const books = (pubBooksRes.data || []).map((b: any) => ({ ...b, type: "book", content_type: "book", details: b }));
-          const stories = (pubStoriesRes.data || []).map((a: any) => ({ ...a, type: "story", content_type: "story", details: a }));
-          const blogs = (pubBlogsRes.data || []).map((b: any) => ({ ...b, type: "blog", content_type: "blog", details: b }));
-          
-          setPublishedItems([...books, ...stories, ...blogs]);
-        }
-      }
+      const [pubBooksRes, pubStoriesRes, pubBlogsRes] = await Promise.all([
+        authorProfile ? supabase.from("books").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id) : Promise.resolve({ data: [] }),
+        authorProfile ? supabase.from("stories").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id) : Promise.resolve({ data: [] }),
+        authorProfile ? supabase.from("blogs").select("*, authors:author_id(*, users!authors_user_id_fkey(name))").eq("author_id", authorProfile.id) : Promise.resolve({ data: [] })
+      ]);
+      
+      const books = (pubBooksRes.data || []).map((b: any) => ({ ...b, type: "book", content_type: "book", details: b }));
+      const stories = (pubStoriesRes?.data || []).map((a: any) => ({ ...a, type: "story", content_type: "story", details: a }));
+      const blogs = (pubBlogsRes?.data || []).map((b: any) => ({ ...b, type: "blog", content_type: "blog", details: b }));
+      
+      setPublishedItems([...books, ...stories, ...blogs]);
 
       const libraryCount = libRes.data?.length || 0;
       const bookmarksCount = savesRes.data?.length || 0;
@@ -841,8 +858,8 @@ export default function ProfilePage() {
             </div>
             
             <div className="flex-grow text-center md:text-left">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 select-none">
-                <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900 flex items-center gap-2">
+              <div className="flex flex-col items-center md:flex-row md:items-center md:justify-start gap-4 mb-4 select-none">
+                <h1 className="text-3xl font-heading font-black uppercase tracking-tight text-zinc-900 flex items-center justify-center md:justify-start gap-2 text-center md:text-left w-full md:w-auto">
                   {user?.user_metadata?.name || user?.name || user?.user_metadata?.full_name || "Author"}
                   {user?.is_verified_writer && (
                     <span className="inline-flex items-center justify-center bg-black text-white rounded-full w-5 h-5 flex-shrink-0" title="Verified Author">
@@ -872,9 +889,9 @@ export default function ProfilePage() {
               
               {/* Founding Writer Card */}
               {founderInvite && (
-                <div className="flex items-center gap-3 mb-8 opacity-70 hover:opacity-100 transition-opacity max-w-xl mx-auto md:mx-0 select-none">
+                <div className="flex items-center justify-center md:justify-start gap-3 mb-8 opacity-70 hover:opacity-100 transition-opacity max-w-xl mx-auto md:mx-0 select-none">
                   <div className="w-1.5 h-1.5 rounded-full bg-black" />
-                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">
+                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest text-center md:text-left">
                     Founding Writer <span className="font-black text-zinc-800">#{String(founderInvite.founder_number).padStart(5, '0')}</span>
                   </p>
                 </div>
@@ -1455,39 +1472,161 @@ export default function ProfilePage() {
                     const totalRevenue = nonDrafts.filter((i) => i.type === "book").reduce((acc, b) => acc + ((b.price || 0) * (b.sales_count || 0)), 0);
                     const totalLikes = nonDrafts.reduce((acc, i) => acc + (i.likes_count || 0), 0);
                     const totalComments = nonDrafts.reduce((acc, i) => acc + (i.comments_count || 0), 0);
+                    
+                    const booksData = nonDrafts.filter(i => i.type === "book");
 
                     return (
                       <div className="space-y-12">
                         <div>
-                          <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Profile & Audience Reach</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <AnalyticsCard title="Blogs Reach" value={blogsReach} unit="Views" />
-                            <AnalyticsCard title="Stories Reach" value={storiesReach} unit="Views" />
-                            <AnalyticsCard title="Total Followers" value={stats.followers} unit="Accounts" />
+                          <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Overview</h2>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <AnalyticsCard title="Likes" value={totalLikes} unit="Total" />
+                            <AnalyticsCard title="Comments" value={totalComments} unit="Total" />
+                            <AnalyticsCard title="Followers" value={stats.followers} unit="Accounts" />
+                            <AnalyticsCard title="Purchases" value={totalSales} unit="Units" />
                           </div>
                         </div>
 
                         <div>
-                          <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Sales Analytics</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <AnalyticsCard title="Total Books Sold" value={totalSales} unit="Units" />
-                            <AnalyticsCard title="Gross Revenue" value={`₹${totalRevenue.toLocaleString()}`} unit="INR" />
-                            <AnalyticsCard title="Avg. Retention" value="N/A" unit="Rate" />
+                          <h2 className="text-2xl font-heading font-black uppercase tracking-tight mb-6 pb-4 border-b border-zinc-100">Revenue</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                            <AnalyticsCard title="Total Sales" value={`₹${totalRevenue.toLocaleString()}`} unit="Gross" />
+                            <AnalyticsCard title="Available to Withdraw" value={`₹${availableBalance.toFixed(2)}`} unit="INR" />
+                            <AnalyticsCard title="Total Orders" value={totalSales} unit="Transactions" />
                           </div>
-                        </div>
 
-                        <div className="bg-zinc-50 border border-zinc-100 p-12 rounded-sm text-center">
-                          <TrendingUp size={48} className="mx-auto text-zinc-200 mb-6" />
-                          <h3 className="text-2xl font-heading font-black uppercase tracking-tight mb-4">Total Engagement</h3>
-                          <div className="grid grid-cols-2 max-w-sm mx-auto gap-8 mb-8">
-                            <div>
-                              <p className="text-3xl font-black text-black">{totalLikes}</p>
-                              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mt-1">Likes</p>
+                          {/* Withdrawal UI */}
+                          <div className="bg-zinc-50 border border-zinc-200 p-6 rounded-sm mb-8">
+                            <div className="flex items-center justify-between mb-4">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 block">Available Balance</span>
+                              <span className="text-2xl font-black text-black">₹{availableBalance.toFixed(2)}</span>
                             </div>
-                            <div>
-                              <p className="text-3xl font-black text-black">{totalComments}</p>
-                              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mt-1">Comments</p>
-                            </div>
+                            
+                            {!activeUpiId && !pendingUpiRequest ? (
+                               <div className="text-sm text-red-600 mb-4 p-4 bg-red-50 rounded border border-red-100">
+                                 Complete your payout setup in Profile Settings before withdrawing.
+                               </div>
+                            ) : (
+                               <form onSubmit={async (e) => {
+                                 e.preventDefault();
+                                 setIsWithdrawing(true);
+                                 try {
+                                   const { data: { session } } = await supabase.auth.getSession();
+                                   if (!session) throw new Error("Not authenticated");
+                                   const res = await fetch("/api/writer/withdraw", {
+                                     method: "POST",
+                                     headers: {
+                                       "Content-Type": "application/json",
+                                       "Authorization": `Bearer ${session.access_token}`
+                                     },
+                                     body: JSON.stringify({ amount: Number(withdrawAmount) })
+                                   });
+                                   const data = await res.json();
+                                   if (!res.ok) throw new Error(data.error || "Failed to request withdrawal");
+                                   setToast({ message: "Withdrawal processed successfully!", type: "success" });
+                                   setWithdrawAmount("");
+                                   fetchUpiData(); // refresh balance
+                                 } catch (err: any) {
+                                   setToast({ message: err.message, type: "error" });
+                                 } finally {
+                                   setIsWithdrawing(false);
+                                 }
+                               }}>
+                                 <div className="flex items-end gap-4">
+                                   <div className="flex-1">
+                                     <label className="block text-[9px] font-black uppercase tracking-widest mb-1.5 text-zinc-500">Withdraw Amount (₹)</label>
+                                     <input 
+                                       type="number" 
+                                       min="1" 
+                                       max={availableBalance}
+                                       step="1"
+                                       value={withdrawAmount}
+                                       onChange={(e) => setWithdrawAmount(e.target.value)}
+                                       placeholder="0"
+                                       required
+                                       disabled={availableBalance <= 0 || isWithdrawing}
+                                       className="w-full bg-white border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:border-black rounded-sm disabled:opacity-50"
+                                     />
+                                   </div>
+                                   <button 
+                                     type="submit"
+                                     disabled={availableBalance <= 0 || isWithdrawing || !withdrawAmount}
+                                     className="bg-black text-white px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors rounded-sm disabled:opacity-50 disabled:cursor-not-allowed h-[46px]"
+                                   >
+                                     {isWithdrawing ? "Processing..." : "Withdraw Money"}
+                                   </button>
+                                 </div>
+                                 <div className="mt-4 text-xs text-zinc-500">
+                                   Withdrawal UPI: <span className="font-medium text-zinc-700">{activeUpiId ? activeUpiId.replace(/^(.{2}).*(@.*)$/, "$1***$2") : "Not set"}</span>
+                                 </div>
+                               </form>
+                            )}
+                          </div>
+                          
+                          {/* Book Performance */}
+                          <h3 className="font-heading font-black uppercase tracking-tight mb-4 mt-12 border-b border-zinc-100 pb-2 text-lg">Book Performance</h3>
+                          <div className="bg-white border border-zinc-200 rounded-sm overflow-hidden mb-12">
+                            <table className="w-full text-left text-sm">
+                              <thead className="bg-zinc-50 text-zinc-500 border-b border-zinc-200">
+                                <tr>
+                                  <th className="px-6 py-4 font-medium">Book Title</th>
+                                  <th className="px-6 py-4 font-medium">Purchases</th>
+                                  <th className="px-6 py-4 font-medium">Price</th>
+                                  <th className="px-6 py-4 font-medium">Gross Revenue</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-200">
+                                {booksData.length > 0 ? booksData.map(book => (
+                                  <tr key={book.id}>
+                                    <td className="px-6 py-4 font-medium text-zinc-900">{book.title}</td>
+                                    <td className="px-6 py-4">{book.sales_count || 0}</td>
+                                    <td className="px-6 py-4">₹{book.price || 0}</td>
+                                    <td className="px-6 py-4 text-emerald-600 font-medium">₹{((book.price || 0) * (book.sales_count || 0)).toLocaleString()}</td>
+                                  </tr>
+                                )) : (
+                                  <tr><td colSpan={4} className="px-6 py-8 text-center text-zinc-500">No books published yet.</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <h3 className="font-heading font-black uppercase tracking-tight mb-4 border-b border-zinc-100 pb-2 text-lg">Withdrawal History</h3>
+                          <div className="bg-white border border-zinc-200 rounded-sm overflow-hidden">
+                             {withdrawalsList.length > 0 ? (
+                               <table className="w-full text-left text-sm">
+                                 <thead className="bg-zinc-50 text-zinc-500 border-b border-zinc-200">
+                                   <tr>
+                                     <th className="px-6 py-4 font-medium">Date</th>
+                                     <th className="px-6 py-4 font-medium">Amount</th>
+                                     <th className="px-6 py-4 font-medium">Status</th>
+                                     <th className="px-6 py-4 font-medium">Provider Ref</th>
+                                   </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-zinc-200">
+                                   {withdrawalsList.map((w: any) => (
+                                     <tr key={w.id}>
+                                       <td className="px-6 py-4 text-zinc-500">{new Date(w.created_at).toLocaleDateString()}</td>
+                                       <td className="px-6 py-4 font-medium text-zinc-900">₹{Number(w.amount).toFixed(2)}</td>
+                                       <td className="px-6 py-4">
+                                         <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${
+                                           w.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' :
+                                           w.status === 'Failed' ? 'bg-red-50 text-red-700 ring-red-600/10' :
+                                           'bg-orange-50 text-orange-700 ring-orange-600/20'
+                                         }`}>
+                                           {w.status}
+                                         </span>
+                                         {w.failure_reason && <div className="text-[10px] text-red-500 mt-1">{w.failure_reason}</div>}
+                                       </td>
+                                       <td className="px-6 py-4 font-mono text-xs text-zinc-400">{w.razorpay_payout_id || '-'}</td>
+                                     </tr>
+                                   ))}
+                                 </tbody>
+                               </table>
+                             ) : (
+                               <div className="p-6 text-center text-zinc-500 text-sm">
+                                 No withdrawals requested yet.
+                               </div>
+                             )}
                           </div>
                         </div>
                       </div>
@@ -1748,67 +1887,6 @@ export default function ProfilePage() {
                           </motion.div>
                         )}
                       </AnimatePresence>
-
-                      {/* Section 2.5: Wallet Balance & Withdraw */}
-                      {activeUpiId && (
-                        <div className="space-y-6 pt-6 border-t border-zinc-100">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pb-2 border-b border-zinc-100">2.5 Wallet Balance</h4>
-                          <div className="bg-zinc-50 border border-zinc-200 p-6 rounded-sm">
-                            <div className="flex items-center justify-between mb-4">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 block">Available Balance</span>
-                              <span className="text-2xl font-black text-black">₹{availableBalance.toFixed(2)}</span>
-                            </div>
-                            <form onSubmit={async (e) => {
-                              e.preventDefault();
-                              setIsWithdrawing(true);
-                              try {
-                                const { data: { session } } = await supabase.auth.getSession();
-                                if (!session) throw new Error("Not authenticated");
-                                const res = await fetch("/api/writer/withdraw", {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                    "Authorization": `Bearer ${session.access_token}`
-                                  },
-                                  body: JSON.stringify({ amount: Number(withdrawAmount), upi_id: activeUpiId })
-                                });
-                                const data = await res.json();
-                                if (!res.ok) throw new Error(data.error || "Failed to request withdrawal");
-                                setToast({ message: "Withdrawal requested successfully!", type: "success" });
-                                setWithdrawAmount("");
-                                fetchUpiData(); // refresh balance
-                              } catch (err: any) {
-                                setToast({ message: err.message, type: "error" });
-                              } finally {
-                                setIsWithdrawing(false);
-                              }
-                            }} className="flex items-end gap-4">
-                              <div className="flex-1">
-                                <label className="block text-[9px] font-black uppercase tracking-widest mb-1.5 text-zinc-500">Withdraw Amount (₹)</label>
-                                <input 
-                                  type="number" 
-                                  min="1" 
-                                  max={availableBalance}
-                                  step="1"
-                                  value={withdrawAmount}
-                                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                                  placeholder="0"
-                                  required
-                                  disabled={availableBalance <= 0 || isWithdrawing}
-                                  className="w-full bg-white border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:border-black rounded-sm disabled:opacity-50"
-                                />
-                              </div>
-                              <button 
-                                type="submit" 
-                                disabled={availableBalance <= 0 || isWithdrawing || !withdrawAmount}
-                                className="px-6 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors rounded-sm shadow-sm disabled:opacity-50 whitespace-nowrap"
-                              >
-                                {isWithdrawing ? "Processing..." : "Withdraw Funds"}
-                              </button>
-                            </form>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Section 3: Session Management */}
                       <div className="space-y-6 pt-6 border-t border-zinc-100">

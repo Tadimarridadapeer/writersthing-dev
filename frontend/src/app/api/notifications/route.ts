@@ -101,6 +101,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ data: finalData, count, unreadCount: unreadCount || 0 });
   } catch (err: any) {
+    const fs = require('fs');
+    fs.appendFileSync('api_logs.txt', new Date().toISOString() + ' Notifications GET Error: ' + err.message + '\n' + (err.stack || '') + '\n');
     console.error("Notifications GET Error:", err);
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }

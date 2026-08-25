@@ -181,28 +181,31 @@ export default function ReaderPage() {
       return;
     }
     const bookId = id as string;
+    
+    // Optimistic update
+    const newIsLiked = !isLiked;
+    setIsLiked(newIsLiked);
+    setLikesCount(prev => (newIsLiked ? prev + 1 : Math.max(0, prev - 1)));
+
     try {
-      if (isLiked) {
-        await supabase
-          .from("likes")
-          .delete()
-          .eq("content_id", bookId)
-          .eq("user_id", currentUser.id);
-        setIsLiked(false);
-        setLikesCount(prev => Math.max(0, prev - 1));
+      const res = await fetch(`/api/likes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content_id: bookId, user_id: currentUser.id })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setIsLiked(data.isLiked);
+        setLikesCount(data.likesCount);
       } else {
-        await supabase
-          .from("likes")
-          .insert({
-            content_type: "book",
-            content_id: bookId,
-            user_id: currentUser.id
-          });
-        setIsLiked(true);
-        setLikesCount(prev => prev + 1);
+        throw new Error("API toggle failed");
       }
-    } catch (err) {
-      console.error("Like error:", err);
+    } catch (apiErr) {
+      console.error("Like error:", apiErr);
+      // Revert on error
+      setIsLiked(!newIsLiked);
+      setLikesCount(prev => (newIsLiked ? Math.max(0, prev - 1) : prev + 1));
     }
   };
 

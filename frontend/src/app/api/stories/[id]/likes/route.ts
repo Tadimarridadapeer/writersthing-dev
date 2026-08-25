@@ -153,7 +153,7 @@ export async function POST(
       // Remove like
       await supabaseServer.from("likes").delete().eq("id", existingLike.id);
     } else {
-      // Add like with fallback content_type
+      // Add like with fallback content_type "article" to bypass the old broken DB trigger
       const insertPayload = {
         user_id: activeUserId,
         content_type: "article",
@@ -162,8 +162,41 @@ export async function POST(
 
       const { error: insertErr } = await supabaseServer.from("likes").insert(insertPayload);
       if (insertErr) {
-        console.warn("Primary like insert error, trying direct client insert fallback:", insertErr.message);
-        await supabase.from("likes").insert(insertPayload);
+        console.warn("Primary like insert error, trying client insert fallback:", insertErr.message);
+        const { error: fbErr } = await supabase.from("likes").insert(insertPayload);
+        if (fbErr) {
+            return NextResponse.json({ success: false, error: "Insert failed: " + insertErr.message + " | Fallback: " + fbErr.message }, { status: 400 });
+        }
+      }
+
+      try {
+        // Find author of the story
+        const { data: storyInfo } = await supabaseServer.from('stories').select('title, author_id').eq('id', validUuid).maybeSingle();
+        
+        if (storyInfo && storyInfo.author_id) {
+           // Resolve authors.id to users.id
+           const { data: authorMapping } = await supabaseServer.from('authors').select('user_id').eq('id', storyInfo.author_id).maybeSingle();
+           
+           if (authorMapping && authorMapping.user_id && authorMapping.user_id !== activeUserId) {
+              const authorId = authorMapping.user_id;
+              
+              const storyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/stories/${validUuid}`;
+              
+              // 1. In-App Notification (replaces broken DB trigger)
+              const { NotificationService } = await import("@/lib/notificationService");
+              await NotificationService.create({
+                userId: authorId,
+                actorId: activeUserId,
+                type: 'new_like' as any,
+                targetType: 'story',
+                targetId: validUuid,
+                targetUrl: storyUrl,
+                metadata: { title: storyInfo.title }
+              });
+           }
+        }
+      } catch (notifErr) {
+        console.error("Error processing story like notification:", notifErr);
       }
     }
 

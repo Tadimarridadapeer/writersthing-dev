@@ -68,17 +68,26 @@ export async function POST(req: Request) {
       }
     }
 
-    const { error: updateError } = await supabaseAdmin
+    // Instead of update-then-check-error (which doesn't error on 0 rows),
+    // let's fetch first to see if the author exists
+    const { data: existingAuthor } = await supabaseAdmin
       .from("authors")
-      .update({
-        upi_id: upiId,
-        last_upi_changed_at: new Date().toISOString(),
-        upi_verified: false // Require re-verification (e.g. penny drop) if changed
-      })
-      .eq("user_id", userId);
+      .select("id")
+      .eq("user_id", userId)
+      .single();
 
-    if (updateError) {
-      // If author doesn't exist yet, we should create it
+    if (existingAuthor) {
+      const { error: updateError } = await supabaseAdmin
+        .from("authors")
+        .update({
+          upi_id: upiId,
+          last_upi_changed_at: new Date().toISOString(),
+          upi_verified: false
+        })
+        .eq("user_id", userId);
+      
+      if (updateError) throw updateError;
+    } else {
       const { error: insertError } = await supabaseAdmin
         .from("authors")
         .insert({

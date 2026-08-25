@@ -143,19 +143,23 @@ export async function POST(req: Request) {
     if (existingLike) {
       await supabaseServer.from("likes").delete().eq("id", existingLike.id);
     } else {
+      // Add like with fallback content_type "article" to bypass the old broken DB trigger
       const insertPayload = {
         user_id: activeUserId,
-        content_type: content_type || "article",
+        content_type: "article",
         content_id: validUuid
       };
 
       const { error: insertErr } = await supabaseServer.from("likes").insert(insertPayload);
       if (insertErr) {
         console.warn("Primary like insert error, trying client insert fallback:", insertErr.message);
-        await supabase.from("likes").insert(insertPayload);
+        const { error: fbErr } = await supabase.from("likes").insert(insertPayload);
+        if (fbErr) {
+            return NextResponse.json({ success: false, error: "Insert failed: " + insertErr.message + " | Fallback: " + fbErr.message }, { status: 400 });
+        }
       }
       
-      // Handle Like Notification
+      // Handle Like Notification (Email and In-App)
       try {
         // Find content details (try articles, stories, blogs, manuscripts, books)
         const tablesToTry = ['articles', 'stories', 'blogs', 'manuscripts', 'books'];
@@ -169,7 +173,15 @@ export async function POST(req: Request) {
         }
 
         if (contentInfo) {
-          const authorId = contentInfo.user_id || contentInfo.author_id;
+          let authorId = contentInfo.user_id || contentInfo.author_id;
+          
+          // Resolve authors.id to users.id if necessary (for books, stories, blogs)
+          if (['books', 'stories', 'blogs'].includes(contentInfo.table) && contentInfo.author_id) {
+             const { data: authorMapping } = await supabaseServer.from('authors').select('user_id').eq('id', contentInfo.author_id).maybeSingle();
+             if (authorMapping && authorMapping.user_id) {
+                 authorId = authorMapping.user_id;
+             }
+          }
           
           if (authorId && authorId !== activeUserId) {
             // Get Author settings and details
@@ -180,26 +192,6 @@ export async function POST(req: Request) {
               .maybeSingle();
 
             if (authorData) {
-              // Create DB notification (this handles uniqueness through SQL constraints)
-              const { data: notifData, error: notifError } = await supabaseServer
-                .from('notifications')
-                .insert({
-                  user_id: authorId,
-                  actor_id: activeUserId,
-                  target_id: validUuid,
-                  target_type: content_type,
-                  type: 'new_like',
-                  is_read: false,
-                  metadata: {
-                    title: contentInfo.title || "A post"
-                  }
-                })
-                .select('id')
-                .maybeSingle();
-              
-              // Only send email if a new notification was successfully created (prevents duplicates)
-              // and if author has emails enabled
-              if (!notifError && notifData && authorData.like_emails_enabled !== false && authorData.email) {
                 // Get Reader details
                 const { data: readerData } = await supabaseServer
                   .from('users')
@@ -210,15 +202,28 @@ export async function POST(req: Request) {
                 const activeUserName = readerData?.name || 'A reader';
                 const storyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/read/${validUuid}`;
                 
-                // Do not await this so it can run in background, but wrap in try/catch
-                emailService.sendLikeNotificationEmail(
-                  authorData.email,
-                  authorData.name,
-                  activeUserName,
-                  contentInfo.title || 'A story',
-                  storyUrl
-                ).catch(e => console.error("Like email error:", e));
-              }
+                // 1. In-App Notification (replaces the broken DB trigger)
+                const { NotificationService } = await import("@/lib/notificationService");
+                await NotificationService.create({
+                  userId: authorId,
+                  actorId: activeUserId,
+                  type: 'new_like' as any,
+                  targetType: contentInfo.table.replace(/s$/, ''), // e.g. 'book', 'story'
+                  targetId: validUuid,
+                  targetUrl: storyUrl,
+                  metadata: { title: contentInfo.title }
+                });
+
+                // 2. Email Notification
+                if (authorData.like_emails_enabled !== false && authorData.email) {
+                  emailService.sendLikeNotificationEmail(
+                    authorData.email,
+                    authorData.name,
+                    activeUserName,
+                    contentInfo.title || 'A story',
+                    storyUrl
+                  ).catch(e => console.error("Like email error:", e));
+                }
             }
           }
         }
@@ -245,6 +250,8 @@ export async function POST(req: Request) {
 
     const isLiked = likedUsers.some(u => u.id === activeUserId);
 
+    require('fs').appendFileSync('like_debug.txt', `[${new Date().toISOString()}] POST like success. isLiked: ${isLiked}, likesCount: ${likedUsers.length}\n`);
+
     return NextResponse.json({
       success: true,
       isLiked,
@@ -253,6 +260,7 @@ export async function POST(req: Request) {
     });
 
   } catch (err: any) {
+    require('fs').appendFileSync('like_debug.txt', `[${new Date().toISOString()}] POST like ERROR: ${err?.message || err}\n${err?.stack || ''}\n`);
     console.error("POST /api/likes error:", err?.message || err);
     return NextResponse.json({ error: err?.message || "Failed to toggle like" }, { status: 500 });
   }

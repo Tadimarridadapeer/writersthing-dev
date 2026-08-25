@@ -168,7 +168,7 @@ export async function POST(req: Request) {
       newComment.users = userData || { name: "Reader", avatar_url: null };
     }
 
-    // Handle Comment Notification
+    // Handle Comment Notification Email
     try {
       if (newComment && newComment.id) {
         // Find content details
@@ -183,7 +183,15 @@ export async function POST(req: Request) {
         }
 
         if (contentInfo) {
-          const authorId = contentInfo.user_id || contentInfo.author_id;
+          let authorId = contentInfo.user_id || contentInfo.author_id;
+          
+          // Resolve authors.id to users.id if necessary (for books, stories, blogs)
+          if (['books', 'stories', 'blogs'].includes(contentInfo.table) && contentInfo.author_id) {
+             const { data: authorMapping } = await supabaseServer.from('authors').select('user_id').eq('id', contentInfo.author_id).maybeSingle();
+             if (authorMapping && authorMapping.user_id) {
+                 authorId = authorMapping.user_id;
+             }
+          }
           
           if (authorId && authorId !== activeUserId) {
             // Get Author settings and details
@@ -193,28 +201,7 @@ export async function POST(req: Request) {
               .eq('id', authorId)
               .maybeSingle();
 
-            if (authorData) {
-              // Create DB notification
-              const { data: notifData, error: notifError } = await supabaseServer
-                .from('notifications')
-                .insert({
-                  user_id: authorId,
-                  actor_id: activeUserId,
-                  target_id: uuid,
-                  target_type: content_type || "story",
-                  type: 'new_comment',
-                  is_read: false,
-                  metadata: {
-                    text: comment_text?.trim() || "",
-                    title: contentInfo.title || "A post"
-                  }
-                })
-                .select('id')
-                .maybeSingle();
-              
-              // Only send email if a new notification was successfully created
-              // and if author has comment emails enabled
-              if (!notifError && notifData && authorData.comment_emails_enabled !== false && authorData.email) {
+            if (authorData && authorData.comment_emails_enabled !== false && authorData.email) {
                 const storyUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/read/${uuid}`;
                 const commentTextSafe = comment_text?.trim() || "Rated your story.";
                 
@@ -227,7 +214,6 @@ export async function POST(req: Request) {
                   commentTextSafe,
                   storyUrl
                 ).catch(e => console.error("Email send failed:", e));
-              }
             }
           }
         }

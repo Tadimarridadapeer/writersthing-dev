@@ -1,0 +1,1 @@
+[2026-08-25T08:48:12.511Z] POST like success. isLiked: true, likesCount: 1

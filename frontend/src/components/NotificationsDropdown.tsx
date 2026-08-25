@@ -128,20 +128,39 @@ export default function NotificationsDropdown() {
     switch (type) {
       case "new_follower": return "started following you.";
       case "new_review": return "reviewed your work.";
-      case "new_like": return metadata?.title ? `liked your post "${metadata.title}".` : "liked your work.";
+      case "new_like": return metadata?.title ? (
+        <span>
+          liked <span className="font-bold text-black">"{metadata.title}"</span>.
+        </span>
+      ) : "liked your work.";
       case "new_rating": return "rated your work.";
       case "new_comment": 
         if (metadata?.text) {
           const truncated = metadata.text.length > 40 ? metadata.text.substring(0, 40) + '...' : metadata.text;
-          return `commented: "${truncated}"`;
+          return (
+            <span>
+              commented on {metadata?.title ? <span className="font-bold text-black">"{metadata.title}"</span> : "your post"}: <span className="italic text-zinc-500">"{truncated}"</span>
+            </span>
+          );
         }
-        return metadata?.title ? `commented on "${metadata.title}".` : "commented on your post.";
+        return metadata?.title ? (
+          <span>
+            commented on <span className="font-bold text-black">"{metadata.title}"</span>.
+          </span>
+        ) : "commented on your post.";
       case "reply_to_comment": return "replied to your comment.";
-      case "book_published": return `published a new book: ${metadata?.title || ''}`;
-      case "story_published": return `published a new story: ${metadata?.title || ''}`;
-      case "blog_published": return `published a new blog: ${metadata?.title || ''}`;
+      case "book_published": return (
+        <span>published a new book: <span className="font-bold text-black">"{metadata?.title || 'Untitled'}"</span></span>
+      );
+      case "story_published": return (
+        <span>published a new story: <span className="font-bold text-black">"{metadata?.title || 'Untitled'}"</span></span>
+      );
+      case "blog_published": return (
+        <span>published a new blog: <span className="font-bold text-black">"{metadata?.title || 'Untitled'}"</span></span>
+      );
       case "reading_completed": return `You finished reading ${metadata?.title || 'a book'}`;
       case "bookmark_milestone": return `You have 10 bookmarks in ${metadata?.list_name || 'a list'}`;
+      case "founder_invite": return "invited you to become a Founding Writer.";
       case "invite": return "invited you to become a Founding Writer.";
       case "system_message": return `Broadcast: ${metadata?.text || 'Announcement from Admins'}`;
       default: return "interacted with your profile.";
