@@ -7,6 +7,8 @@ import { withObservability } from "@/lib/api-logger";
 
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -98,10 +100,27 @@ export const GET = withObservability(async (
       return NextResponse.json({ message: "Book not found", debug_error: bookError, debug_id: bookId }, { status: 404 });
     }
 
+    // Check if the user is the author
+    let isBookOwner = false;
+    if (user) {
+      const { data: authorData } = await supabaseAdmin
+        .from("authors")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (authorData && book.author_id === authorData.id) {
+        isBookOwner = true;
+      }
+      
+      // Fallback: If author_id is directly the user.id
+      if (book.author_id === user.id) {
+        isBookOwner = true;
+      }
+    }
+
     if (book.status !== "Published") {
-      const authorId = Array.isArray(book.authors) ? book.authors[0]?.user_id : (book.authors as any)?.user_id;
       // Allow author to read draft, but block others
-      if (authorId !== user.id) {
+      if (!isBookOwner) {
         logger.security("Download rejected: Book is not published", { userId: user.id, bookId });
         await logDownload(supabaseAdmin, user.id, bookId, "FORBIDDEN", ip);
         return NextResponse.json({ message: "Book is not published" }, { status: 403 });
@@ -116,7 +135,7 @@ export const GET = withObservability(async (
       isAuthorized = true;
     } 
     // B. Is the user the author?
-    else if ((Array.isArray(book.authors) ? book.authors[0]?.user_id : (book.authors as any)?.user_id) === user.id) {
+    else if (isBookOwner) {
       isAuthorized = true;
     } 
     // C. Has the user purchased it? (Check Library)
@@ -139,7 +158,35 @@ export const GET = withObservability(async (
     if (!isAuthorized) {
       logger.security("Download rejected: Access denied", { userId: user.id, bookId });
       await logDownload(supabaseAdmin, user.id, bookId, "FORBIDDEN", ip);
-      return NextResponse.json({ message: "Access denied. Please purchase the book.", debug_user_id: user.id, debug_book_id: bookId }, { status: 403 });
+      
+      const { data: authorDataDebug } = await supabaseAdmin
+        .from("authors")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+        
+      return NextResponse.json(
+        { 
+          message: "Access denied. Please purchase the book.", 
+          debug_error: {
+            user_id: user.id, 
+            book_id: bookId,
+            isBookOwner,
+            book_author_id: book?.author_id,
+            author_data_id: authorDataDebug?.id,
+            book_authors: book?.authors
+          },
+          debug_id: bookId
+        }, 
+        { 
+          status: 403,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     }
 
     // 4. Resolve the Path (fallback to legacy pdf_path)
