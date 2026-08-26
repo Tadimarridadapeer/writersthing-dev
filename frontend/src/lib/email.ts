@@ -1,5 +1,5 @@
 import { resend } from './resend';
-import { WelcomeEmail } from '../emails/WelcomeEmail';
+import { WelcomeEmailResend } from '../emails/WelcomeEmailResend';
 import { ForgotPasswordEmail } from '../emails/ForgotPasswordEmail';
 import { OTPVerificationEmail } from '../emails/OTPVerificationEmail';
 import { PaymentSuccessEmail } from '../emails/PaymentSuccessEmail';
@@ -19,7 +19,7 @@ import HireRejected from '../emails/HireRejected';
 import * as React from 'react';
 import { render } from '@react-email/render';
 
-const DEFAULT_FROM = process.env.EMAIL_FROM || 'Writersthing <hello@writersthing.com>';
+const DEFAULT_FROM = process.env.EMAIL_FROM || "Writer's Thing <hello@writersthing.com>";
 
 export type EmailResponse = { success: true; data: any } | { success: false; error: string };
 
@@ -54,7 +54,7 @@ const sendEmail = async (
 };
 
 export const sendWelcomeEmail = async (to: string, name: string): Promise<EmailResponse> => {
-  return sendEmail(to, 'Welcome to Writersthing!', React.createElement(WelcomeEmail, { name }));
+  return sendEmail(to, "Welcome to Writer's Thing - There's always another story to tell.", React.createElement(WelcomeEmailResend, { name }));
 };
 
 export const sendForgotPasswordEmail = async (to: string, resetLink: string): Promise<EmailResponse> => {

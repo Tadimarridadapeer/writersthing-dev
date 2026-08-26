@@ -1,7 +1,13 @@
 import React from 'react';
 import { Html, Head, Preview, Body, Container, Section, Text, Heading, Link, Img, Hr } from '@react-email/components';
 
-export const WelcomeEmailResend = () => {
+interface WelcomeEmailProps {
+  name: string;
+}
+
+export const WelcomeEmailResend = ({ name }: WelcomeEmailProps) => {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.writersthing.com';
+  
   return (
     <Html>
       <Head />
@@ -13,14 +19,14 @@ export const WelcomeEmailResend = () => {
           <Section style={{ textAlign: 'center', marginBottom: '60px' }}>
             <Img src="https://www.writersthing.com/logo.png" width="160" height="auto" alt="Writer's Thing Logo" style={{ margin: '0 auto', display: 'block', marginBottom: '24px', maxWidth: '100%', height: 'auto' }} />
             <Text style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '3px', textTransform: 'uppercase', margin: '0', color: '#666666', fontFamily: 'Georgia, serif' }}>
-              Write · Publish · Inspire
+              Write &bull; Publish &bull; Inspire
             </Text>
           </Section>
 
           {/* HERO */}
           <Section style={{ marginBottom: '60px' }}>
             <Heading as="h1" style={{ fontSize: '36px', lineHeight: '1.2', fontWeight: 'normal', margin: '0 0 16px 0', color: '#000000', fontFamily: 'Georgia, serif' }}>
-              Welcome to Writer's Thing, {'{{FIRST_NAME}}'}.
+              Welcome to Writer's Thing, {name}.
             </Heading>
             <Heading as="h2" style={{ fontSize: '24px', lineHeight: '1.4', fontWeight: 'normal', margin: '0 0 32px 0', color: '#666666', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
               Your words have a place here.
@@ -36,7 +42,7 @@ export const WelcomeEmailResend = () => {
               Publish what you've written. Discover something worth reading. Meet people who share your love for words.
             </Text>
             
-            <Link href="{{APP_URL}}" style={{ display: 'inline-block', backgroundColor: '#000000', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', textDecoration: 'none', padding: '16px 36px', letterSpacing: '2px', textTransform: 'uppercase' }}>
+            <Link href={appUrl} style={{ display: 'inline-block', backgroundColor: '#000000', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', textDecoration: 'none', padding: '16px 36px', letterSpacing: '2px', textTransform: 'uppercase' }}>
               Explore Writer's Thing →
             </Link>
           </Section>
