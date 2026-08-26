@@ -95,6 +95,7 @@ export async function GET(req: Request) {
       const mappedData = returnData.map((item: any) => ({
         id: item.id,
         title: item.title,
+        type: "Story",
         description: extractDescription(item.body),
         category: item.category || "General",
         cover_url: item.cover_image || extractFirstImage(item.body, item.category || "General", item.id, false),
@@ -146,6 +147,7 @@ export async function GET(req: Request) {
       const mappedData = returnData.map((item: any) => ({
         id: item.id,
         title: item.title,
+        type: "Blog",
         description: extractDescription(item.content),
         category: "Blog",
         cover_url: item.banner_url || extractFirstImage(item.content, "Blog", item.id),

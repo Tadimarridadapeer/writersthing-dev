@@ -105,8 +105,6 @@ export default function BlogPost() {
   const [newComment, setNewComment] = useState("");
   const [commentRating, setCommentRating] = useState<number>(0);
   const [submittingComment, setSubmittingComment] = useState(false);
-
-
   useEffect(() => {
     const stored = localStorage.getItem("user");
     const userObj = stored ? JSON.parse(stored) : null;
@@ -122,7 +120,6 @@ export default function BlogPost() {
       }
       const data = await res.json();
       setBlog(data);
-      
       // Load engagement and follow data in parallel
       if (data.authorId) {
         fetchFollowData(data.authorId, userObj);
@@ -139,7 +136,6 @@ export default function BlogPost() {
       setLoading(false);
     }
   };
-
 
   const fetchEngagementData = async (blogId: string, userObj: any) => {
     try {

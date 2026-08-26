@@ -1449,7 +1449,7 @@ export default function ProfilePage() {
                           <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
                             <div>
                               <span className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Subtotal</span>
-                              <p className="text-xl font-black text-zinc-900">${cartSubtotal.toFixed(2)}</p>
+                              <p className="text-xl font-black text-zinc-900">₹{cartSubtotal.toFixed(2)}</p>
                             </div>
                             <Link href="/cart" className="px-8 py-3 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all">
                               Proceed to Checkout

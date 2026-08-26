@@ -203,17 +203,104 @@ export class MockTranslationProvider implements TranslationProvider {
   }
 }
 
+export class SarvamTranslationProvider implements TranslationProvider {
+  name = 'SarvamAI';
+
+  async translate(text: string, targetLanguage: string, sourceLanguage: string = 'en'): Promise<string> {
+    try {
+      const apiKey = process.env.SARVAM_API_KEY || 'sk_3rmpzh6h_egmlijJ7zxTPjj2Cs18Mthrb';
+      if (!apiKey) throw new Error('SARVAM_API_KEY is missing');
+
+      const sl = sourceLanguage.includes('-') ? sourceLanguage : `${sourceLanguage}-IN`;
+      const tl = targetLanguage.includes('-') ? targetLanguage : `${targetLanguage}-IN`;
+
+      // Sarvam AI has a strict 2000 character limit per request.
+      const chunks: string[] = [];
+      let currentChunk = "";
+      
+      const paragraphs = text.split('\n');
+      for (const p of paragraphs) {
+        if (p.length > 1000) {
+          // Paragraph is too large. Split by sentences.
+          const sentences = p.split(/(?<=\.|\?|\!)\s/);
+          for (const sentence of sentences) {
+            let remainingSentence = sentence;
+            while (remainingSentence.length > 0) {
+              const slice = remainingSentence.substring(0, 1000);
+              remainingSentence = remainingSentence.substring(1000);
+              if ((currentChunk + slice).length > 1000) {
+                if (currentChunk) chunks.push(currentChunk);
+                currentChunk = slice;
+              } else {
+                currentChunk += (currentChunk ? ' ' : '') + slice;
+              }
+            }
+          }
+        } else {
+          // Normal sized paragraph
+          if ((currentChunk + p).length > 1000) {
+            if (currentChunk) chunks.push(currentChunk);
+            currentChunk = p;
+          } else {
+            currentChunk += (currentChunk ? '\n' : '') + p;
+          }
+        }
+      }
+      if (currentChunk) chunks.push(currentChunk);
+
+      let translatedText = "";
+      for (const chunk of chunks) {
+        if (chunk.trim() === '') {
+          translatedText += '\n';
+          continue;
+        }
+        
+        const endpoint = 'https://api.sarvam.ai/translate';
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({
+            input: chunk,
+            source_language_code: sl,
+            target_language_code: tl,
+            speaker_gender: 'Male',
+            mode: 'formal',
+            model: 'sarvam-translate:v1'
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'api-subscription-key': apiKey
+          }
+        });
+        
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(`Sarvam AI failed with status: ${response.status} - ${errData.error?.message || errData.message || 'Unknown error'}`);
+        }
+        
+        const data = await response.json();
+        if (data && data.translated_text) {
+          translatedText += data.translated_text + '\n';
+        }
+        
+        // Small delay to prevent rate limit
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      return translatedText.trim();
+    } catch (error: any) {
+      console.error('Sarvam AI Error:', error);
+      throw new Error(error.message || 'Sarvam AI failed');
+    }
+  }
+}
+
 export class TranslationManager {
   private providers: TranslationProvider[];
 
   constructor() {
-    // Primary: Argos Translate, Fallback: LibreTranslate, then GoogleTranslate, then MyMemory, then Mock
+    // Primary: Sarvam AI
     this.providers = [
-      new ArgosTranslationProvider(),
-      new LibreTranslationProvider(),
-      new GoogleTranslateProvider(),
-      new MyMemoryTranslationProvider(),
-      new MockTranslationProvider()
+      new SarvamTranslationProvider()
     ];
   }
 

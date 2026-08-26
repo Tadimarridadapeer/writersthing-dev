@@ -74,7 +74,7 @@ export default function NotificationsPage() {
         <span>published a new blog: <span className="font-bold text-zinc-900">"{metadata?.title || 'Untitled'}"</span></span>
       );
       case "invite": return "invited you to become a Founding Writer.";
-      case "system_message": return `Broadcast: ${metadata?.text || 'Announcement from Admins'}`;
+      case "system_message": return `: ${metadata?.text || 'Announcement from Admins'}`;
       default: return "interacted with your profile.";
     }
   };
@@ -147,7 +147,9 @@ export default function NotificationsPage() {
                   )}
                 >
                   <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleNotificationClick(notification)}>
-                    {notification.actor?.avatar_url ? (
+                    {notification.type === "system_message" || notification.type === "founder_invite" ? (
+                      <OptimizedImage src="/w-logo.jpg" alt="Writer's Thing" variant="profile" className="w-12 h-12 rounded-full border border-zinc-100 object-cover" />
+                    ) : notification.actor?.avatar_url ? (
                       <OptimizedImage src={notification.actor.avatar_url} alt="" variant="profile" className="w-12 h-12 rounded-full border border-zinc-100" />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-400 text-lg border border-zinc-100">
@@ -161,7 +163,11 @@ export default function NotificationsPage() {
                   
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleNotificationClick(notification)}>
                     <p className="text-sm text-zinc-700 leading-snug">
-                      <span className="font-bold text-black">{notification.actor?.name || "Someone"}</span>{" "}
+                      {notification.type === "founder_invite" || notification.type === "system_message" ? (
+                        <span className="font-bold text-black">Writer&apos;s Thing</span>
+                      ) : (
+                        <span className="font-bold text-black">{notification.actor?.name || "System"}</span>
+                      )}{" "}
                       {getMessage(notification.type, notification.metadata)}
                     </p>
                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-2">

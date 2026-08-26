@@ -8,6 +8,7 @@ export interface CartItem {
   book_id?: string;
   title: string;
   price: number;
+  currency?: string; // Add currency support
   cover_url?: string;
   author_name?: string;
   quantity: number;
@@ -78,12 +79,20 @@ export function useCart() {
     id: string;
     title: string;
     price?: number | string;
+    currency?: string;
     cover_url?: string;
     author_name?: string;
     quantity?: number;
   }) => {
-    const rawPrice = typeof item.price === "string" ? parseFloat(item.price.replace(/[^0-9.]/g, "")) : (item.price || 0);
-    const parsedPrice = isNaN(rawPrice) ? 14.99 : rawPrice;
+    let parsedPrice = 0;
+    if (typeof item.price === "string") {
+      const cleaned = item.price.replace(/[^0-9.]/g, "");
+      parsedPrice = parseFloat(cleaned) || 0;
+    } else if (typeof item.price === "number") {
+      parsedPrice = item.price;
+    }
+
+    const currency = item.currency || "USD";
     const addQty = item.quantity || 1;
 
     setCart(prev => {
@@ -94,7 +103,9 @@ export function useCart() {
         updated = [...prev];
         updated[existingIdx] = {
           ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + addQty
+          quantity: updated[existingIdx].quantity + addQty,
+          price: parsedPrice, // Update price to latest in case it changed
+          currency: currency
         };
       } else {
         const newItem: CartItem = {
@@ -102,6 +113,7 @@ export function useCart() {
           book_id: item.id,
           title: item.title,
           price: parsedPrice,
+          currency: currency,
           cover_url: item.cover_url || "/placeholder-cover.jpg",
           author_name: item.author_name || "Author",
           quantity: addQty

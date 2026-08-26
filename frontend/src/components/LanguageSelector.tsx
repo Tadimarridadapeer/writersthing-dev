@@ -1,29 +1,5 @@
 import React from 'react';
-
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'hi', name: 'Hindi' },
-  { code: 'te', name: 'Telugu' },
-  { code: 'ta', name: 'Tamil' },
-  { code: 'kn', name: 'Kannada' },
-  { code: 'ml', name: 'Malayalam' },
-  { code: 'mr', name: 'Marathi' },
-  { code: 'gu', name: 'Gujarati' },
-  { code: 'pa', name: 'Punjabi' },
-  { code: 'ur', name: 'Urdu' },
-  { code: 'bn', name: 'Bengali' },
-  { code: 'ar', name: 'Arabic' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'ru', name: 'Russian' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-  { code: 'zh', name: 'Chinese' },
-  // Expandable to 50+
-];
+import { LANGUAGES } from '@/config/languages';
 
 interface LanguageSelectorProps {
   selectedLanguage: string;

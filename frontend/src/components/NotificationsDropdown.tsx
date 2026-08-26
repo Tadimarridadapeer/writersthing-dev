@@ -162,7 +162,7 @@ export default function NotificationsDropdown() {
       case "bookmark_milestone": return `You have 10 bookmarks in ${metadata?.list_name || 'a list'}`;
       case "founder_invite": return "invited you to become a Founding Writer.";
       case "invite": return "invited you to become a Founding Writer.";
-      case "system_message": return `Broadcast: ${metadata?.text || 'Announcement from Admins'}`;
+      case "system_message": return `: ${metadata?.text || 'Announcement from Admins'}`;
       default: return "interacted with your profile.";
     }
   };
@@ -217,7 +217,9 @@ export default function NotificationsDropdown() {
                       className={`w-full text-left p-4 flex gap-4 transition-colors hover:bg-zinc-50 ${!notification.is_read ? "bg-blue-50/20" : ""}`}
                     >
                       <div className="relative flex-shrink-0">
-                        {notification.actor?.avatar_url ? (
+                        {notification.type === "system_message" || notification.type === "founder_invite" ? (
+                          <OptimizedImage src="/w-logo.jpg" alt="Writer's Thing" variant="profile" className="w-10 h-10 rounded-full border border-zinc-100 object-cover" />
+                        ) : notification.actor?.avatar_url ? (
                           <OptimizedImage src={notification.actor.avatar_url} alt="" variant="profile" className="w-10 h-10 rounded-full border border-zinc-100" />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-400 text-sm border border-zinc-100">
@@ -231,7 +233,7 @@ export default function NotificationsDropdown() {
                       
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-zinc-700 leading-tight">
-                          {notification.type === "founder_invite" ? (
+                          {notification.type === "founder_invite" || notification.type === "system_message" ? (
                             <span className="font-semibold text-black">Writer&apos;s Thing</span>
                           ) : (
                             <span className="font-semibold text-black">{notification.actor?.name || "System"}</span>

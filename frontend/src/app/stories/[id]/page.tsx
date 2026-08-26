@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, User, Bookmark, Loader2, Heart, MessageSquare, Share2, Star } from "lucide-react";
@@ -108,13 +108,17 @@ export default function StoryPost() {
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // Translation states
-  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [selectedLanguage, setSelectedLanguage] = useState("en-IN");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedStory, setTranslatedStory] = useState<{ title?: string, content?: string } | null>(null);
+  const [translationError, setTranslationError] = useState<string | null>(null);
 
   // Hire Writer state
   const [isEligibleForHire, setIsEligibleForHire] = useState(false);
   const [isHireModalOpen, setIsHireModalOpen] = useState(false);
+  
+  // AbortController for translation requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -123,7 +127,7 @@ export default function StoryPost() {
     fetchStory(userObj);
 
     const savedLang = localStorage.getItem("preferredLanguage");
-    if (savedLang && savedLang !== "en") {
+    if (savedLang && savedLang !== "en" && savedLang !== "en-IN") {
       setSelectedLanguage(savedLang);
     }
   }, [params.id]);
@@ -138,7 +142,7 @@ export default function StoryPost() {
       setStory(data);
       
       const savedLang = localStorage.getItem("preferredLanguage");
-      if (savedLang && savedLang !== "en") {
+      if (savedLang && savedLang !== "en" && savedLang !== "en-IN") {
         performTranslation(savedLang, data.title, data.content);
       }
       
@@ -174,10 +178,20 @@ export default function StoryPost() {
     }
   };
 
-  // removed infinite loop effect
-
   const performTranslation = async (lang: string, title: string, content: string) => {
+    if (lang === "en-IN") return;
+    
     setIsTranslating(true);
+    setTranslationError(null);
+    setTranslatedStory(null); // Clear previous translation to show original story while loading
+    
+    // Cancel previous request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
@@ -187,37 +201,49 @@ export default function StoryPost() {
           languageCode: lang,
           title: title,
           content: content
-        })
+        }),
+        signal: abortController.signal
       });
       const data = await res.json();
-      if (data.status === 'completed') {
-        setTranslatedStory({
-          title: data.title,
-          content: data.content
-        });
-      } else if (data.status === 'pending') {
-        // If pending, we should poll. But for now we just show what we have.
-        console.warn("Translation is pending...");
-      } else {
-        // Fallback for errors
-        console.error("Translation failed:", data.error || "Unknown error");
-        setSelectedLanguage("en");
-        localStorage.removeItem("preferredLanguage");
+      
+      if (!abortController.signal.aborted) {
+        if (data.status === 'completed' || data.title) {
+          setTranslatedStory({
+            title: data.title,
+            content: data.content
+          });
+        } else if (data.status === 'pending') {
+          // If pending, we should poll. But for now we just show what we have.
+          console.warn("Translation is pending...");
+          setTranslationError("Translation is in progress. Please try again later.");
+        } else {
+          // Fallback for errors
+          console.error("Translation failed:", data.error, data.details || "Unknown error");
+          setTranslationError("Translation is temporarily unavailable. Please try again.");
+        }
       }
-    } catch (err) {
-      console.error("Translation fetch error:", err);
-      setSelectedLanguage("en");
-      localStorage.removeItem("preferredLanguage");
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Translation fetch error:", err);
+        setTranslationError("Translation is temporarily unavailable. Please try again.");
+      }
     } finally {
-      setIsTranslating(false);
+      if (abortControllerRef.current === abortController) {
+        setIsTranslating(false);
+      }
     }
   };
 
   const handleLanguageChange = (code: string) => {
     setSelectedLanguage(code);
     localStorage.setItem("preferredLanguage", code);
-    if (code === "en") {
+    setTranslationError(null);
+    if (code === "en-IN") {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       setTranslatedStory(null);
+      setIsTranslating(false);
     } else if (story) {
       performTranslation(code, story.title, story.content);
     }
@@ -675,6 +701,18 @@ export default function StoryPost() {
             onLanguageChange={handleLanguageChange}
             isTranslating={isTranslating}
           />
+
+          {translationError && (
+            <div className="mb-8 p-4 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-sm font-medium flex items-center justify-between">
+              <span>{translationError}</span>
+              <button 
+                onClick={() => performTranslation(selectedLanguage, story.title, story.content)}
+                className="px-3 py-1 bg-white border border-rose-200 text-rose-700 text-xs font-bold rounded-sm uppercase tracking-wider hover:bg-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
           {story.cover_url && (
             <div className="w-full aspect-[21/9] md:aspect-[16/6] overflow-hidden my-12 bg-zinc-50 border border-zinc-100 rounded-sm">
