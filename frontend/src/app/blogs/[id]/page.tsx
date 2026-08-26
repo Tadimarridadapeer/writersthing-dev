@@ -6,7 +6,6 @@ import { ArrowLeft, Clock, User, Share2, Loader2, Heart, MessageSquare, Bookmark
 import { supabase } from "@/lib/supabase";
 import DictionaryWrapper from "@/components/DictionaryWrapper";
 import { ReviewSection } from "@/components/ReviewSection";
-import LanguageSelector from "@/components/LanguageSelector";
 import LikedByUsers, { LikedUser } from "@/components/LikedByUsers";
 import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
 
@@ -107,10 +106,6 @@ export default function BlogPost() {
   const [commentRating, setCommentRating] = useState<number>(0);
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  // Translation state
-  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
-  const [translatedBlog, setTranslatedBlog] = useState<{ title?: string, content?: string } | null>(null);
-  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -127,11 +122,6 @@ export default function BlogPost() {
       }
       const data = await res.json();
       setBlog(data);
-      
-      const savedLang = localStorage.getItem("preferredLanguage");
-      if (savedLang && savedLang !== "en") {
-        performTranslation(savedLang, data.title, data.content);
-      }
       
       // Load engagement and follow data in parallel
       if (data.authorId) {
@@ -150,50 +140,6 @@ export default function BlogPost() {
     }
   };
 
-  const performTranslation = async (lang: string, title: string, content: string) => {
-    setIsTranslating(true);
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storyId: params.id,
-          languageCode: lang,
-          title: title,
-          content: content
-        })
-      });
-      const data = await res.json();
-      if (data.status === 'completed') {
-        setTranslatedBlog({
-          title: data.title,
-          content: data.content
-        });
-      } else if (data.status === 'pending') {
-        console.warn("Translation is pending...");
-      } else {
-        console.error("Translation failed:", data.error || "Unknown error");
-        setSelectedLanguage("en");
-        localStorage.removeItem("preferredLanguage");
-      }
-    } catch (err) {
-      console.error("Translation fetch error:", err);
-      setSelectedLanguage("en");
-      localStorage.removeItem("preferredLanguage");
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
-  const handleLanguageChange = (code: string) => {
-    setSelectedLanguage(code);
-    localStorage.setItem("preferredLanguage", code);
-    if (code === "en") {
-      setTranslatedBlog(null);
-    } else if (blog) {
-      performTranslation(code, blog.title, blog.content);
-    }
-  };
 
   const fetchEngagementData = async (blogId: string, userObj: any) => {
     try {
@@ -600,22 +546,10 @@ export default function BlogPost() {
           <header className="mb-4">
             <div className="flex items-start justify-between gap-4 mb-6">
               <span className="inline-block px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest">{blog.category}</span>
-              {isTranslating && (
-                <span className="text-[10px] font-black uppercase tracking-widest text-black flex items-center gap-2 shrink-0 whitespace-nowrap">
-                  <Loader2 size={12} className="animate-spin" />
-                  Generating translation...
-                </span>
-              )}
             </div>
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-heading font-black tracking-tighter uppercase mb-8 leading-[1.1]">
-              {translatedBlog?.title || blog.title}
+              {blog.title}
             </h1>
-            
-            <LanguageSelector 
-              selectedLanguage={selectedLanguage}
-              onLanguageChange={handleLanguageChange}
-              isTranslating={isTranslating}
-            />
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-8 border-y border-zinc-100 mt-8">
               <div className="flex items-center gap-4">
@@ -726,7 +660,7 @@ export default function BlogPost() {
             </div>
           )}
 
-          <div className={`prose prose-lg md:prose-xl max-w-none mb-24 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black ${isTranslating ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}`} dangerouslySetInnerHTML={{ __html: renderMarkdown(translatedBlog?.content || cleanContent) }} />
+          <div className="prose prose-lg md:prose-xl max-w-none mb-24 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black transition-opacity" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanContent) }} />
 
           {/* Calculate Average Rating */}
           {(() => {
