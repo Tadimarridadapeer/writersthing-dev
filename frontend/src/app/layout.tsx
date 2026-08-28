@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit, Playfair_Display, Questrial, Bodoni_Moda, Libre_Baskerville, EB_Garamond } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { GoogleTagManager } from "@next/third-parties/google";
 import ClientLayout from "@/components/ClientLayout";
 import LoadingScreen from "@/components/LoadingScreen";
 import { AuthProvider } from "@/context/AuthContext";
@@ -111,6 +112,7 @@ export default function RootLayout({
       className="h-full"
       suppressHydrationWarning
     >
+      <GoogleTagManager gtmId="GTM-T8V938H8" />
       <body 
         className={`${inter.variable} ${outfit.variable} ${playfair.variable} ${questrial.variable} ${bodoniModa.variable} ${libreBaskerville.variable} ${ebGaramond.variable} min-h-full flex flex-col bg-white dark:bg-black text-black dark:text-white antialiased`}
         suppressHydrationWarning
