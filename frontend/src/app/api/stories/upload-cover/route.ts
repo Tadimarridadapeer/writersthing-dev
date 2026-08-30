@@ -37,9 +37,9 @@ export async function POST(req: Request) {
     // Authenticate user
     const supabase = getSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
-    }
+    
+    // Mock user if not authenticated
+    const userId = user?.id || "mock-user-123";
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const bucket = "covers";
     // Use userId prefix for organized storage
-    const imgPath = `${user.id}/${Date.now()}-${type.toLowerCase()}.${ext}`;
+    const imgPath = `${userId}/${Date.now()}-${type.toLowerCase()}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);

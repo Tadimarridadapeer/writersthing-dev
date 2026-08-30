@@ -82,7 +82,7 @@ export async function GET(req: Request) {
 
     // Now fetch services for these users
     const writerIds = allUsers.map(u => u.id);
-    let servicesByWriter: Record<string, any[]> = {};
+    const servicesByWriter: Record<string, any[]> = {};
     
     if (writerIds.length > 0) {
       const { data: servicesData, error: servicesError } = await supabase

@@ -30,10 +30,10 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
   const continuousTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Local Storage Key
-  const localKey = type ? `wt_draft_${type.toLowerCase()}_${currentId || 'new'}` : null;
+  const localKey = type ? `wt_draft_${type.toLowerCase()}_user_${currentId || 'new'}` : null;
 
   // 1. Recover from Local Storage on mount
-  const recoverLocalDraft = () => {
+  const recoverLocalDraft = useCallback(() => {
     if (!localKey) return null;
     const stored = localStorage.getItem(localKey);
     if (stored) {
@@ -44,7 +44,7 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
       }
     }
     return null;
-  };
+  }, [localKey]);
 
   // 2. Persist to Local Storage instantly
   const persistLocal = useCallback((payload: Omit<DraftPayload, 'coverFile' | 'pdfFile'>) => {
@@ -88,7 +88,7 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
     }
 
     if (isPublishing) {
-      if (!payload.coverFile && !payload.coverUrl) {
+      if (!payload.coverFile && !payload.coverUrl && !currentIdRef.current && payload.type === 'Book') {
         throw new Error("Please upload a cover/image before publishing.");
       }
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -129,7 +129,7 @@ export function useDraftManager(type: "Book" | "Blog" | "Story" | "Magazine" | n
         const method = currentIdRef.current ? "PUT" : "POST";
 
         let body: any;
-        let headers: any = {
+        const headers: any = {
           "X-Publish": isPublishing ? "true" : "false"
         };
 

@@ -143,7 +143,7 @@ export class RecommendationService {
             .range(from, to)
         ]);
 
-        let combinedItems: RecommendedItem[] = [];
+        const combinedItems: RecommendedItem[] = [];
         if (booksRes.data) combinedItems.push(...booksRes.data.map((b: any) => this.mapBookToItem(b)));
         if (storiesRes.data) combinedItems.push(...storiesRes.data.map((s: any) => this.mapStoryToItem(s)));
 

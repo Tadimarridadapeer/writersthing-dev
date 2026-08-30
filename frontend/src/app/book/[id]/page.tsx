@@ -385,6 +385,8 @@ export default function BookDetailPage() {
               {user && user.id === book.authors?.user_id && (
                 <>
                   <div className="h-3 w-px bg-zinc-200" />
+                  <Link href={`/editor?id=${book.id}&type=Book`} className="text-zinc-400 hover:text-black transition-colors text-[9px] font-black uppercase tracking-widest" title="Edit Book">Edit</Link>
+                  <div className="h-3 w-px bg-zinc-200" />
                   <button onClick={handleDeleteBook} className="text-rose-400 hover:text-rose-600 transition-colors text-[9px] font-black uppercase tracking-widest" title="Delete Book">Delete</button>
                 </>
               )}

@@ -50,6 +50,13 @@ const ebGaramond = EB_Garamond({
   subsets: ["latin"],
 });
 
+export const viewport: import("next").Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.writersthing.com"),
   title: "Writer's Thing - A Home for Writers & Storytellers",

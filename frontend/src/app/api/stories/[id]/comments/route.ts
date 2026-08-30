@@ -55,7 +55,7 @@ export async function GET(
       if (fallbackErr) throw fallbackErr;
 
       const userIds = (fallbackComments || []).map(c => c.user_id).filter(Boolean);
-      let usersMap: Record<string, any> = {};
+      const usersMap: Record<string, any> = {};
 
       if (userIds.length > 0) {
         const { data: usersData } = await supabaseServer
@@ -108,7 +108,7 @@ export async function POST(
 
     const uuid = toValidUUID(storyId);
 
-    let insertPayload: any = {
+    const insertPayload: any = {
       user_id: activeUserId,
       content_type: "article",
       content_id: uuid,

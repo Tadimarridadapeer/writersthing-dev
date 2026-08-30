@@ -41,7 +41,7 @@ export default function DictionaryWrapper({ children }: DictionaryWrapperProps) 
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) return;
 
-      let selectedText = selection.toString().trim();
+      const selectedText = selection.toString().trim();
       
       // If no text is selected, try to get the word under cursor if it was a double click
       // Alternatively, let's just rely on standard text selection for better control

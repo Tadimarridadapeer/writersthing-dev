@@ -143,7 +143,7 @@ export default function Footer() {
 
             {/* Social Icons */}
             <div className="flex items-center gap-4">
-              <a href="https://www.instagram.com/the_writersthing?igsh=b3pjdWozODduZ3Jh" target="_blank" rel="noreferrer" className="w-12 h-12 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 hover:border-zinc-300 transition-all text-black">
+              <a href="https://www.instagram.com/writersthingofficial/" target="_blank" rel="noreferrer" className="w-12 h-12 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 hover:border-zinc-300 transition-all text-black">
                 <InstagramIcon className="w-5 h-5" strokeWidth={1.5} />
               </a>
               <a href="https://www.linkedin.com/company/writers-thing/" target="_blank" rel="noreferrer" className="w-12 h-12 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 hover:border-zinc-300 transition-all text-black">
@@ -242,7 +242,7 @@ export default function Footer() {
               <ul className="flex flex-col gap-5">
 
                 <li>
-                  <a href="https://www.instagram.com/the_writersthing?igsh=b3pjdWozODduZ3Jh" target="_blank" rel="noreferrer" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
+                  <a href="https://www.instagram.com/writersthingofficial/" target="_blank" rel="noreferrer" className="flex items-center gap-3 text-[14px] text-zinc-600 hover:text-black transition-colors group">
                     <InstagramIcon className="w-4 h-4 text-zinc-400 group-hover:text-black transition-colors" strokeWidth={2} />
                     Instagram
                   </a>

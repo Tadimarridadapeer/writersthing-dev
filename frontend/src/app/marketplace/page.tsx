@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Bookmark, MoreHorizontal, Search, X, ShoppingBag, Filter, ChevronDown, Check } from "lucide-react";
+import { Loader2, Bookmark, MoreHorizontal, Search, X, ShoppingBag, Filter, ChevronDown, Check, MessageCircle } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { RecommendationsPayload } from "@/types/recommendations";
@@ -13,6 +13,54 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useCart } from "@/hooks/useCart";
 import { useFoundingWriters } from "@/context/FoundingWritersContext";
 import HireWriterModal from "@/components/HireWriterModal";
+
+const InstagramIcon = ({ className, strokeWidth = 2 }: { className?: string; strokeWidth?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+  </svg>
+);
+
+const LinkedinIcon = ({ className, strokeWidth = 2 }: { className?: string; strokeWidth?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+    <rect x="2" y="9" width="4" height="12"></rect>
+    <circle cx="4" cy="4" r="2"></circle>
+  </svg>
+);
+
+function AnimatedPreferenceHeader({ interests }: { interests: string[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (interests.length <= 1) return;
+    const interval = setInterval(() => {
+      setIndex(prev => (prev + 1) % interests.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [interests]);
+
+  return (
+    <h1 className="text-3xl md:text-4xl font-heading font-black tracking-tight uppercase flex items-center flex-wrap gap-x-2">
+      Because you like 
+      <div className="inline-flex">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={index}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="text-zinc-600 italic whitespace-nowrap"
+          >
+            {interests[index]}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+    </h1>
+  );
+}
 
 function MarketplaceContent() {
   const { user, loading: authLoading } = useAuth();
@@ -69,6 +117,19 @@ function MarketplaceContent() {
     else if (typeParam === "Blog") setFeedType("blogs");
     else setFeedType("all");
   }, [typeParam]);
+
+  useEffect(() => {
+    if (user && !preferences) {
+      fetch('/api/user/preferences')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.interests) {
+            setPreferences(data);
+          }
+        })
+        .catch(err => console.error("Failed to fetch direct preferences:", err));
+    }
+  }, [user, preferences]);
 
   const fetchPaginatedData = useCallback(async (
     currentPage: number, 
@@ -181,7 +242,9 @@ function MarketplaceContent() {
             });
           } else {
             setRecommendations(recData.data);
-            setPreferences(recData.data.preferences);
+            if (recData.data.preferences?.interests?.length > 0) {
+              setPreferences(recData.data.preferences);
+            }
             
             // Extract a flat, deduplicated list of staff picks from the first few items for the sidebar
             const initialFeed: any[] = [];
@@ -407,6 +470,13 @@ function MarketplaceContent() {
                     {mappedItem.isAuthor && (
                       <>
                         <div className="h-px bg-zinc-100 my-1" />
+                        <Link 
+                          href={`/editor?id=${mappedItem.id}&type=${mappedItem.type}`}
+                          className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors block text-zinc-700"
+                        >
+                          Edit {mappedItem.type}
+                        </Link>
+                        <div className="h-px bg-zinc-100 my-1" />
                         <button 
                           onClick={(e) => { 
                             e.preventDefault(); 
@@ -456,7 +526,7 @@ function MarketplaceContent() {
             {preferences?.interests && preferences.interests.length > 0 ? (
               <div className="mb-8">
                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-2">Personalized for you</span>
-                <h1 className="text-3xl md:text-4xl font-heading font-black tracking-tight uppercase">Because you like <span className="text-zinc-600 italic">{preferences.interests[0]}</span></h1>
+                <AnimatedPreferenceHeader interests={preferences.interests} />
               </div>
             ) : (
               <h1 className="text-4xl font-heading font-black tracking-tight uppercase mb-8">Marketplace</h1>
@@ -686,10 +756,22 @@ function MarketplaceContent() {
               </div>
             </div>
 
-            {/* Footer links */}
-            <div className="mt-12 pt-6 border-t border-zinc-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-500 font-medium">
-              <Link href="/about" className="hover:text-zinc-800 transition-colors">About</Link>
-              <Link href="/for-writers" className="hover:text-zinc-800 transition-colors">For Writers</Link>
+            <div className="mt-12 pt-6 border-t border-zinc-200 flex flex-col gap-6">
+              <div className="flex items-center gap-6 text-xs text-zinc-500 font-medium uppercase tracking-widest">
+                <Link href="/about" className="hover:text-zinc-800 transition-colors">About</Link>
+                <Link href="/for-writers" className="hover:text-zinc-800 transition-colors">For Writers</Link>
+              </div>
+              <div className="flex items-center gap-4">
+                <a href="https://www.instagram.com/writersthingofficial/" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 hover:border-zinc-300 transition-all text-black" title="Instagram">
+                  <InstagramIcon className="w-4 h-4" strokeWidth={1.5} />
+                </a>
+                <a href="https://www.linkedin.com/company/writers-thing/" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 hover:border-zinc-300 transition-all text-black" title="LinkedIn">
+                  <LinkedinIcon className="w-4 h-4" strokeWidth={1.5} />
+                </a>
+                <a href="https://whatsapp.com/channel/0029VbCCMcBIiRouZwg8FH27" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 hover:border-zinc-300 transition-all text-black" title="WhatsApp Community">
+                  <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
+                </a>
+              </div>
             </div>
           </div>
         </div>

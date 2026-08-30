@@ -61,7 +61,7 @@ export async function GET(req: Request) {
       if (fallbackErr) throw fallbackErr;
 
       const userIds = (fallbackLikes || []).map(l => l.user_id).filter(Boolean);
-      let usersMap: Record<string, any> = {};
+      const usersMap: Record<string, any> = {};
 
       if (userIds.length > 0) {
         const { data: usersData } = await supabaseServer

@@ -21,7 +21,7 @@ export type ReadingList = {
 // Global cache for bookmarks to share state across components (e.g. feed cards)
 let globalBookmarks: BookmarkItem[] = [];
 let globalLists: ReadingList[] = [];
-let listeners: Set<() => void> = new Set();
+const listeners: Set<() => void> = new Set();
 
 const notifyListeners = () => listeners.forEach(l => l());
 

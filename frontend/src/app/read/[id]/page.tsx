@@ -18,7 +18,8 @@ import {
   Download,
   Heart,
   X,
-  Star
+  Star,
+  Info
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -399,6 +400,10 @@ This book is not just about using AI. It is about learning a skill that will sta
 
         {/* Reading Area */}
         <main className="flex-grow py-12 px-6 md:py-32 md:px-48 max-w-5xl">
+          <div className="flex items-center gap-2 px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl mb-8 text-zinc-500 shadow-sm">
+            <Info size={16} className="text-zinc-400 shrink-0" />
+            <span className="text-xs font-medium italic">💡 Tip: Double-tap or select any word to see its dictionary meaning.</span>
+          </div>
           <DictionaryWrapper>
             <article className="prose prose-zinc max-w-none">
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-6">Chapter One</p>

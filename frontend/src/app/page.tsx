@@ -453,11 +453,11 @@ export default function Home() {
                 transition={{ duration: 1, delay: 0.4 }}
                 className="bg-white border border-zinc-100 rounded-3xl p-8 md:p-10 flex flex-col group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-500"
               >
-                <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-8 text-zinc-400">Capability</div>
-                <h3 className="text-xl md:text-2xl font-black tracking-tight mb-4 text-zinc-900" style={{ fontFamily: 'var(--font-outfit)' }}>TRANSLATOR</h3>
-                <p className="text-zinc-500 leading-relaxed text-sm" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
-                  Take your words beyond one language while keeping their meaning and context intact.
-                </p>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-8 text-zinc-400">Capability</div>
+                  <h3 className="text-xl md:text-2xl font-black tracking-tight mb-4 text-zinc-900" style={{ fontFamily: 'var(--font-outfit)' }}>QUICK NOTES</h3>
+                  <p className="text-zinc-500 leading-relaxed text-sm" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
+                    Jot down your fleeting ideas instantly, without interrupting your reading or writing flow.
+                  </p>
               </motion.div>
 
               <motion.div 
@@ -470,7 +470,7 @@ export default function Home() {
                 <div className="text-[10px] font-mono uppercase tracking-[0.4em] mb-8 text-zinc-400">Capability</div>
                 <h3 className="text-xl md:text-2xl font-black tracking-tight mb-4 text-zinc-900" style={{ fontFamily: 'var(--font-outfit)' }}>DICTIONARY</h3>
                 <p className="text-zinc-500 leading-relaxed text-sm" style={{ fontFamily: 'var(--font-libre-baskerville)' }}>
-                  Find the right meaning, synonym, or word when you need it.
+                  Double-tap or select any word while reading a story to instantly look up its meaning.
                 </p>
               </motion.div>
 

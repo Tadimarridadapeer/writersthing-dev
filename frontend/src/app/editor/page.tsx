@@ -176,23 +176,9 @@ function WritePageContent() {
         content,
         category,
         price,
-        // Intentionally omit files from auto-save to prevent massive bandwidth usage
       });
     }
   }, [title, description, content, category, selectedType, step, triggerAutoSave]);
-
-  // Initial Load & Local Recovery
-  useEffect(() => {
-    if (step === "form" && selectedType) {
-      const local = recoverLocalDraft();
-      if (local && window.confirm("We found an unsaved local draft for this item. Would you like to recover it?")) {
-        setTitle(local.title || "");
-        setDescription(local.description || "");
-        setContent(local.content || "");
-        setCategory(local.category || "");
-      }
-    }
-  }, [step, selectedType]);
 
   const handleCreateAuthor = async () => {
     setIsSubmitting(true);
@@ -249,6 +235,51 @@ function WritePageContent() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    async function fetchInitialData() {
+      if (!draftIdParam || !selectedType) return;
+      
+      const local = recoverLocalDraft();
+      if (local && window.confirm("We found an unsaved local draft for this item. Would you like to recover it?")) {
+        setTitle(local.title || "");
+        setDescription(local.description || "");
+        setContent(local.content || "");
+        setCategory(local.category || "");
+        return; // Skip DB fetch if they recover local
+      }
+
+      try {
+        if (selectedType === "Book") {
+          const { data, error } = await supabase.from('books').select('*').eq('id', draftIdParam).single();
+          if (data) {
+            setTitle(data.title || "");
+            setDescription(data.description || "");
+            setCategory(data.category || "");
+            setPrice(data.price?.toString() || "99");
+          }
+        } else if (selectedType === "Blog") {
+          const { data, error } = await supabase.from('blogs').select('*').eq('id', draftIdParam).single();
+          if (data) {
+            setTitle(data.title || "");
+            setContent(data.content || "");
+            setCategory(data.category || "");
+            setTags(data.tags?.join(", ") || "");
+          }
+        } else if (selectedType === "Story") {
+          const { data, error } = await supabase.from('stories').select('*').eq('id', draftIdParam).single();
+          if (data) {
+            setTitle(data.title || "");
+            setContent(data.body || ""); 
+            setCategory(data.category || "");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load initial data", err);
+      }
+    }
+    fetchInitialData();
+  }, [draftIdParam, selectedType, recoverLocalDraft]);
+
   const handleTypeSelect = (type: ContentType) => {
     setSelectedType(type);
     setTitle("");
@@ -270,9 +301,9 @@ function WritePageContent() {
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !pdfFile || !category.trim() || !coverFile) {
-      window.alert("A Title, Category, Cover Image, and PDF Manuscript are required to publish a book.");
-      setErrorMessage("A Title, Category, Cover Image, and PDF Manuscript are required to publish a book.");
+    if (!title || !category.trim() || (!draftIdParam && !pdfFile) || (!draftIdParam && !coverFile)) {
+      window.alert("A Title, Category, Cover Image, and PDF Manuscript are required to publish a new book.");
+      setErrorMessage("A Title, Category, Cover Image, and PDF Manuscript are required to publish a new book.");
       return;
     }
 
@@ -496,42 +527,48 @@ function WritePageContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="w-full flex flex-col justify-center min-h-[calc(100vh-140px)] py-10"
+              className="w-full relative flex flex-col justify-center min-h-[calc(100vh-140px)] py-10"
             >
-              <div className="flex flex-col items-center justify-center text-center mb-6 md:mb-10">
-                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-4 md:mb-6 border-b border-zinc-200 pb-2">Creator Studio</span>
-                <h1 className="text-4xl md:text-6xl font-heading tracking-tight capitalize text-black leading-none mb-2 md:mb-4">
-                  Select <span className="italic font-light text-zinc-400">Format</span>
-                </h1>
-              </div>
-              
-              <div className="grid grid-cols-2 border-t border-l border-black max-w-3xl mx-auto shadow-2xl">
-                <TypeCard 
-                  title="Book" 
-                  description="Publish full-length manuscripts and novels. Complete PDF support." 
-                  icon={<Book size={24} strokeWidth={1.5} />} 
-                  onClick={() => handleTypeSelect("Book")} 
-                />
-                <TypeCard 
-                  title="Blog" 
-                  description="Share personal thoughts, quick updates, and engaging moments." 
-                  icon={<Layout size={24} strokeWidth={1.5} />} 
-                  onClick={() => handleTypeSelect("Blog")} 
-                />
-                <TypeCard 
-                  title="Story" 
-                  description="Craft in-depth narratives, professional insights, and deep analysis." 
-                  icon={<FileText size={24} strokeWidth={1.5} />} 
-                  onClick={() => handleTypeSelect("Story")} 
-                />
-                <TypeCard 
-                  title="Magazine" 
-                  description="Curate visual collections, serial issues, and editorial pieces." 
-                  icon={<Library size={24} strokeWidth={1.5} />} 
-                  onClick={() => {}} 
-                  disabled={true}
-                />
-              </div>
+              <div className="absolute top-0 left-0">
+                  <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black transition-colors">
+                    <ArrowLeft size={14} /> Back to Home
+                  </Link>
+                </div>
+
+                <div className="flex flex-col items-center justify-center text-center mb-12 md:mb-16 pt-8 md:pt-0">
+                  <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-6 border-b border-zinc-200 pb-2">Creator Studio</span>
+                  <h1 className="text-4xl md:text-5xl font-serif tracking-tight text-zinc-900 leading-none">
+                    Select your <span className="italic text-zinc-500">canvas</span>
+                  </h1>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto w-full">
+                  <TypeCard 
+                    title="Book" 
+                    description="Publish full-length manuscripts and novels. Complete PDF support." 
+                    icon={<Book size={24} strokeWidth={1.5} />} 
+                    onClick={() => handleTypeSelect("Book")} 
+                  />
+                  <TypeCard 
+                    title="Blog" 
+                    description="Share personal thoughts, quick updates, and engaging moments." 
+                    icon={<Layout size={24} strokeWidth={1.5} />} 
+                    onClick={() => handleTypeSelect("Blog")} 
+                  />
+                  <TypeCard 
+                    title="Story" 
+                    description="Craft in-depth narratives, professional insights, and deep analysis." 
+                    icon={<FileText size={24} strokeWidth={1.5} />} 
+                    onClick={() => handleTypeSelect("Story")} 
+                  />
+                  <TypeCard 
+                    title="Magazine" 
+                    description="Curate visual collections, serial issues, and editorial pieces." 
+                    icon={<Library size={24} strokeWidth={1.5} />} 
+                    onClick={() => {}} 
+                    disabled={true}
+                  />
+                </div>
             </motion.div>
           )}
 
@@ -543,7 +580,7 @@ function WritePageContent() {
               exit={{ opacity: 0, x: -20 }}
               className="max-w-5xl mx-auto"
             >
-              {selectedType !== "Blog" && (
+              {selectedType === "Book" && (
                 <button 
                   onClick={handleBack}
                   className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black mb-6 transition-colors"
@@ -587,44 +624,76 @@ function WritePageContent() {
 
               {selectedType === "Story" && (
                 <StoryEditorUI 
+                  onBack={handleBack}
                   onSaveDraft={async () => {
-                    setIsSubmitting(true);
-                    if (!category.trim()) { 
+                    if (!category.trim()) {
                       window.alert("Please select a category first.");
                       setErrorMessage("Please select a category first."); 
-                      setIsSubmitting(false); 
-                      return; 
+                      return;
                     }
+                    setIsSubmitting(true);
                     try {
-                      await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, false);
+                      let finalCoverFile = coverFile;
+                      const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+                      if (imgMatch && imgMatch[1].startsWith('data:image')) {
+                        const dataUrl = imgMatch[1];
+                        const arr = dataUrl.split(',');
+                        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while (n--) {
+                          u8arr[n] = bstr.charCodeAt(n);
+                        }
+                        finalCoverFile = new File([u8arr], "cover_image.png", { type: mime });
+                        setCoverFile(finalCoverFile);
+                      }
+
+                      await saveToDatabase({ type: "Story", title, category, content: content, coverFile: finalCoverFile }, false);
                     } finally { setIsSubmitting(false); }
                   }}
                   onPublish={async () => {
-                    if (!category.trim()) { 
+                    if (!category.trim()) {
                       window.alert("Please select a category first.");
                       setErrorMessage("Please select a category first."); 
-                      return; 
+                      return;
                     }
-                    if (!content.trim()) { setErrorMessage("Please write some content before publishing."); return; }
-                    if (!coverFile) { 
-                      window.alert("Please upload a cover/image before publishing.");
-                      setErrorMessage("Please upload a cover/image before publishing."); 
-                      return; 
+                    
+                    const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+                    if (!imgMatch) {
+                      window.alert("Please add at least one image to your story. The first image will be used as the cover.");
+                      setErrorMessage("Please add at least one image to your story to serve as a cover.");
+                      return;
                     }
+
                     setIsSubmitting(true);
                     try {
-                      const id = await saveToDatabase({ type: "Story", title, category, tags: [], coverFile, content: content }, true);
+                      let finalCoverFile = coverFile;
+                      
+                      // Extract the first image from content and convert it to a File object
+                      if (imgMatch && imgMatch[1].startsWith('data:image')) {
+                        const dataUrl = imgMatch[1];
+                        const arr = dataUrl.split(',');
+                        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while (n--) {
+                          u8arr[n] = bstr.charCodeAt(n);
+                        }
+                        finalCoverFile = new File([u8arr], "cover_image.png", { type: mime });
+                        setCoverFile(finalCoverFile);
+                      }
+
+                      const id = await saveToDatabase({ type: "Story", title, category, content: content, coverFile: finalCoverFile }, true);
                       setCreatedId(id); setStep("success");
                     } catch (e: any) { setErrorMessage(e.message); }
                     finally { setIsSubmitting(false); }
                   }}
                   title={title} setTitle={setTitle}
                   category={category} setCategory={setCategory}
-                  tags={tags} setTags={setTags}
                   content={content} setContent={setContent}
-                  onThumbnailChange={(e: any) => setCoverFile(e.target.files?.[0] || null)}
-                  isSubmitting={isSubmitting}
-                  errorMessage={errorMessage}
+                  isSubmitting={isSubmitting} errorMessage={errorMessage}
                   draftStatus={draftStatus} lastSaved={lastSaved}
                 />
               )}
@@ -640,7 +709,23 @@ function WritePageContent() {
                     }
                     setIsSubmitting(true);
                     try {
-                      await saveToDatabase({ type: "Blog", title, category, content: content, coverFile }, false);
+                      let finalCoverFile = coverFile;
+                      const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+                      if (imgMatch && imgMatch[1].startsWith('data:image')) {
+                        const dataUrl = imgMatch[1];
+                        const arr = dataUrl.split(',');
+                        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while (n--) {
+                          u8arr[n] = bstr.charCodeAt(n);
+                        }
+                        finalCoverFile = new File([u8arr], "cover_image.png", { type: mime });
+                        setCoverFile(finalCoverFile);
+                      }
+
+                      await saveToDatabase({ type: "Blog", title, category, content: content, coverFile: finalCoverFile }, false);
                     } finally { setIsSubmitting(false); }
                   }}
                   onPublish={async () => {
@@ -649,14 +734,34 @@ function WritePageContent() {
                       setErrorMessage("Please select a category first."); 
                       return;
                     }
-                    if (!coverFile) { 
-                      window.alert("Please upload a cover/image before publishing.");
-                      setErrorMessage("Please upload a cover/image before publishing."); 
-                      return; 
+                    
+                    const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+                    if (!imgMatch) {
+                      window.alert("Please add at least one image to your story. The first image will be used as the cover.");
+                      setErrorMessage("Please add at least one image to your story to serve as a cover.");
+                      return;
                     }
+
                     setIsSubmitting(true);
                     try {
-                      const id = await saveToDatabase({ type: "Blog", title, category, content: content, coverFile }, true);
+                      let finalCoverFile = coverFile;
+                      
+                      // Extract the first image from content and convert it to a File object
+                      if (imgMatch && imgMatch[1].startsWith('data:image')) {
+                        const dataUrl = imgMatch[1];
+                        const arr = dataUrl.split(',');
+                        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while (n--) {
+                          u8arr[n] = bstr.charCodeAt(n);
+                        }
+                        finalCoverFile = new File([u8arr], "cover_image.png", { type: mime });
+                        setCoverFile(finalCoverFile);
+                      }
+
+                      const id = await saveToDatabase({ type: "Blog", title, category, content: content, coverFile: finalCoverFile }, true);
                       setCreatedId(id); setStep("success");
                     } catch (e: any) { setErrorMessage(e.message); }
                     finally { setIsSubmitting(false); }
@@ -765,28 +870,28 @@ function TypeCard({ title, description, icon, onClick, disabled }: any) {
     <button 
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`group w-full flex flex-col items-center justify-center p-6 md:p-10 border-r border-b border-black transition-all duration-500 relative text-center bg-white aspect-[4/3] md:aspect-square md:max-h-[320px] ${
+      className={`group w-full flex flex-col items-center justify-center p-8 md:p-12 rounded-2xl border border-zinc-100 transition-all duration-500 relative text-center aspect-[4/3] md:aspect-square md:max-h-[320px] ${
         disabled 
           ? "bg-zinc-50 opacity-50 cursor-not-allowed" 
-          : "hover:bg-black hover:text-white"
+          : "bg-white hover:border-zinc-300 hover:shadow-xl hover:-translate-y-1"
       }`}
     >
-      <div className={`shrink-0 w-10 h-10 md:w-16 md:h-16 flex items-center justify-center border rounded-full transition-all duration-500 mb-4 md:mb-6 ${disabled ? 'border-zinc-300 text-zinc-400' : 'border-black group-hover:border-white group-hover:bg-white group-hover:text-black group-hover:-translate-y-2'}`}>
+      <div className={`shrink-0 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center rounded-full transition-all duration-500 mb-6 ${disabled ? 'bg-zinc-100 text-zinc-400' : 'bg-zinc-50 text-zinc-600 group-hover:bg-zinc-900 group-hover:text-white group-hover:scale-110'}`}>
         {icon}
       </div>
       
-      <h3 className="text-lg md:text-3xl font-heading tracking-widest uppercase font-black mb-2 md:mb-4">
+      <h3 className={`text-lg md:text-2xl font-serif tracking-tight mb-3 ${disabled ? 'text-zinc-400' : 'text-zinc-900 font-medium'}`}>
         {title}
       </h3>
       
-      <p className={`hidden sm:block text-[9px] md:text-[10px] uppercase tracking-widest font-bold max-w-[200px] leading-relaxed transition-colors duration-500 ${disabled ? 'text-zinc-400' : 'text-zinc-400 group-hover:text-zinc-500'}`}>
+      <p className={`hidden sm:block text-xs max-w-[200px] leading-relaxed transition-colors duration-500 ${disabled ? 'text-zinc-400' : 'text-zinc-500 group-hover:text-zinc-600'}`}>
         {description}
       </p>
-
+      
       {disabled && (
-        <div className="absolute top-4 right-4 bg-zinc-200 text-zinc-500 px-2 py-1 text-[8px] font-black uppercase tracking-widest">
+        <span className="absolute top-6 right-6 text-[8px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-100 px-2 py-1 rounded-sm">
           Soon
-        </div>
+        </span>
       )}
     </button>
   );
@@ -965,7 +1070,7 @@ function TextAreaField({ label, placeholder, value, onChange }: any) {
   );
 }
 
-function FileUploadField({ label, description, accept, icon, onChange, compact }: any) {
+function FileUploadField({ label, description, accept, icon, onChange, compact, uploadText }: any) {
   const [fileName, setFileName] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -980,9 +1085,9 @@ function FileUploadField({ label, description, accept, icon, onChange, compact }
 
   return (
     <div className="space-y-4">
-      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>
+      {label && <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>}
       <div 
-        className={`relative ${compact ? 'h-32' : 'aspect-video'} bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-sm flex flex-col items-center justify-center p-8 cursor-pointer transition-all group overflow-hidden hover:border-zinc-950 hover:bg-zinc-100 outline-none`}
+        className={`relative ${compact ? 'h-32' : 'aspect-video'} bg-white border-2 border-dashed border-zinc-300 rounded-sm flex flex-col items-center justify-center p-8 cursor-pointer transition-all group overflow-hidden hover:border-zinc-950 hover:bg-zinc-50 outline-none`}
       >
         <input 
           type="file" 
@@ -1043,7 +1148,7 @@ function FileUploadField({ label, description, accept, icon, onChange, compact }
             <div className="w-12 h-12 border border-zinc-200 flex items-center justify-center mx-auto mb-4 group-hover:bg-zinc-950 group-hover:text-white transition-all bg-white">
               {icon}
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest mb-2">Click to Upload</p>
+            <p className="text-[10px] font-black uppercase tracking-widest mb-2">{uploadText || "Click to Upload"}</p>
             <p className="text-[8px] font-medium text-zinc-400 uppercase tracking-[0.2em]">{description}</p>
           </div>
         )}
@@ -1141,124 +1246,157 @@ function BookUploadUI({
 }
 
 function StoryEditorUI({ 
+  onBack,
   onSaveDraft,
   onPublish, 
   title, setTitle, 
   category, setCategory,
-  tags, setTags,
-  onThumbnailChange,
   content, setContent,
   isSubmitting, errorMessage,
   draftStatus, lastSaved
 }: any) {
-  const CATEGORY_SUGGESTIONS = [
-    "Sci-Fi", "Fantasy", "Mystery", "Romance", "Technology", "Business", 
-    "Education", "Self Improvement", "Poetry", "History", "Love", "Others"
-  ];
-  
-  const [showCustomCat, setShowCustomCat] = useState(false);
-
-  useEffect(() => {
-    if (category && !CATEGORY_SUGGESTIONS.includes(category) && category !== "Others") {
-      setShowCustomCat(true);
-    }
-  }, []);
+  const [isPreview, setIsPreview] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#FDFCF8] px-4 py-12 md:py-24 text-zinc-900 font-serif">
-      <div className="max-w-[700px] mx-auto">
-        <div className="space-y-10">
-          
+    <div className="w-full bg-white min-h-screen">
+      {/* Top Action Bar (Just Back Button) */}
+      <div className="py-6 px-4 md:px-8">
+        {isPreview ? (
+          <button 
+            onClick={() => setIsPreview(false)}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors"
+          >
+            <ArrowLeft size={14} /> Back to Editor
+          </button>
+        ) : (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors"
+          >
+            <ArrowLeft size={14} /> Back to Selection
+          </button>
+        )}
+      </div>
+
+      <div className="w-full px-4 md:px-8">
+        {/* Main Editor Column */}
+        <div className="space-y-4">
           {errorMessage && (
-            <div className="p-4 bg-zinc-100 border border-zinc-300 text-zinc-800 text-xs font-mono uppercase tracking-widest flex items-center gap-3">
-              <span className="font-bold">Error:</span> {errorMessage}
+            <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500 max-w-4xl mx-auto">
+              {errorMessage}
             </div>
           )}
 
-          <div className="space-y-6 border-b border-zinc-200 pb-10">
-            <input 
-              type="text"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-zinc-900 placeholder:text-zinc-300 bg-transparent outline-none transition-all leading-tight border-none focus:ring-0"
-              required
-            />
-            
-            <select
-              value={showCustomCat ? "Others" : (category || "")}
-              onChange={(e) => {
-                if (e.target.value === "Others") {
-                  setShowCustomCat(true);
-                  setCategory("");
-                } else {
-                  setShowCustomCat(false);
-                  setCategory(e.target.value);
-                }
-              }}
-              className={`w-full text-sm font-bold tracking-widest uppercase ${category || showCustomCat ? 'text-zinc-600' : 'text-zinc-300'} bg-transparent outline-none transition-all border-none focus:ring-0 appearance-none cursor-pointer p-0`}
-            >
-              <option value="" disabled>CATEGORY (E.G. FICTION, FANTASY, ROMANCE)</option>
-              {CATEGORY_SUGGESTIONS.map(c => (
-                <option key={c} value={c} className="text-zinc-900">{c}</option>
-              ))}
-            </select>
-            
-            {showCustomCat && (
-              <div className="animate-in fade-in duration-300 pt-2">
-                <input
-                  type="text"
+          {isPreview ? (
+            <div className="py-8 space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-32">
+              <h1 className="text-4xl md:text-5xl font-serif text-zinc-900 leading-tight" style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}>
+                {title || "Untitled Story"}
+              </h1>
+              {content ? (
+                <div 
+                  className="prose prose-zinc prose-lg max-w-none prose-a:text-blue-600 prose-img:rounded-md"
+                  dangerouslySetInnerHTML={{ __html: content }} 
+                />
+              ) : (
+                <p className="text-zinc-500 italic">No content written yet.</p>
+              )}
+            </div>
+          ) : (
+            <div className="max-w-4xl mx-auto flex flex-col gap-6 pb-12">
+              
+              {/* Story Title */}
+              <div className="animate-in fade-in duration-300 mt-8">
+                <textarea 
+                  placeholder="Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value.slice(0, 120))}
+                  className="w-full text-5xl md:text-6xl lg:text-7xl font-serif text-zinc-900 placeholder:text-zinc-300 bg-transparent border-none outline-none resize-none overflow-hidden h-auto min-h-[80px]"
+                  style={{ height: 'auto', fontFamily: 'var(--font-playfair), Georgia, serif' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${target.scrollHeight}px`;
+                  }}
                   required
-                  placeholder="TYPE YOUR CATEGORY HERE..."
-                  value={category || ""}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-transparent border-b border-zinc-300 pb-2 text-sm font-bold tracking-widest uppercase outline-none focus:border-zinc-950 transition-all text-zinc-600 placeholder:text-zinc-300"
                 />
               </div>
-            )}
-            
-            <div className="pt-4">
-              <FileUploadField 
-                label="Story Cover Image" 
-                description="Optional: Thumbnail for your story" 
-                accept="image/*"
-                icon={<ImageIcon size={24} />}
-                onChange={onThumbnailChange}
-                compact={true}
-              />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="prose prose-zinc max-w-none">
-              <RichTextEditor content={content} onChange={setContent} placeholder="Write your story..." />
-            </div>
-          </div>
+              {/* Meta Info (Category & Date) */}
+              <div className="animate-in fade-in duration-300 flex items-center gap-4 mb-4">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                <span className="w-1 h-1 rounded-full bg-zinc-300" />
+                <div className="relative w-48">
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full appearance-none bg-transparent hover:bg-zinc-50 transition-colors border-none py-1 pl-2 pr-6 text-xs font-bold text-zinc-500 uppercase tracking-widest rounded-sm outline-none cursor-pointer focus:ring-0"
+                    required
+                  >
+                    <option value="" disabled>Select Category</option>
+                    {["Artificial Intelligence", "Technology", "Programming", "Data Science", 
+                      "Business", "Entrepreneurship", "Self Help", "Psychology", 
+                      "Finance", "Design", "History", "Science", 
+                      "Health", "Fitness", "Romance", "Mystery", 
+                      "Thriller", "Fantasy", "Horror", "Biography", 
+                      "Philosophy", "Poetry", "Education", "Comics", 
+                      "Travel", "Cooking", "Kids", "Allow", "Action"].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+                    <ChevronRight size={12} className="text-zinc-400 rotate-90" />
+                  </div>
+                </div>
+              </div>
 
-          <div className="pt-16 pb-12 flex items-center gap-6 justify-start">
-            <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
-            <button 
-              type="button"
-              onClick={onSaveDraft}
-              disabled={isSubmitting}
-              className="px-8 py-3 bg-white text-zinc-900 border border-zinc-900 font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 cursor-pointer"
-            >
-              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Save as Draft"}
-            </button>
-            <button 
-              type="button"
-              onClick={onPublish}
-              disabled={isSubmitting}
-              className="px-8 py-3 bg-zinc-900 text-white font-mono text-xs uppercase tracking-[0.2em] hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 cursor-pointer"
-            >
-              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Publish Story"}
-            </button>
-          </div>
+              {/* Content Division */}
+              <div className="animate-in fade-in duration-300 min-h-[400px]">
+                <RichTextEditor content={content} onChange={setContent} placeholder="Start writing your story here..." />
+              </div>
+
+              {/* Bottom Action Bar */}
+              <div className="flex flex-col md:flex-row items-center justify-end gap-4 pt-12 mt-12 border-t border-zinc-100 pb-32">
+                <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
+                
+                <button 
+                  type="button"
+                  onClick={() => setIsPreview(!isPreview)}
+                  className={`px-6 py-3 border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 rounded-sm ${isPreview ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white text-zinc-950 border-zinc-200 hover:bg-zinc-50'}`}
+                >
+                  <Eye size={14} /> {isPreview ? 'Exit Preview' : 'Preview'}
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={onSaveDraft}
+                  disabled={isSubmitting}
+                  className="px-6 py-3 bg-white text-zinc-950 border border-zinc-200 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Feather size={14} />} 
+                  Save Draft
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={onPublish}
+                  disabled={isSubmitting}
+                  className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed shadow-xl"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} 
+                  Publish Story
+                </button>
+              </div>
+
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
 function BlogEditorUI({ 
   onBack,
   onSaveDraft,
@@ -1273,74 +1411,43 @@ function BlogEditorUI({
   const [isPreview, setIsPreview] = useState(false);
 
   return (
-    <div className="w-full bg-white min-h-screen pb-20">
-      {/* Top Action Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 py-6 border-b border-zinc-100 mb-8 px-4 md:px-8">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors"
-        >
-          <ArrowLeft size={14} /> Back to Selection
-        </button>
-
-        <div className="flex items-center gap-4">
-          <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
-          
+    <div className="w-full bg-white min-h-screen">
+      {/* Top Action Bar (Just Back Button) */}
+      <div className="py-6 px-4 md:px-8">
+        {isPreview ? (
           <button 
-            type="button"
-            onClick={() => setIsPreview(!isPreview)}
-            className={`px-6 py-3 border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 rounded-sm ${isPreview ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white text-zinc-950 border-zinc-200 hover:bg-zinc-50'}`}
+            onClick={() => setIsPreview(false)}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors"
           >
-            <Eye size={14} /> {isPreview ? 'Exit Preview' : 'Preview'}
+            <ArrowLeft size={14} /> Back to Editor
           </button>
-          
+        ) : (
           <button 
-            type="button"
-            onClick={onSaveDraft}
-            disabled={isSubmitting}
-            className="px-6 py-3 bg-white text-zinc-950 border border-zinc-200 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={onBack}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-black transition-colors"
           >
-            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Feather size={14} />} 
-            Save Draft
+            <ArrowLeft size={14} /> Back to Selection
           </button>
-          
-          <button 
-            type="button"
-            onClick={onPublish}
-            disabled={isSubmitting}
-            className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed shadow-xl"
-          >
-            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} 
-            Publish Blog
-          </button>
-        </div>
+        )}
       </div>
 
       <div className="w-full px-4 md:px-8">
         {/* Main Editor Column */}
-        <div className="space-y-10">
-          <div className="flex items-center gap-4 text-zinc-400 border-b border-zinc-100 pb-4">
-            <Sparkles size={16} className="text-zinc-950" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-950">Blog Studio</span>
-          </div>
-
+        <div className="space-y-4">
           {errorMessage && (
-            <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500">
+            <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border-l-4 border-red-500 max-w-4xl mx-auto">
               {errorMessage}
             </div>
           )}
 
           {isPreview ? (
-            <div className="py-8 space-y-8 animate-in fade-in duration-500">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-zinc-950 leading-tight">
+            <div className="py-8 space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-32">
+              <h1 className="text-4xl md:text-5xl font-serif text-zinc-900 leading-tight" style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}>
                 {title || "Untitled Blog"}
               </h1>
-              {title && (
-                <div className="w-24 h-1 bg-zinc-950 rounded-full" />
-              )}
               {content ? (
                 <div 
-                  className="prose prose-zinc max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-blue-600 prose-img:rounded-md"
+                  className="prose prose-zinc prose-lg max-w-none prose-a:text-blue-600 prose-img:rounded-md"
                   dangerouslySetInnerHTML={{ __html: content }} 
                 />
               ) : (
@@ -1348,60 +1455,96 @@ function BlogEditorUI({
               )}
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 animate-in fade-in duration-300">
-                {/* Blog Title */}
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950">Blog Title</label>
-                  <div className="relative h-[calc(100%-2rem)]">
-                    <textarea 
-                      placeholder="Write a compelling title for your blog..."
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value.slice(0, 120))}
-                      className="w-full h-full text-2xl md:text-4xl font-black tracking-tight text-zinc-950 placeholder:text-zinc-400 bg-white border border-zinc-200 p-6 md:p-8 outline-none transition-all focus:border-zinc-950 rounded-sm resize-none"
-                      required
-                    />
-                    <span className="absolute right-6 bottom-6 text-[10px] font-black text-zinc-300 bg-white/80 px-2 py-1">
-                      {title.length}/120
-                    </span>
+            <div className="max-w-4xl mx-auto flex flex-col gap-6 pb-12">
+              
+              {/* Blog Title */}
+              <div className="animate-in fade-in duration-300 mt-8">
+                <textarea 
+                  placeholder="Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value.slice(0, 120))}
+                  className="w-full text-5xl md:text-6xl lg:text-7xl font-serif text-zinc-900 placeholder:text-zinc-300 bg-transparent border-none outline-none resize-none overflow-hidden h-auto min-h-[80px]"
+                  style={{ height: 'auto', fontFamily: 'var(--font-playfair), Georgia, serif' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${target.scrollHeight}px`;
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Meta Info (Category & Date) */}
+              <div className="animate-in fade-in duration-300 flex items-center gap-4 mb-4">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                <span className="w-1 h-1 rounded-full bg-zinc-300" />
+                <div className="relative w-48">
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full appearance-none bg-transparent hover:bg-zinc-50 transition-colors border-none py-1 pl-2 pr-6 text-xs font-bold text-zinc-500 uppercase tracking-widest rounded-sm outline-none cursor-pointer focus:ring-0"
+                    required
+                  >
+                    <option value="" disabled>Select Category</option>
+                    {["Artificial Intelligence", "Technology", "Programming", "Data Science", 
+                      "Business", "Entrepreneurship", "Self Help", "Psychology", 
+                      "Finance", "Design", "History", "Science", 
+                      "Health", "Fitness", "Romance", "Mystery", 
+                      "Thriller", "Fantasy", "Horror", "Biography", 
+                      "Philosophy", "Poetry", "Education", "Comics", 
+                      "Travel", "Cooking", "Kids", "Allow", "Action"].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+                    <ChevronRight size={12} className="text-zinc-400 rotate-90" />
                   </div>
                 </div>
-
-                {/* Blog Banner Image */}
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950">Blog Banner Image</label>
-                  <div className="h-[calc(100%-2rem)]">
-                    <FileUploadField 
-                      label=""
-                      description="JPG/PNG (Max 5MB)" 
-                      accept="image/*"
-                      icon={<ImageIcon size={24} className="text-blue-500" />}
-                      onChange={onBannerChange}
-                      compact={true}
-                    />
-                  </div>
-                </div>
               </div>
 
-              {/* Category */}
-              <div className="space-y-4 animate-in fade-in duration-300">
-                <CategoryInputField label="Category" placeholder="e.g. Technology, Lifestyle, Fiction..." value={category} onChange={setCategory} />
+              {/* Content Division */}
+              <div className="animate-in fade-in duration-300 min-h-[400px]">
+                <RichTextEditor content={content} onChange={setContent} placeholder="Start writing your context here..." />
               </div>
 
-              {/* Content */}
-              <div className="space-y-4 animate-in fade-in duration-300">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 flex items-center gap-2">
-                  Content
-                </label>
-                <div className="border border-zinc-200 rounded-sm overflow-hidden">
-                  <RichTextEditor content={content} onChange={setContent} placeholder="Start writing your story..." />
-                </div>
+              {/* Bottom Action Bar */}
+              <div className="flex flex-col md:flex-row items-center justify-end gap-4 pt-12 mt-12 border-t border-zinc-100 pb-32">
+                <DraftStatusIndicator status={draftStatus} lastSaved={lastSaved} />
+                
+                <button 
+                  type="button"
+                  onClick={() => setIsPreview(!isPreview)}
+                  className={`px-6 py-3 border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 rounded-sm ${isPreview ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white text-zinc-950 border-zinc-200 hover:bg-zinc-50'}`}
+                >
+                  <Eye size={14} /> {isPreview ? 'Exit Preview' : 'Preview'}
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={onSaveDraft}
+                  disabled={isSubmitting}
+                  className="px-6 py-3 bg-white text-zinc-950 border border-zinc-200 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Feather size={14} />} 
+                  Save Draft
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={onPublish}
+                  disabled={isSubmitting}
+                  className="px-8 py-3 bg-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2 rounded-sm disabled:opacity-40 disabled:cursor-not-allowed shadow-xl"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} 
+                  Publish Blog
+                </button>
               </div>
-            </>
+
+            </div>
           )}
         </div>
-
-
       </div>
     </div>
   );

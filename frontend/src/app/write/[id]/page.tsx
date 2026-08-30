@@ -91,7 +91,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         
         if (!res.ok) throw new Error(data.message || "Failed to load manuscript");
         
-        let rawContent = data.content || "";
+        const rawContent = data.content || "";
         let cleanContent = rawContent;
         let draftFlag = false;
 

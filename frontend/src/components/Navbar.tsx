@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Bell, User, Search, Menu, X, ShoppingBag, Feather, Home, Bookmark, FileText, BarChart2, Users, Plus } from "lucide-react";
+import { Bell, User, Search, Menu, X, ShoppingBag, Feather, Home, Bookmark, FileText, BarChart2, Users, Plus, PenTool } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import NotificationsDropdown from "./NotificationsDropdown";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import AvatarWithBadge from "./AvatarWithBadge";
+import QuickNoteWidget from "./QuickNoteWidget";
 
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/hooks/useCart";
@@ -15,6 +16,7 @@ import { useCart } from "@/hooks/useCart";
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isQuickNoteOpen, setIsQuickNoteOpen] = useState(false);
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const { cartCount } = useCart();
@@ -139,6 +141,7 @@ export default function Navbar() {
                     </AnimatePresence>
 
                     <NotificationsDropdown />
+                    <QuickNoteWidget />
                     
                     {userRole && (userRole === "Author" || userRole === "Admin") && (
                       <Link
@@ -209,6 +212,20 @@ export default function Navbar() {
                       <User size={20} strokeWidth={1.5} />
                       <span className="text-sm font-medium">Profile</span>
                     </Link>
+
+                    <div className="mx-6 my-2 border-t border-zinc-100" />
+
+                    <Link href="/notifications" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black">
+                      <Bell size={20} strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Notifications</span>
+                    </Link>
+                    <button 
+                      onClick={() => { setIsMobileMenuOpen(false); setTimeout(() => setIsQuickNoteOpen(true), 300); }}
+                      className="flex items-center gap-4 px-6 py-3 hover:bg-zinc-50 text-zinc-600 hover:text-black w-full text-left"
+                    >
+                      <PenTool size={20} strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Quick Notes</span>
+                    </button>
                     
                     {userRole && (userRole === "Author" || userRole === "Admin") && (
                       <>
@@ -227,6 +244,41 @@ export default function Navbar() {
                       <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-3 text-center bg-black text-white text-xs font-black uppercase tracking-widest rounded-none hover:bg-zinc-800 transition-colors">Get Started</Link>
                     </div>
                   )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Mobile Quick Notes Full-Screen Panel */}
+          <AnimatePresence>
+            {isQuickNoteOpen && user && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsQuickNoteOpen(false)}
+                  className="fixed inset-0 bg-black/40 z-50 lg:hidden"
+                />
+                <motion.div
+                  initial={{ y: "100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "100%" }}
+                  transition={{ type: "tween", duration: 0.3 }}
+                  className="fixed bottom-0 left-0 right-0 top-12 bg-white z-[60] shadow-2xl flex flex-col overflow-hidden lg:hidden rounded-t-2xl"
+                >
+                  <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                    <div className="flex items-center gap-2">
+                      <PenTool size={16} className="text-zinc-400" />
+                      <span className="text-xs font-black uppercase tracking-widest">Quick Notes</span>
+                    </div>
+                    <button onClick={() => setIsQuickNoteOpen(false)} className="p-2 text-zinc-400 hover:text-black">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="flex-grow overflow-y-auto">
+                    <QuickNoteWidget embedded />
+                  </div>
                 </motion.div>
               </>
             )}

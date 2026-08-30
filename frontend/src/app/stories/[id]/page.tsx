@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, User, Bookmark, Loader2, Heart, MessageSquare, Share2, Star } from "lucide-react";
+import { ArrowLeft, BookOpen, User, Bookmark, Loader2, Heart, MessageSquare, Share2, Star, Info } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import DictionaryWrapper from "@/components/DictionaryWrapper";
 import LanguageSelector from "@/components/LanguageSelector";
@@ -19,13 +19,13 @@ function renderMarkdown(content: string): string {
   }
 
   // Escape HTML tags for standard markdown to prevent arbitrary code execution
-  let html = content
+  const html = content
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
   const lines = html.split("\n");
-  let result = [];
+  const result = [];
   let inList = false;
   let currentParagraph: string[] = [];
 
@@ -37,7 +37,7 @@ function renderMarkdown(content: string): string {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+    const line = lines[i].trim();
 
     if (line === "") {
       closeParagraph();
@@ -636,7 +636,7 @@ export default function StoryPost() {
                 <p className="text-xs text-amber-600 font-medium">This story is only visible to you. Once you finish writing, you can publish it to make it public.</p>
               </div>
               <Link 
-                href={`/write/${params.id}`} 
+                href={`/editor?id=${params.id}&type=Story`} 
                 className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl text-center shadow-md transition-all shrink-0"
               >
                 Continue Writing
@@ -724,6 +724,11 @@ export default function StoryPost() {
             </div>
           )}
 
+          <div className="flex items-center gap-2 px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl mb-8 text-zinc-500 shadow-sm">
+            <Info size={16} className="text-zinc-400 shrink-0" />
+            <span className="text-xs font-medium italic">💡 Tip: Double-tap or select any word to see its dictionary meaning.</span>
+          </div>
+
           <DictionaryWrapper>
             <div className={`prose prose-lg md:prose-xl max-w-none mb-12 font-serif text-zinc-800 prose-headings:font-heading prose-headings:font-black prose-headings:text-black prose-p:font-serif prose-p:leading-[1.8] prose-p:tracking-[0.01em] prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-zinc-900 prose-blockquote:bg-zinc-50 prose-blockquote:py-3 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:font-serif prose-blockquote:italic prose-blockquote:text-zinc-700 prose-img:rounded-2xl prose-img:shadow-lg prose-img:mx-auto prose-strong:font-bold prose-strong:text-black ${isTranslating ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}`} dangerouslySetInnerHTML={{ __html: renderMarkdown(translatedStory?.content || cleanContent) }} />
           </DictionaryWrapper>
@@ -734,7 +739,7 @@ export default function StoryPost() {
               isAuthor ? (
                 <div className="flex gap-2">
                   <Link
-                    href={`/write/${params.id}`}
+                    href={`/editor?id=${params.id}&type=Story`}
                     className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-black bg-black text-white hover:bg-zinc-800 transition-all flex items-center justify-center"
                   >
                     Edit Story

@@ -18,13 +18,13 @@ function renderMarkdown(content: string): string {
   }
 
   // Escape HTML tags for standard markdown to prevent arbitrary code execution
-  let html = content
+  const html = content
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
   const lines = html.split("\n");
-  let result = [];
+  const result = [];
   let inList = false;
   let currentParagraph: string[] = [];
 
@@ -36,7 +36,7 @@ function renderMarkdown(content: string): string {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+    const line = lines[i].trim();
 
     if (line === "") {
       closeParagraph();
@@ -526,7 +526,7 @@ export default function BlogPost() {
                 <p className="text-xs text-amber-600 font-medium">This story is only visible to you. Once you finish writing, you can publish it to make it public.</p>
               </div>
               <Link 
-                href={`/write/${params.id}`} 
+                href={`/editor?id=${params.id}&type=Blog`} 
                 className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl text-center shadow-md transition-all shrink-0"
               >
                 Continue Writing
@@ -578,7 +578,7 @@ export default function BlogPost() {
                   isAuthor ? (
                     <div className="flex gap-2">
                       <Link
-                        href={`/write/${params.id}`}
+                        href={`/editor?id=${params.id}&type=Blog`}
                         className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-xs font-black uppercase tracking-widest border-black bg-black text-white hover:bg-zinc-800"
                       >
                         Edit Story
@@ -792,7 +792,6 @@ export default function BlogPost() {
               </>
             );
           })()}
-          <ReviewSection contentId={blog.id} contentType="blog" authorId={blog.author_id} />
         </article>
       </div>
     </div>

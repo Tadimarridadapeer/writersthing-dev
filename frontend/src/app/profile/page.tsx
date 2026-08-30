@@ -1054,7 +1054,7 @@ export default function ProfilePage() {
 
                                     let badge = "CONTENT";
                                     let link = "";
-                                    let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                                    const cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
                                     if (isBook) {
                                       badge = "BOOK";
@@ -1107,7 +1107,7 @@ export default function ProfilePage() {
 
                                 let badge = "CONTENT";
                                 let link = "";
-                                let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                                const cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
                                 if (isBook) {
                                   badge = "BOOK";
@@ -1239,7 +1239,7 @@ export default function ProfilePage() {
 
                             let badge = "CONTENT";
                             let link = "";
-                            let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                            const cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
                             if (isBook) {
                               badge = "BOOK";
@@ -1335,7 +1335,7 @@ export default function ProfilePage() {
 
                                   let badge = "CONTENT";
                                   let link = "";
-                                  let cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
+                                  const cover = details.cover_url || details.cover_image || details.thumbnail_url || details.banner_url || "/placeholder-cover.jpg";
 
                                   if (isBook) {
                                     badge = "BOOK";
