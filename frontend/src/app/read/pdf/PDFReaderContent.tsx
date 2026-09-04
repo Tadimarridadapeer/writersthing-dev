@@ -43,12 +43,12 @@ export default function PDFReaderContent() {
   useEffect(() => {
     if (!bookId) return;
     const fetchMeta = async () => {
-      const { data } = await supabase.from('books').select('*, authors:author_id(users!authors_user_id_fkey(name))').eq('id', bookId).single();
+      const { data } = await supabase.from('books').select('*, authors:author_id(*, users!authors_user_id_fkey(name))').eq('id', bookId).maybeSingle();
       if (data) {
         setBookMeta(data);
         if (data.category) {
           const { data: related } = await supabase.from('books')
-            .select('id, title, cover_url, cover_image, authors:author_id(users!authors_user_id_fkey(name))')
+            .select('id, title, cover_url, cover_image, authors:author_id(*, users!authors_user_id_fkey(name))')
             .eq('category', data.category)
             .neq('id', bookId)
             .limit(4);
@@ -84,19 +84,20 @@ export default function PDFReaderContent() {
       }
 
       try {
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
 
-        if (!token) {
-          setError("Authentication required");
-          setLoading(false);
-          return;
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        if (parsedUser?.id) {
+          headers["x-user-id"] = parsedUser.id;
         }
 
         const res = await fetch(`/api/books/${bookId}/download`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
+          headers
         });
         
         const contentType = res.headers.get("content-type");

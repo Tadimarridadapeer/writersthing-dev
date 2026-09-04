@@ -18,3 +18,11 @@ __pycache__/
 
 # logs
 npm-debug.log*
+*.log
+
+# local scratch & debug
+scratch/
+run_sql.js
+email.html
+*.tsbuildinfo
+*.txt

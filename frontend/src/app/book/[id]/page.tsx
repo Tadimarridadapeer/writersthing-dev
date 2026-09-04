@@ -114,13 +114,14 @@ export default function BookDetailPage() {
       }
 
       if (activeUser) {
-        const { data: libraryData } = await supabase
-          .from("library")
-          .select("book_id")
-          .eq("user_id", activeUser.id)
-          .eq("book_id", params.id)
-          .maybeSingle();
-        if (libraryData) setIsPurchased(true);
+        const userLibRes = await fetch("/api/user/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: activeUser.id })
+        }).then(res => res.json()).catch(() => ({ books: [] }));
+        
+        const hasBook = userLibRes.books?.some((b: any) => b.id === params.id || b.book_id === params.id);
+        if (hasBook) setIsPurchased(true);
       }
     } catch (err) {
       console.error("Fetch error:", err);

@@ -22,14 +22,21 @@ export default function BooksPage() {
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
         const user = JSON.parse(storedUser);
-        const { data: libraryData } = await supabase
-          .from("library")
-          .select("book_id")
-          .eq("user_id", user.id);
+        const userLibRes = await fetch("/api/user/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id })
+        }).then(res => res.json()).catch(() => ({ books: [] }));
         
-        if (libraryData) {
-          setPurchasedBookIds(new Set(libraryData.map((item: any) => item.book_id)));
+        const allPurchasedIds = new Set<string>();
+        if (userLibRes && userLibRes.books) {
+          userLibRes.books.forEach((item: any) => {
+            allPurchasedIds.add(item.id);
+            if (item.book_id) allPurchasedIds.add(item.book_id);
+          });
         }
+        
+        setPurchasedBookIds(allPurchasedIds);
       }
     } catch (err) {
       console.error("Fetch library error:", err);

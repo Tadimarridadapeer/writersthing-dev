@@ -82,8 +82,17 @@ export const GET = withObservability(async (
       user = data?.user;
     }
 
-    if (!user) {
+    const xUserId = req.headers.get("x-user-id")?.trim();
+    const candidateUserIds: string[] = [];
+    if (user?.id) candidateUserIds.push(user.id);
+    if (xUserId && !candidateUserIds.includes(xUserId)) candidateUserIds.push(xUserId);
+
+    if (candidateUserIds.length === 0) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+    }
+
+    if (!user && candidateUserIds.length > 0) {
+      user = { id: candidateUserIds[0] } as any;
     }
 
     // 2. Fetch Book details
@@ -96,33 +105,33 @@ export const GET = withObservability(async (
     if (bookError || !book) {
       console.error("DEBUG: bookError:", bookError);
       logger.warn("Download rejected: Book not found", { bookId });
-      await logDownload(supabaseAdmin, user.id, bookId, "NOT_FOUND", ip);
+      await logDownload(supabaseAdmin, candidateUserIds[0], bookId, "NOT_FOUND", ip);
       return NextResponse.json({ message: "Book not found", debug_error: bookError, debug_id: bookId }, { status: 404 });
     }
 
     // Check if the user is the author
     let isBookOwner = false;
-    if (user) {
+    for (const uid of candidateUserIds) {
       const { data: authorData } = await supabaseAdmin
         .from("authors")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", uid)
         .maybeSingle();
       if (authorData && book.author_id === authorData.id) {
         isBookOwner = true;
+        break;
       }
-      
-      // Fallback: If author_id is directly the user.id
-      if (book.author_id === user.id) {
+      if (book.author_id === uid) {
         isBookOwner = true;
+        break;
       }
     }
 
     if (book.status !== "Published") {
       // Allow author to read draft, but block others
       if (!isBookOwner) {
-        logger.security("Download rejected: Book is not published", { userId: user.id, bookId });
-        await logDownload(supabaseAdmin, user.id, bookId, "FORBIDDEN", ip);
+        logger.security("Download rejected: Book is not published", { userId: candidateUserIds[0], bookId });
+        await logDownload(supabaseAdmin, candidateUserIds[0], bookId, "FORBIDDEN", ip);
         return NextResponse.json({ message: "Book is not published" }, { status: 403 });
       }
     }
@@ -138,42 +147,52 @@ export const GET = withObservability(async (
     else if (isBookOwner) {
       isAuthorized = true;
     } 
-    // C. Has the user purchased it? (Check Library)
+    // C. Has the user purchased it? (Check Library first, then Purchases for any candidate ID)
     else {
-      const { data: access, error: accessError } = await supabase
-        .from("library")
-        .select("book_id")
-        .eq("user_id", user.id)
-        .eq("book_id", bookId)
-        .limit(1)
-        .maybeSingle();
-        
-      if (access) {
-        isAuthorized = true;
-      } else {
-        console.error("DEBUG Access Error:", accessError, "user.id:", user.id, "bookId:", bookId);
+      for (const uid of candidateUserIds) {
+        const { data: access } = await supabaseAdmin
+          .from("library")
+          .select("book_id")
+          .eq("user_id", uid)
+          .eq("book_id", bookId)
+          .limit(1)
+          .maybeSingle();
+          
+        if (access) {
+          isAuthorized = true;
+          break;
+        }
+
+        const { data: purchase } = await supabaseAdmin
+          .from("purchases")
+          .select("book_id")
+          .eq("buyer_id", uid)
+          .eq("book_id", bookId)
+          .eq("status", "COMPLETED")
+          .limit(1)
+          .maybeSingle();
+          
+        if (purchase) {
+          isAuthorized = true;
+          break;
+        }
       }
     }
 
     if (!isAuthorized) {
-      logger.security("Download rejected: Access denied", { userId: user.id, bookId });
-      await logDownload(supabaseAdmin, user.id, bookId, "FORBIDDEN", ip);
+      const primaryId = candidateUserIds[0];
+      logger.security("Download rejected: Access denied", { userId: primaryId, bookId });
+      await logDownload(supabaseAdmin, primaryId, bookId, "FORBIDDEN", ip);
       
-      const { data: authorDataDebug } = await supabaseAdmin
-        .from("authors")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-        
       return NextResponse.json(
         { 
           message: "Access denied. Please purchase the book.", 
           debug_error: {
-            user_id: user.id, 
+            user_id: primaryId, 
+            candidate_ids: candidateUserIds,
             book_id: bookId,
             isBookOwner,
             book_author_id: book?.author_id,
-            author_data_id: authorDataDebug?.id,
             book_authors: book?.authors
           },
           debug_id: bookId

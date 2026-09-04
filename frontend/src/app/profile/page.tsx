@@ -537,9 +537,7 @@ export default function ProfilePage() {
         }
       });
 
-      // Fetch stats and library in parallel
-      const [libRes, authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes, founderRes] = await Promise.all([
-        supabase.from("library").select("*, books(*, users:author_id(name))").eq("user_id", parsedUser.id),
+      const [authorRes, manuscriptRes, savesRes, likesRes, impRes, followersCountRes, followingCountRes, founderRes, userLibRes] = await Promise.all([
         supabase.from("authors").select("*").eq("user_id", parsedUser.id).maybeSingle(),
         supabase.from("books").select("*").eq("author_id", parsedUser.id),
         supabase.from("saves").select("*").eq("user_id", parsedUser.id),
@@ -547,19 +545,20 @@ export default function ProfilePage() {
         supabase.from("impressions").select("*").eq("viewer_id", parsedUser.id).order("created_at", { ascending: false }),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", parsedUser.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", parsedUser.id),
-        supabase.from("founding_writers").select("*").or(`user_id.eq.${parsedUser.id},email_address.eq.${parsedUser.email}`).ilike("status", "accepted").maybeSingle()
+        supabase.from("founding_writers").select("*").or(`user_id.eq.${parsedUser.id},email_address.eq.${parsedUser.email}`).ilike("status", "accepted").maybeSingle(),
+        fetch("/api/user/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: parsedUser.id })
+        }).then(res => res.json()).catch(() => ({ books: [] }))
       ]);
 
       if (founderRes.data) setFounderInvite(founderRes.data);
-
-      if (libRes.error) {
-        console.warn("Library table error:", libRes.error.message);
-        if (libRes.error.code === "PGRST205") setHasLibraryError(true);
-      }      if (libRes.data) {
-        setPurchasedBooks(libRes.data.map((l: any) => ({
-          ...l.books,
-          purchase_date: l.created_at
-        })).filter(Boolean));
+      
+      if (userLibRes && userLibRes.books) {
+        setPurchasedBooks(userLibRes.books);
+      } else {
+        setPurchasedBooks([]);
       }
 
       if (manuscriptRes.data) {
@@ -617,15 +616,16 @@ export default function ProfilePage() {
       }
 
       // Merge purchased books that aren't already logged in impressions
-      if (libRes.data) {
-        libRes.data.forEach((lib: any) => {
-          if (lib.books) {
-            const exists = readedSaves.some(imp => imp.content_type === "book" && imp.content_id === lib.book_id);
+      if (userLibRes && userLibRes.books) {
+        userLibRes.books.forEach((lib: any) => {
+          if (lib) {
+            const bookId = lib.book_id || lib.id;
+            const exists = readedSaves.some(imp => imp.content_type === "book" && imp.content_id === bookId);
             if (!exists) {
               readedSaves.push({
                 content_type: "book",
-                content_id: lib.book_id,
-                created_at: lib.last_read || new Date().toISOString()
+                content_id: bookId,
+                created_at: lib.last_read || lib.purchase_date || new Date().toISOString()
               });
             }
           }
@@ -654,7 +654,7 @@ export default function ProfilePage() {
       
       setPublishedItems([...books, ...stories, ...blogs]);
 
-      const libraryCount = libRes.data?.length || 0;
+      const libraryCount = userLibRes.books?.length || 0;
       const bookmarksCount = savesRes.data?.length || 0;
 
       setStats({
