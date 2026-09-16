@@ -709,6 +709,7 @@ function MarketplaceContent() {
             </div>
           )}
           </>
+          )}
         </div>
 
         {/* SIDEBAR */}
