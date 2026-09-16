@@ -506,13 +506,7 @@ function MarketplaceContent() {
     );
   };
 
-  if (authLoading || !user) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center bg-white">
-        <Loader2 className="animate-spin text-zinc-300" size={32} />
-      </div>
-    );
-  }
+  // Removed early return to prevent UI flash/blank screen when auth state changes
 
   return (
     <div className="flex bg-white">
@@ -640,11 +634,18 @@ function MarketplaceContent() {
             </div>
           </header>
 
-          {loading ? (
+          {loading && feed.length === 0 && !recommendations ? (
             <div className="py-20 flex justify-center">
               <Loader2 className="animate-spin text-zinc-300" size={32} />
             </div>
-          ) : searchQuery.trim() || feedType !== "all" ? (
+          ) : (
+            <>
+              {loading && (feed.length > 0 || recommendations) && (
+                <div className="py-4 flex justify-center opacity-50">
+                  <Loader2 className="animate-spin text-zinc-400" size={24} />
+                </div>
+              )}
+              {searchQuery.trim() || feedType !== "all" ? (
             <div className="flex flex-col">
               {feed.length === 0 ? (
                 <div className="w-full text-left -mt-4">
@@ -707,6 +708,7 @@ function MarketplaceContent() {
               )}
             </div>
           )}
+          </>
         </div>
 
         {/* SIDEBAR */}

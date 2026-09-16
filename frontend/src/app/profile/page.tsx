@@ -736,8 +736,9 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center">Initializing Hub...</div>;
-  if (!user) return null;
+  // Removed 'Initializing Hub...' early return to preserve UI shell during refetches
+  if (!user && !loading) return null;
+  if (!user) return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-zinc-300" size={32} /></div>;
 
   return (
     <div className="bg-white min-h-screen">
